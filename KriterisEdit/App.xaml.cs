@@ -68,7 +68,7 @@ namespace KriterisEdit
                                 .Descendants()
                                 .Select(n => n.ToString());
                         }).ToArray();
-                        xmlNodes._Content(nodes);
+                        xmlNodes.ItemsSource = nodes;
                         break;
                 }
 

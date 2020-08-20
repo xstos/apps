@@ -27,14 +27,23 @@ namespace KriterisEdit
             _.Content = content;
             return _;
         }
-
+         
         public static TextBox _Content(this TextBox _, string text)
         {
             _.Text = text;
             return _;
         }
         public static Button _Button() => new Button();
-        public static ListView _ListView() => new ListView();
+        public static ListView _ListView()
+        {
+            var ret = new ListView();
+            VirtualizingPanel.SetIsVirtualizing(ret, true);
+            VirtualizingPanel.SetIsVirtualizingWhenGrouping(ret, true);
+            VirtualizingPanel.SetVirtualizationMode(ret, VirtualizationMode.Recycling);
+            //ScrollViewer.SetIsDeferredScrollingEnabled(ret,true);
+            return ret;
+        }
+
         public static DockPanel _DockPanel() => new DockPanel();
         public static StackPanel _StackPanel() => new StackPanel();
         public static TextBox _TextBox(string? content = null)
