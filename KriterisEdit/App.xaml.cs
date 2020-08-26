@@ -3,19 +3,18 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Xml.Linq;
 using static KriterisEdit.Extensions;
 using static KriterisEdit.GlobalStatics;
-
+using static System.IO.File;
 namespace KriterisEdit
 {
     public partial class App : Application
     {
         static void BuildApp(Window window)
         {
-            var (xmlNodes, fileList) = (_ListView(), _ListView());
-            Global.Instance.Log = s => Dispatch(MsgTypes.Log, s);
-             
+            var (xmlNodes, fileList) = (_ListView(), _ListView()); //destructuring
+            Global.Instance.Log = s => Dispatch(Message.Log, s);
+            
             window
                 ._Min(width: 1600)
                 ._Content(
@@ -24,21 +23,17 @@ namespace KriterisEdit
                             ._Content(
                                 _Label()._Dock(Dock.Left)._Content("mask:"),
                                 _TextBox()._Content("*.csproj")
+                                    .Bind("")
                             ),
                         _DockPanel()
                             ._Dock(Dock.Top)
                             ._Content(
                                 _Label()._Content("files:"),
-                                    fileList
+                                    _ListView()
                                     ._Dock(Dock.Top)
                                     ._Max(height: 100)
                                     ._Min(height: 100)
-                                    ._OnDrop("FilesDropped", (o, eventArgs) =>
-                                    {
-                                        var dropped = eventArgs._GetDroppedFiles();
-                                        if (dropped.Length < 1) return;
-                                        Dispatch(MsgTypes.FilesDropped, dropped);
-                                    })
+                                    ._OnDrop(Message.FilesDropped)
                                 ),                
                         xmlNodes
                     )
@@ -50,14 +45,14 @@ namespace KriterisEdit
                 var (msg, args) = action;
                 switch (msg)
                 {
-                    case MsgTypes.FilesDropped:
+                    case Message.FilesDropped:
                         var dropped = (string[])args;
-                        var filesAndFolders = dropped._Bucket(("files", File.Exists), ("folders", Directory.Exists));
+                        var filesAndFolders = dropped._Bucket(("files", Exists), ("folders", Directory.Exists));
                         //filesAndFolders["folders"].SelectMany(folder=>)
                         state.Files = dropped;
                         fileList._Content(dropped);
                         var nodes = dropped
-                            .Where(File.Exists)
+                            .Where(Exists)
                             .SelectMany(file =>
                         {
                             var projName = new FileInfo(file).Name;
@@ -74,7 +69,7 @@ namespace KriterisEdit
 
                 return state;
             };
-            Dispatch(MsgTypes.FilesDropped, _Arr(
+            Dispatch(Message.FilesDropped, _Arr(
                 @"C:\repos\cog\dev\src","drag","files","here"));
         }
 

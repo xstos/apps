@@ -4,8 +4,9 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Xml.Linq;
-
+using static KriterisEdit.GlobalStatics;
 namespace KriterisEdit
 {
     public static partial class Extensions
@@ -20,23 +21,32 @@ namespace KriterisEdit
             return XElement.Parse(text);
         }
 
-        public static T[] _Arr<T>(params T[] items) => items;
+        public static T[] _Arr<T>(params T[] items)
+        {
+            return items;
+        }
 
+        public static TextBox _Content(this TextBox _, string text)
+        {
+            _.Text = text;
+            return _;
+        }
         public static T _Content<T>(this T _, object content) where T : ContentControl
         {
             _.Content = content;
             return _;
         }
          
-        public static TextBox _Content(this TextBox _, string text)
+        
+        public static Button _Button()
         {
-            _.Text = text;
-            return _;
+            return new Button();
         }
-        public static Button _Button() => new Button();
+
         public static ListView _ListView()
         {
             var ret = new ListView();
+            //https://stackoverflow.com/a/53689641/1618433
             VirtualizingPanel.SetIsVirtualizing(ret, true);
             VirtualizingPanel.SetIsVirtualizingWhenGrouping(ret, true);
             VirtualizingPanel.SetVirtualizationMode(ret, VirtualizationMode.Recycling);
@@ -44,8 +54,16 @@ namespace KriterisEdit
             return ret;
         }
 
-        public static DockPanel _DockPanel() => new DockPanel();
-        public static StackPanel _StackPanel() => new StackPanel();
+        public static DockPanel _DockPanel()
+        {
+            return new DockPanel();
+        }
+
+        public static StackPanel _StackPanel()
+        {
+            return new StackPanel();
+        }
+
         public static TextBox _TextBox(string? content = null)
         {
             var ret = new TextBox();
@@ -72,21 +90,39 @@ namespace KriterisEdit
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return new string[0];
             return (string[]) e.Data.GetData(DataFormats.FileDrop);
         }
-        public static Action<Handler> SetHandler = (Handler _) => 
-            Global.Instance.Handlers[_.Name] = _;
-        
-        public static T _OnDrop<T>(this T _, string name, Action<T, DragEventArgs> handler) where T : UIElement
+        public static T _OnDrop<T>(this T _, Message message) where T : UIElement
         {
-            void OnDrop(object sender, DragEventArgs args) => handler(_, args);
+            //var cell = Instance.Cells.Add(props);
             _.AllowDrop = true;
-            _.Drop += OnDrop;
 
-            void Unsub() => _.Drop -= OnDrop;
+            void Handler(object? sender, DragEventArgs args)
+            {
+                Dispatch(message, args._GetDroppedFiles());
+            }
 
-            SetHandler((name, _, Unsub));
+            _._AddHandler<T,DragEventArgs>("Drop", Handler);
+            return _;
+        }
+        
+        public static T _OnChange<T>(this T _, Message message) where T : TextBox
+        {
+            Instance.Cells.Add(message._EnumToString(), 
+                value => _.Text = value);
+            void Handler(object? sender, TextChangedEventArgs args)
+            {
+                
+                Dispatch(message, _.Text);
+            }
+
+            _._AddHandler<T, TextChangedEventArgs>("TextChanged", Handler);
             return _;
         }
 
+        public static string _EnumToString<T>(this T @enum) where T : Enum
+        {
+            return Enum.GetName(typeof(T), @enum);
+        }
+        
         public static T _Min<T>(this T _, double? width = null, double? height = null) where T : FrameworkElement
         {
             if (width != null) _.MinWidth = (double) width;
@@ -125,7 +161,7 @@ namespace KriterisEdit
 
         public static T _Dock<T>(this T _, Dock dock) where T : UIElement
         {
-            System.Windows.Controls.DockPanel.SetDock(_, dock);
+            DockPanel.SetDock(_, dock);
             return _;
         }
 
@@ -136,7 +172,10 @@ namespace KriterisEdit
         
         public static ILookup<string, T> _Bucket<T>(this IEnumerable<T> items,params (string, Func<T, bool >)[] predicates)
         {
-            bool True(T _) => true;
+            bool True(T _)
+            {
+                return true;
+            }
 
             var defaultCase = ("", (Func<T, bool>) True);
             var predicatesWithDefault = predicates.Concat(new[] {defaultCase}).ToArray();
@@ -155,16 +194,31 @@ namespace KriterisEdit
             */
         }
         
-        public static bool _IsOdd(this int value) => value % 2 != 0;
+        public static T _AddHandler<T, TEventArgs>(this T source, string eventName, EventHandler<TEventArgs> handler) where TEventArgs:EventArgs
+        {
+            WeakEventManager<T, TEventArgs>.AddHandler(source, eventName, handler);
+            return source;
+        } 
+        
+        public static bool _IsOdd(this int value)
+        {
+            return value % 2 != 0;
+        }
 
-        public static bool _IsEven(this int value) => value % 2 == 0;
+        public static bool _IsEven(this int value)
+        {
+            return value % 2 == 0;
+        }
 
         public static T Do<T>(this T _, Action<T> callback)
         {
             callback(_);
             return _;
         }
-        
-        
+
+        public static T Var<T>(this T v, out T v2)
+        {
+            return v2 = v;
+        }
     }
 }

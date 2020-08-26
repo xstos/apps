@@ -10,12 +10,6 @@
 <#@ assembly name="System.Windows.Forms" #>
 <#@ assembly name="WindowsBase" #>
 <#@ assembly name="System.Xml.Linq" #>
-<#@ import namespace="System.Text" #>
-<#@ import namespace="System.Collections.Generic" #>
-<#@ import namespace="System.Windows" #>
-<#@ import namespace="System.Linq" #>
-<#@ import namespace="System.Runtime.Serialization" #>
-<#@ import namespace="System.Xml" #>
 <#@ import namespace="System.Xml.Linq" #>
 <#
     var file = @"C:\repos\xstos\apps\KriterisEdit\KriterisEdit.csproj";

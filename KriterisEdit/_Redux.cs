@@ -8,17 +8,17 @@ namespace KriterisEdit
         public string[] Files { get; set; } = new string[0];
     }
 
-    public enum MsgTypes
+    public enum Message
     {
         FilesDropped,
         Log,
     }
-    public class Redux
+    public class _Redux
     {
-        readonly List<(MsgTypes, dynamic)> messages = new List<(MsgTypes, dynamic)>();
+        readonly List<(Message, dynamic)> messages = new List<(Message, dynamic)>();
         public State State { get; set; } = new State();
 
-        public Redux Dispatch(MsgTypes type, dynamic args)
+        public _Redux Dispatch(Message type, dynamic args)
         {
             var action = (type, args);
             messages.Add(action);
@@ -26,6 +26,6 @@ namespace KriterisEdit
             return this;
         }
 
-        public Func<State, (MsgTypes, dynamic), State> Reducer = (state, tuple) => state;
+        public Func<State, (Message, dynamic), State> Reducer = (state, tuple) => state;
     }
 }
