@@ -63,12 +63,13 @@ namespace KriterisEdit
         {
             return new StackPanel();
         }
-
-        public static TextBox _TextBox(string? content = null)
+         
+        public static TextBox _TextBox(string name)
         {
             var ret = new TextBox();
             ret.VerticalAlignment = VerticalAlignment.Center;
-            ret.Text = content;
+            ret.Name = name;
+            
             return ret;
         }
 
@@ -104,14 +105,16 @@ namespace KriterisEdit
             return _;
         }
         
-        public static T _OnChange<T>(this T _, Message message) where T : TextBox
+        public static T _OnChange<T>(this T _) where T : TextBox
         {
-            Instance.Cells.Add(message._EnumToString(), 
-                value => _.Text = value);
+            var name = _.Name;
+            var handle = Cell(name);
+            var cell = handle.Cell();
+            _.Text = "hello";
             void Handler(object? sender, TextChangedEventArgs args)
             {
                 
-                Dispatch(message, _.Text);
+                //Dispatch("Assign",new { Cell=handle, Value=_.Text});
             }
 
             _._AddHandler<T, TextChangedEventArgs>("TextChanged", Handler);

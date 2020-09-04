@@ -13,8 +13,7 @@ namespace KriterisEdit
         static void BuildApp(Window window)
         {
             var (xmlNodes, fileList) = (_ListView(), _ListView()); //destructuring
-            Global.Instance.Log = s => Dispatch(Message.Log, s);
-            
+            Instance.Log = s => Dispatch("Log", s);
             window
                 ._Min(width: 1600)
                 ._Content(
@@ -22,8 +21,8 @@ namespace KriterisEdit
                         _DockPanel()._Dock(Dock.Top)
                             ._Content(
                                 _Label()._Dock(Dock.Left)._Content("mask:"),
-                                _TextBox()._Content("*.csproj")
-                                    .Bind("")
+                                _TextBox("FileMask")._OnChange(),
+                                _TextBox("FileMask2")
                             ),
                         _DockPanel()
                             ._Dock(Dock.Top)
@@ -33,7 +32,7 @@ namespace KriterisEdit
                                     ._Dock(Dock.Top)
                                     ._Max(height: 100)
                                     ._Min(height: 100)
-                                    ._OnDrop(Message.FilesDropped)
+                                    ._OnDrop("FilesDropped")
                                 ),                
                         xmlNodes
                     )
@@ -45,7 +44,7 @@ namespace KriterisEdit
                 var (msg, args) = action;
                 switch (msg)
                 {
-                    case Message.FilesDropped:
+                    case "FilesDropped":
                         var dropped = (string[])args;
                         var filesAndFolders = dropped._Bucket(("files", Exists), ("folders", Directory.Exists));
                         //filesAndFolders["folders"].SelectMany(folder=>)
@@ -69,7 +68,7 @@ namespace KriterisEdit
 
                 return state;
             };
-            Dispatch(Message.FilesDropped, _Arr(
+            Dispatch("FilesDropped", _Arr(
                 @"C:\repos\cog\dev\src","drag","files","here"));
         }
 

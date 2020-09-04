@@ -8,11 +8,6 @@ namespace KriterisEdit
         public string[] Files { get; set; } = new string[0];
     }
 
-    public enum Message
-    {
-        FilesDropped,
-        Log,
-    }
     public class _Redux
     {
         readonly List<(Message, dynamic)> messages = new List<(Message, dynamic)>();
