@@ -13,7 +13,7 @@ namespace KriterisEdit
         static void BuildApp(Window window)
         {
             var (xmlNodes, fileList) = (_ListView(), _ListView()); //destructuring
-            Global.Instance.Log = s => Dispatch(Message.Log, s);
+            Instance.Log = s => Dispatch(Message.Log, s);
             
             window
                 ._Min(width: 1600)
