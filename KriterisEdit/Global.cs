@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 namespace KriterisEdit
@@ -16,61 +17,92 @@ namespace KriterisEdit
         public static Action<string> Log => Instance.Log;
         public static _Redux Redux => Instance.Redux;
         public static _Redux Dispatch(Message type, dynamic args) => Redux.Dispatch(type, args);
-
-        public static T Bind<T>(this T control, dynamic props) where T : UIElement
+        public static Dictionary<string,UiBinding> UiBindings = new Dictionary<string, UiBinding>();
+        
+        public static T Bind<T>(this T control, string cellName, dynamic? defaultValue=null) where T : FrameworkElement
         {
-            var cell = Instance.Cells.Add(props);
+            var uiId = control.Name;
+            if (UiBindings.ContainsKey(uiId)) throw new ArgumentException("Binding already exists, or non-unique control name");
+            var cell = Instance.Cells[cellName];
+            cell.Name = cellName;
+            cell.Children.Add(uiId);
+            if (defaultValue != null)
+            {
+                cell.Value = defaultValue;
+                cell.DefaultValue = defaultValue;
+            }
+
             switch (control)
             {
                 case TextBox tb:
-                    string value = props.Value;
-                    tb._Content(value);
+                    var wr = new WeakReference<TextBox>(tb);
+                    void Set(dynamic d)
+                    {
+                        if (!wr.TryGetTarget(out var tb2))
+                        {
+                            UiBindings.Remove(uiId);
+                            return;
+                        }
+
+                        if (tb2.Text == d) return;
+                        tb2.Text = d;
+                    }
+
+                    var cellValue = cell.Value;
+                    if (cellValue != null) Set(cellValue);
+
+                    UiBindings[uiId] = new UiBinding()
+                    {
+                        Set = Set
+                    };
+
+                    tb._OnTextChanged(
+                        (sender, args) => Instance.Cells[cellName].Set(tb.Text)
+                    );
                     break;
             }
-
             return control;
         }
     }
 
+    public class UiBinding
+    {
+        public Action<dynamic> Set { get; set; }
+    }
     public class _Cell
     {
-        public int Id { get; set; }
-        public object? Value { get; set; }
         public string Name { get; set; }
-        public static _Cell New(dynamic props)
+        public object? Value { get; set; }
+        public object? DefaultValue { get; set; }
+        public HashSet<string> Children { get; } = new HashSet<string>();
+
+        public void Set(dynamic value)
         {
-            return new _Cell {Id = props.Id, Name = props.Name};
+            Value = value;
+            foreach (var child in Children)
+            {
+                GlobalStatics.UiBindings[child].Set(value);
+            }
         }
     }
 
-    public class _ControlAccessor
-    {
-        public Action<dynamic> Set { get; set; }
-        
-    }
     public class _Cells
     {
-        Dictionary<string, int> byName = new Dictionary<string, int>();
-        List<_Cell> cells = new List<_Cell>();
-        Dictionary<string,_ControlAccessor> accessors = new Dictionary<string, _ControlAccessor>();
-        public _ControlAccessor Add(string name, Action<dynamic> set)
+        Dictionary<string,_Cell> values = new Dictionary<string, _Cell>();
+
+        public _Cell this[string name]
         {
-            if (accessors.TryGetValue(name, out var acc)) return acc;
-            var ret = new _ControlAccessor() { Set = set};
-            accessors.Add(name, ret);
-            return ret;
-        }
-        public _Cell Add(dynamic props)
-        {
-            var name = (string)props.Name;
-            if (byName.TryGetValue(name, out var id)) return cells[id];
-            id = cells.Count;
-            props.Id = id;
-            
-            byName[name] = id;
-            var ret = _Cell.New(props);
-            cells.Add(ret);
-            return ret;
+            get
+            {
+                if (values.TryGetValue(name, out var cell)) return cell;
+                cell = new _Cell();
+                values[name] = cell;
+                return cell;
+            }
+            set
+            {
+                /* set the specified index to value here */
+            }
         }
     }
 }

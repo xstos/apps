@@ -12,7 +12,7 @@ namespace KriterisEdit
     {
         static void BuildApp(Window window)
         {
-            var (xmlNodes, fileList) = (_ListView(), _ListView()); //destructuring
+            var (xmlNodes, fileList) = (_ListView(), _ListView());
             Instance.Log = s => Dispatch(Message.Log, s);
             
             window
@@ -22,13 +22,13 @@ namespace KriterisEdit
                         _DockPanel()._Dock(Dock.Top)
                             ._Content(
                                 _Label()._Dock(Dock.Left)._Content("mask:"),
-                                _TextBox()._Content("*.csproj")
-                                    .Bind("")
+                                _TextBox("Derp1").Bind("FileMask", "*.csproj"),
+                                _TextBox("Derp2").Bind("FileMask")
                             ),
                         _DockPanel()
                             ._Dock(Dock.Top)
                             ._Content(
-                                _Label()._Content("files:"),
+                                    _Label()._Content("files:"),
                                     _ListView()
                                     ._Dock(Dock.Top)
                                     ._Max(height: 100)

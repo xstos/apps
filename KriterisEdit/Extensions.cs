@@ -25,7 +25,6 @@ namespace KriterisEdit
         {
             return items;
         }
-
         public static TextBox _Content(this TextBox _, string text)
         {
             _.Text = text;
@@ -64,11 +63,11 @@ namespace KriterisEdit
             return new StackPanel();
         }
 
-        public static TextBox _TextBox(string? content = null)
+        public static TextBox _TextBox(string? name=null)
         {
             var ret = new TextBox();
+            ret.Name = name ?? Guid.NewGuid().ToString();
             ret.VerticalAlignment = VerticalAlignment.Center;
-            ret.Text = content;
             return ret;
         }
 
@@ -104,17 +103,9 @@ namespace KriterisEdit
             return _;
         }
         
-        public static T _OnChange<T>(this T _, Message message) where T : TextBox
+        public static T _OnTextChanged<T>(this T _, EventHandler<TextChangedEventArgs> handler) where T : TextBox
         {
-            Instance.Cells.Add(message._EnumToString(), 
-                value => _.Text = value);
-            void Handler(object? sender, TextChangedEventArgs args)
-            {
-                
-                Dispatch(message, _.Text);
-            }
-
-            _._AddHandler<T, TextChangedEventArgs>("TextChanged", Handler);
+            _._AddHandler("TextChanged", handler);
             return _;
         }
 
