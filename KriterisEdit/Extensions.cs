@@ -4,13 +4,15 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Xml.Linq;
 using static KriterisEdit.GlobalStatics;
 namespace KriterisEdit
 {
     public static partial class Extensions
     {
+        public static T NoOp<T>(this T _) => _;
+        public static T Cast<T>(this object item) => (T) item;
+
         public static string _ReadAllText(this string path)
         {
             return File.ReadAllText(path);
@@ -42,9 +44,10 @@ namespace KriterisEdit
             return new Button();
         }
 
-        public static ListView _ListView()
+        public static ListView _ListView(string name)
         {
             var ret = new ListView();
+            ret.Name = name;
             //https://stackoverflow.com/a/53689641/1618433
             VirtualizingPanel.SetIsVirtualizing(ret, true);
             VirtualizingPanel.SetIsVirtualizingWhenGrouping(ret, true);
@@ -89,20 +92,18 @@ namespace KriterisEdit
             if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return new string[0];
             return (string[]) e.Data.GetData(DataFormats.FileDrop);
         }
-        public static T _OnDrop<T>(this T _, Message message) where T : UIElement
+        public static T _OnDrop<T>(this T _, EventHandler<DragEventArgs> handler) where T : UIElement
         {
-            //var cell = Instance.Cells.Add(props);
             _.AllowDrop = true;
-
-            void Handler(object? sender, DragEventArgs args)
-            {
-                Dispatch(message, args._GetDroppedFiles());
-            }
-
-            _._AddHandler<T,DragEventArgs>("Drop", Handler);
+            _._AddHandler("Drop", handler);
             return _;
         }
-        
+
+        public static T _AllowDrop<T>(this T _) where T : FrameworkElement
+        {
+            _.AllowDrop = true;
+            return _;
+        }
         public static T _OnTextChanged<T>(this T _, EventHandler<TextChangedEventArgs> handler) where T : TextBox
         {
             _._AddHandler("TextChanged", handler);
@@ -155,7 +156,7 @@ namespace KriterisEdit
             DockPanel.SetDock(_, dock);
             return _;
         }
-
+        
         public static Dictionary<TKey, IGrouping<TKey,TValue>> _ToDictionary<TKey, TValue>(this ILookup<TKey, TValue> lookup) where TKey: notnull
         {
            return lookup.ToDictionary(grp => grp.Key, grp => grp);
@@ -206,7 +207,25 @@ namespace KriterisEdit
             callback(_);
             return _;
         }
-
+        public static T SetDataContext<T>(this T _, object value) where T: FrameworkElement
+        {
+            _.DataContext = value;
+            return _;
+        }
+        public static TextBox SetText(this TextBox _, string value)
+        {
+            if (_.Text == value) return _;
+            _.Text = value;
+            return _;
+        }
+        public static Weak<T> ToWeak<T>(this T item, Action? cleanup = null) where T : class, new()
+        {
+            return Weak<T>.New(item, cleanup);
+        }
+        public static bool IsNullOrEmpty(this string? value)
+        {
+            return string.IsNullOrEmpty(value);
+        }
         public static T Var<T>(this T v, out T v2)
         {
             return v2 = v;
