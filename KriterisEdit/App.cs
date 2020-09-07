@@ -6,6 +6,8 @@ using System.Windows.Controls;
 using static KriterisEdit.Extensions;
 using static KriterisEdit.GlobalStatics;
 using static System.IO.File;
+
+[assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
 namespace KriterisEdit
 {
     static class Program

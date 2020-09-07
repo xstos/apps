@@ -5,7 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Xml.Linq;
-using static KriterisEdit.GlobalStatics;
+
 namespace KriterisEdit
 {
     public static partial class Extensions
