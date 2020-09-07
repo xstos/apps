@@ -11,11 +11,14 @@ namespace KriterisEdit
     public enum Message
     {
         FilesDropped,
-        Log,
+        Log
     }
+
     public class _Redux
     {
         readonly List<(Message, dynamic)> messages = new List<(Message, dynamic)>();
+
+        public Func<State, (Message, dynamic), State> Reducer = (state, tuple) => state;
         public State State { get; set; } = new State();
 
         public _Redux Dispatch(Message type, dynamic args)
@@ -25,7 +28,5 @@ namespace KriterisEdit
             State = Reducer(State, action);
             return this;
         }
-
-        public Func<State, (Message, dynamic), State> Reducer = (state, tuple) => state;
     }
 }

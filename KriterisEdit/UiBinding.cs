@@ -5,13 +5,14 @@ namespace KriterisEdit
     public class UiBinding
     {
         public Action<dynamic> Set { get; set; } = o => { };
+
         public static UiBinding New(Action<dynamic> set)
         {
-            var ret = new UiBinding()
+            var ret = new UiBinding
             {
-                Set = set,
+                Set = set
             };
-            
+
             return ret;
         }
 

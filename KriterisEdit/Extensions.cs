@@ -11,38 +11,29 @@ namespace KriterisEdit
     public static partial class Extensions
     {
         public static T NoOp<T>(this T _) => _;
+
         public static T Cast<T>(this object item) => (T) item;
 
-        public static string _ReadAllText(this string path)
-        {
-            return File.ReadAllText(path);
-        }
+        public static string _ReadAllText(this string path) => File.ReadAllText(path);
 
-        public static XElement _ParseXml(this string text)
-        {
-            return XElement.Parse(text);
-        }
+        public static XElement _ParseXml(this string text) => XElement.Parse(text);
 
-        public static T[] _Arr<T>(params T[] items)
-        {
-            return items;
-        }
+        public static T[] _Arr<T>(params T[] items) => items;
+
         public static TextBox _Content(this TextBox _, string text)
         {
             _.Text = text;
             return _;
         }
+
         public static T _Content<T>(this T _, object content) where T : ContentControl
         {
             _.Content = content;
             return _;
         }
-         
-        
-        public static Button _Button()
-        {
-            return new Button();
-        }
+
+
+        public static Button _Button() => new Button();
 
         public static ListView _ListView(string name)
         {
@@ -56,17 +47,11 @@ namespace KriterisEdit
             return ret;
         }
 
-        public static DockPanel _DockPanel()
-        {
-            return new DockPanel();
-        }
+        public static DockPanel _DockPanel() => new DockPanel();
 
-        public static StackPanel _StackPanel()
-        {
-            return new StackPanel();
-        }
+        public static StackPanel _StackPanel() => new StackPanel();
 
-        public static TextBox _TextBox(string? name=null)
+        public static TextBox _TextBox(string? name = null)
         {
             var ret = new TextBox();
             ret.Name = name ?? Guid.NewGuid().ToString();
@@ -87,11 +72,17 @@ namespace KriterisEdit
             _.Orientation = o;
             return _;
         }
+
         public static string[] _GetDroppedFiles(this DragEventArgs e)
         {
-            if (!e.Data.GetDataPresent(DataFormats.FileDrop)) return new string[0];
+            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                return new string[0];
+            }
+
             return (string[]) e.Data.GetData(DataFormats.FileDrop);
         }
+
         public static T _OnDrop<T>(this T _, EventHandler<DragEventArgs> handler) where T : UIElement
         {
             _.AllowDrop = true;
@@ -104,28 +95,42 @@ namespace KriterisEdit
             _.AllowDrop = true;
             return _;
         }
+
         public static T _OnTextChanged<T>(this T _, EventHandler<TextChangedEventArgs> handler) where T : TextBox
         {
             _._AddHandler("TextChanged", handler);
             return _;
         }
 
-        public static string _EnumToString<T>(this T @enum) where T : Enum
-        {
-            return Enum.GetName(typeof(T), @enum);
-        }
-        
+        public static string _EnumToString<T>(this T @enum) where T : Enum => Enum.GetName(typeof(T), @enum);
+
         public static T _Min<T>(this T _, double? width = null, double? height = null) where T : FrameworkElement
         {
-            if (width != null) _.MinWidth = (double) width;
-            if (height != null) _.MinHeight = (double) height;
+            if (width != null)
+            {
+                _.MinWidth = (double) width;
+            }
+
+            if (height != null)
+            {
+                _.MinHeight = (double) height;
+            }
+
             return _;
         }
 
         public static T _Max<T>(this T _, double? width = null, double? height = null) where T : FrameworkElement
         {
-            if (width != null) _.MaxWidth = (double) width;
-            if (height != null) _.MaxHeight = (double) height;
+            if (width != null)
+            {
+                _.MaxWidth = (double) width;
+            }
+
+            if (height != null)
+            {
+                _.MaxHeight = (double) height;
+            }
+
             return _;
         }
 
@@ -156,23 +161,23 @@ namespace KriterisEdit
             DockPanel.SetDock(_, dock);
             return _;
         }
-        
-        public static Dictionary<TKey, IGrouping<TKey,TValue>> _ToDictionary<TKey, TValue>(this ILookup<TKey, TValue> lookup) where TKey: notnull
+
+        public static Dictionary<TKey, IGrouping<TKey, TValue>> _ToDictionary<TKey, TValue>(
+            this ILookup<TKey, TValue> lookup) where TKey : notnull
         {
-           return lookup.ToDictionary(grp => grp.Key, grp => grp);
+            return lookup.ToDictionary(grp => grp.Key, grp => grp);
         }
-        
-        public static ILookup<string, T> _Bucket<T>(this IEnumerable<T> items,params (string, Func<T, bool >)[] predicates)
+
+        public static ILookup<string, T> _Bucket<T>(this IEnumerable<T> items,
+            params (string, Func<T, bool>)[] predicates)
         {
-            bool True(T _)
-            {
-                return true;
-            }
+            bool True(T _) => true;
 
             var defaultCase = ("", (Func<T, bool>) True);
             var predicatesWithDefault = predicates.Concat(new[] {defaultCase}).ToArray();
             return items.ToLookup(_ => predicatesWithDefault.First(p => p.Item2(_)).Item1);
         }
+
         public static void _BucketExample()
         {
             _Arr(1, 2, 3)
@@ -185,47 +190,46 @@ namespace KriterisEdit
                 }
             */
         }
-        
-        public static T _AddHandler<T, TEventArgs>(this T source, string eventName, EventHandler<TEventArgs> handler) where TEventArgs:EventArgs
+
+        public static T _AddHandler<T, TEventArgs>(this T source, string eventName, EventHandler<TEventArgs> handler)
+            where TEventArgs : EventArgs
         {
             WeakEventManager<T, TEventArgs>.AddHandler(source, eventName, handler);
             return source;
-        } 
-        
-        public static bool _IsOdd(this int value)
-        {
-            return value % 2 != 0;
         }
 
-        public static bool _IsEven(this int value)
-        {
-            return value % 2 == 0;
-        }
+        public static bool _IsOdd(this int value) => value % 2 != 0;
+
+        public static bool _IsEven(this int value) => value % 2 == 0;
 
         public static T Do<T>(this T _, Action<T> callback)
         {
             callback(_);
             return _;
         }
-        public static T SetDataContext<T>(this T _, object value) where T: FrameworkElement
+
+        public static T SetDataContext<T>(this T _, object value) where T : FrameworkElement
         {
             _.DataContext = value;
             return _;
         }
+
         public static TextBox SetText(this TextBox _, string value)
         {
-            if (_.Text == value) return _;
+            if (_.Text == value)
+            {
+                return _;
+            }
+
             _.Text = value;
             return _;
         }
-        public static Weak<T> ToWeak<T>(this T item, Action? cleanup = null) where T : class, new()
-        {
-            return Weak<T>.New(item, cleanup);
-        }
-        public static bool IsNullOrEmpty(this string? value)
-        {
-            return string.IsNullOrEmpty(value);
-        }
+
+        public static Weak<T> ToWeak<T>(this T item, Action? cleanup = null) where T : class, new() =>
+            Weak<T>.New(item, cleanup);
+
+        public static bool IsNullOrEmpty(this string? value) => string.IsNullOrEmpty(value);
+
         public static T Var<T>(this T v, out T v2)
         {
             return v2 = v;
