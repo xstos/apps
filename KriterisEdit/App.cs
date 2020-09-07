@@ -8,9 +8,19 @@ using static KriterisEdit.GlobalStatics;
 using static System.IO.File;
 namespace KriterisEdit
 {
-    public partial class App : Application
+    static class Program
     {
-        static void BuildApp(Window window)
+        [STAThread]
+        static void Main(string[] args)
+        {
+            var app = new App();
+            app.Run(app.MainWindow);
+        }
+    }
+
+    public static class AppExtensions
+    {
+        public static Window BuildApp(this Window window)
         {
             var (xmlNodes, fileList) = (_ListView("Xml"), _ListView("Todo"));
             Instance.Log = s => Dispatch(Message.Log, s);
@@ -18,7 +28,7 @@ namespace KriterisEdit
             Instance.Cells.Add
                 ("FileMask", "*.csproj")
                 ("DroppedFilesRaw", defaultFiles)
-                ("DroppedFiles", defaultFiles)    
+                ("DroppedFiles", defaultFiles)
             ;
             window
                 ._Min(width: 1600)
@@ -42,11 +52,11 @@ namespace KriterisEdit
                                     ._Min(height: 100)
                                     ._AllowDrop()
                                     .Bind("DroppedFiles", "DroppedFilesRaw")
-                                ),                
+                                ),
                         xmlNodes
                     )
                 );
-            
+
             Redux.State = new State();
             Redux.Reducer = (state, action) =>
             {
@@ -62,29 +72,34 @@ namespace KriterisEdit
                         var nodes = dropped
                             .Where(Exists)
                             .SelectMany(file =>
-                        {
-                            var projName = new FileInfo(file).Name;
+                            {
+                                var projName = new FileInfo(file).Name;
 
-                            return file
-                                ._ReadAllText()
-                                ._ParseXml()
-                                .Descendants()
-                                .Select(n => n.ToString());
-                        }).ToArray();
+                                return file
+                                    ._ReadAllText()
+                                    ._ParseXml()
+                                    .Descendants()
+                                    .Select(n => n.ToString());
+                            }).ToArray();
                         xmlNodes.ItemsSource = nodes;
                         break;
                 }
 
                 return state;
             };
-            
+            return window;
         }
 
+    }
+    public class App : Application
+    {
+        public Window MainWindow = new Window();
+       
         protected override void OnStartup(StartupEventArgs e)
         {
             void onActivated(object? sender, EventArgs args)
             {
-                BuildApp(MainWindow);
+                MainWindow.BuildApp();
                 Activated -= onActivated;
             }
 
