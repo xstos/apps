@@ -23,28 +23,30 @@ namespace KriterisEdit
         static Application BuildApp()
         {
             var app = new Application();
-
+            app.MainWindow = new Window();
             void Activated(object? sender, EventArgs args)
             {
                 app.Activated -= Activated;
-                app.MainWindow = BuildWindow();
+                BuildWindow(app.MainWindow);
             }
 
             app.Activated += Activated;
             return app;
         }
-
-        static Window BuildWindow()
+        
+        static Window BuildWindow(Window window)
         {
-            var window = new Window();
             var (xmlNodes, fileList) = (_ListView("Xml"), _ListView("Todo"));
             Instance.Log = s => Dispatch(Message.Log, s);
             var defaultFiles = _Arr(@"C:\repos\cog\dev\src", "drag", "files", "here");
-            Instance.Cells.Add
-                    ("FileMask", "*.csproj")
-                ("DroppedFilesRaw", defaultFiles)
-                ("DroppedFiles", defaultFiles)
-                ;
+            
+            var FileMask = ("FileMask", "*.csproj").Cell();
+            var DroppedFiles = ("DroppedFiles", defaultFiles).Cell();
+            var DroppedFilesExpanded = ("DroppedFilesExpanded", _Arr<string>()).Cell();
+            Formula((DroppedFiles,FileMask),DroppedFilesExpanded, (dropped, mask) =>
+            {
+                return dropped;
+            });
             window
                 ._Min(1600)
                 ._Content(
@@ -52,10 +54,8 @@ namespace KriterisEdit
                         _DockPanel()._Dock(Dock.Top)
                             ._Content(
                                 _Label()._Dock(Dock.Left)._Content("mask:"),
-                                _TextBox("MaskBox1")
-                                    .Bind("FileMask"),
-                                _TextBox("MaskBox1Mirror")
-                                    .Bind("FileMask")
+                                _TextBox().Bind(FileMask),
+                                _TextBox().Bind(FileMask)
                             ),
                         _DockPanel()
                             ._Dock(Dock.Top)
@@ -66,7 +66,7 @@ namespace KriterisEdit
                                     ._Max(height: 100)
                                     ._Min(height: 100)
                                     ._AllowDrop()
-                                    .Bind("DroppedFiles", "DroppedFilesRaw")
+                                    .Bind(DroppedFiles, DroppedFilesExpanded)
                             ),
                         xmlNodes
                     )

@@ -11,4 +11,17 @@
       <PackageReference Include="System.Xml.XDocument" Version="4.3.0" />
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="t4.tt">
+        <Generator>TextTemplatingFileGenerator</Generator>
+        <LastGenOutput>t4.cs</LastGenOutput>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="t4.cs">
+        <DependentUpon>t4.tt</DependentUpon>
+      </Compile>
+    </ItemGroup>
+
 </Project>

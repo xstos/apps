@@ -11,7 +11,19 @@
 <#@ assembly name="WindowsBase" #>
 <#@ assembly name="System.Xml.Linq" #>
 <#@ import namespace="System.Xml.Linq" #>
+<#@ import namespace="System.Collections" #>
+<#@ import namespace="System.Linq" #>
+using KriterisEdit;
+public static class CellDefs { 
 <#
-    var file = @"C:\repos\xstos\apps\KriterisEdit\KriterisEdit.csproj";
-    var xe = XElement.Parse(file);
+//     var nl = Environment.NewLine.ToCharArray();
+// @"
+// FileMask
+// DroppedFiles
+// DroppedFilesExpanded
+// ".Trim().Split(nl).Select(s=>"public static CellRef "+s+";").ToList().ForEach(WriteLine);
+//     //var file = @"C:\repos\xstos\apps\KriterisEdit\KriterisEdit.csproj";
+//     //var xe = XElement.Parse(file);
+    
 #>
+}

@@ -6,7 +6,7 @@ namespace KriterisEdit
     {
         Action _cleanup = () => { };
         T defaultValue = new T();
-        WeakReference<T> Value;
+        WeakReference<T> Value = new WeakReference<T>(new T());
 
         public T Get()
         {

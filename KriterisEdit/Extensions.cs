@@ -10,6 +10,8 @@ namespace KriterisEdit
 {
     public static partial class Extensions
     {
+
+        
         public static T NoOp<T>(this T _) => _;
 
         public static T Cast<T>(this object item) => (T) item;
@@ -54,7 +56,7 @@ namespace KriterisEdit
         public static TextBox _TextBox(string? name = null)
         {
             var ret = new TextBox();
-            ret.Name = name ?? Guid.NewGuid().ToString();
+            ret.Name = name ?? "TextBox_" + Guid.NewGuid().ToString("N");
             ret.VerticalAlignment = VerticalAlignment.Center;
             return ret;
         }
@@ -208,6 +210,15 @@ namespace KriterisEdit
             return _;
         }
 
+        public static IEnumerable<T> Each<T>(this IEnumerable<T> items, Action<T> callback)
+        {
+            foreach (var item in items)
+            {
+                callback(item);
+            }
+
+            return items;
+        }
         public static T SetDataContext<T>(this T _, object value) where T : FrameworkElement
         {
             _.DataContext = value;
@@ -224,7 +235,7 @@ namespace KriterisEdit
             _.Text = value;
             return _;
         }
-
+         
         public static Weak<T> ToWeak<T>(this T item, Action? cleanup = null) where T : class, new() =>
             Weak<T>.New(item, cleanup);
 
@@ -233,6 +244,11 @@ namespace KriterisEdit
         public static T Var<T>(this T v, out T v2)
         {
             return v2 = v;
+        }
+
+        public static Delegate fun<T, R>(Func<T, R> func)
+        {
+            return func;
         }
     }
 }
