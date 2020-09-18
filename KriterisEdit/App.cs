@@ -43,7 +43,8 @@ namespace KriterisEdit
             var FileMask = ("FileMask", "*.csproj").Cell();
             var DroppedFiles = ("DroppedFiles", defaultFiles).Cell();
             var DroppedFilesExpanded = ("DroppedFilesExpanded", _Arr<string>()).Cell();
-            Formula((DroppedFiles,FileMask),DroppedFilesExpanded, (dropped, mask) =>
+            
+            Formula((DroppedFiles,FileMask),DroppedFilesExpanded, (string[] dropped, string mask) =>
             {
                 return dropped;
             });

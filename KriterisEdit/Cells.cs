@@ -3,92 +3,77 @@ using System.Collections.Generic;
 using static KriterisEdit.GlobalStatics;
 namespace KriterisEdit
 {
-
-    public class _Cell
+    public class Calcs
     {
-        public Action RefreshB = () => {};
+        
+    }
+    public class _Formula
+    {
+        public Action Dirty = () => { };
+        public Func<string> ToStr = () => "";
+        public override string ToString() => ToStr();
+        public static _Formula New()
+        {
+            var ret = new _Formula();
+            
+            return ret;
+        }
+    }
+    public class _Cell 
+    {
         public static _Cell EmptyB = new _Cell();
-    }
-    public class _Cell<T> : _Cell
-    {
-        T _value;
-        public Address<T> Address { get; set; } = Address<T>.Empty;
-        public HashSet<AddressB> Dependents = new HashSet<AddressB>();
-        public Func<T> GetValue;
-        public T DefaultValue { get; private set; }
-        public void Refresh()
-        {
-            SetValue(GetValue());
-        }
-        public _Cell()
-        {
-            RefreshB = Refresh;
-            GetValue = GetValueCore;
-        }
+        public Address Address { get; set; } = Address.Empty;
+        public List<(object,Action)> OnSet = new List<(object, Action)>();
+        public Func<CellValue> GetValue;
+        public Action<CellValue> SetValue;
+        public Func<CellValue> DefaultValue;
+        public Action Refresh;
 
-        public void SetValueObj(object value)
+        public static _Cell New(string name, object value)
         {
-            if (value is T casted)
+            var c = new _Cell();
+            
+            c.SetValue = (v) =>
             {
-                SetValue(casted);
-            }
-        }
-
-        public T GetValueCore()
-        {
-            return _value ?? DefaultValue;
-        }
-        public void SetValue(T value)
-        {
-            Value = value;
-            Log(Address + " " + nameof(SetValue) + " " + value);
-            foreach (var dep in Dependents)
-            {
-                dep.BaseGetCell().RefreshB();
-            }
-        }
-        public T Value
-        {
-            get { return _value; }
-            private set { _value = value; }
-        }
-
-        public static _Cell<T> New(string name, T value)
-        {
-            var @ref = Address<T>.New(name);
-            return new _Cell<T>
-            {
-                Address = @ref,
-                Value = value,
-                DefaultValue = value,
+                c.GetValue = () => v;
+                foreach (var (f,dirty) in c.OnSet)
+                {
+                    dirty();
+                }
             };
+            c.GetValue = value.ToCellValue;
+            c.Address = Address.New(name);
+            c.DefaultValue = value.ToCellValue;
+            c.Refresh = ()=>
+            {
+                foreach (var (f,dirty) in c.OnSet)
+                {
+                    dirty();
+                }
+            };
+            c.Refresh();
+            return c;
         }
 
     }
 
-    public class CellValue<T>
+    public class CellValue
     {
-        public T Value;
-        public static CellValue<T> Empty;
+        public dynamic Value="";
+        public static CellValue Empty;
 
-        public override string ToString() => Value.ToString() ?? "";
-
-        static CellValue<T> New(T value)
+        public override string ToString() => Value+"";
+        public static CellValue New(object value)
         {
-            return new CellValue<T>() {Value = value};
-        }
-        public static implicit operator CellValue<T>(T v)
-        {
-            return New(v);
+            return new CellValue() {Value = value};
         }
     }
 
-    public class AddressB
+    public class Address
     {
-        public Func<_Cell> BaseGetCell = () => _Cell.EmptyB;
         public string Name { get; set; }
 
-        protected bool Equals(AddressB other) => Name == other.Name;
+        protected bool Equals(Address other) => Name == other.Name;
 
         public override bool Equals(object? obj)
         {
@@ -107,34 +92,27 @@ namespace KriterisEdit
                 return false;
             }
 
-            return Equals((AddressB) obj);
+            return Equals((Address) obj);
         }
 
         public override int GetHashCode() => Name.GetHashCode();
-    }
-    public class Address<T> : AddressB
-    {
-        public static Address<T> Empty = New("");
+        public static Address Empty = New("");
         
-        public _Cell<T> Cell => (_Cell<T>)Instance.Cells[this];
+        public _Cell Cell => Instance.Cells[this];
 
-        public Address()
+        public static Address New(string name)
         {
-            BaseGetCell = () => Cell;
-        }
-        public static Address<T> New(string name)
-        {
-            return new Address<T>() {Name = name};
+            return new Address() {Name = name};
         }
 
-        public static implicit operator string(Address<T> a) => a.Name;
+        public static implicit operator string(Address a) => a.Name;
 
     }
     public class _Cells
     {
-        readonly Dictionary<AddressB, _Cell> _cells = new Dictionary<AddressB, _Cell>();
-
-        public _Cell this[AddressB @ref]
+        readonly Dictionary<Address, _Cell> _cells = new Dictionary<Address, _Cell>();
+        List<_Formula> _formulas = new List<_Formula>();
+        public _Cell this[Address @ref]
         {
             get
             {
@@ -147,10 +125,9 @@ namespace KriterisEdit
             }
         }
 
-        public Address<T> Add<T>(string name, T value)
+        public Address Add(string name, object value)
         {
-            
-            var cell = _Cell<T>.New(name, value);
+            var cell = _Cell.New(name, value);
             _cells.Add(cell.Address,cell);
             return cell.Address;
         }
