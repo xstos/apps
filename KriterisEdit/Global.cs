@@ -10,7 +10,7 @@ namespace KriterisEdit
         public readonly _Redux Redux = new _Redux();
         public Action<string> Log = s => { };
     }
-    public static class GlobalStatics
+    public static partial class GlobalStatics
     {
         public static readonly Global Instance = new Global();
         public static Action<string> Log => Instance.Log;

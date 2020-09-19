@@ -49,10 +49,6 @@ namespace KriterisEdit
             return ret;
         }
 
-        public static DockPanel _DockPanel() => new DockPanel();
-
-        public static StackPanel _StackPanel() => new StackPanel();
-
         public static TextBox _TextBox(string? name = null)
         {
             var ret = new TextBox();
