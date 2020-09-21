@@ -24,16 +24,19 @@ public static partial class GlobalStatics {
 <#
     
     var uie = typeof(UIElement);
-    typeof(DockPanel).Assembly.GetTypes().Where(t=>true
-                && uie.IsAssignableFrom(t) 
-                && t.IsPublic
-                && t.Namespace=="System.Windows.Controls"
-                && !t.IsGenericType
-                && t.GetConstructors(BindingFlags.Instance | BindingFlags.Public).Any()
-        )
-        .Select(t => 
-            $"public static {t.FullName} _{t.Name}() => new {t.FullName}();  "
-        ).ToList().ForEach(WriteLine);
+    var controls = typeof(DockPanel).Assembly.GetTypes().Where(t=>true
+                                                                  && uie.IsAssignableFrom(t) 
+                                                                  && t.IsPublic
+                                                                  && t.Namespace=="System.Windows.Controls"
+                                                                  && !t.IsGenericType
+                                                                  && t.GetConstructors(BindingFlags.Instance | BindingFlags.Public).Any()
+        );
+        controls.Select(t => 
+            $"public static {t.FullName} __{t.Name}() => new {t.FullName}();  "
+        ).ToList().ForEach((i) =>
+        {
+            //WriteLine();
+        });
 //     var nl = Environment.NewLine.ToCharArray();
 // @"
 // FileMask

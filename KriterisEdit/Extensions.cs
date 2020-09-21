@@ -1,9 +1,12 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Markup;
+using System.Windows.Media;
 using System.Xml.Linq;
 
 namespace KriterisEdit
@@ -14,7 +17,7 @@ namespace KriterisEdit
         
         public static T NoOp<T>(this T _) => _;
 
-        public static T Cast<T>(this object item) => (T) item;
+        public static T HardCast<T>(this object item) => (T) item;
 
         public static string _ReadAllText(this string path) => File.ReadAllText(path);
 
@@ -32,37 +35,6 @@ namespace KriterisEdit
         {
             _.Content = content;
             return _;
-        }
-
-
-        public static Button _Button() => new Button();
-
-        public static ListView _ListView(string name)
-        {
-            var ret = new ListView();
-            ret.Name = name;
-            //https://stackoverflow.com/a/53689641/1618433
-            VirtualizingPanel.SetIsVirtualizing(ret, true);
-            VirtualizingPanel.SetIsVirtualizingWhenGrouping(ret, true);
-            VirtualizingPanel.SetVirtualizationMode(ret, VirtualizationMode.Recycling);
-            //ScrollViewer.SetIsDeferredScrollingEnabled(ret,true);
-            return ret;
-        }
-
-        public static TextBox _TextBox(string? name = null)
-        {
-            var ret = new TextBox();
-            ret.Name = name ?? "TextBox_" + Guid.NewGuid().ToString("N");
-            ret.VerticalAlignment = VerticalAlignment.Center;
-            return ret;
-        }
-
-        public static Label _Label(object? content = null)
-        {
-            var ret = new Label();
-            ret.VerticalAlignment = VerticalAlignment.Center;
-            ret.Content = content;
-            return ret;
         }
 
         public static StackPanel _Orientation(this StackPanel _, Orientation o)
@@ -245,6 +217,66 @@ namespace KriterisEdit
         public static Delegate fun<T, R>(Func<T, R> func)
         {
             return func;
+        }
+
+        public static IEnumerable<UIElement> GetChildren(this Grid grid, int row, int column)
+        {
+            return grid.Children.Cast<UIElement>().Where(e => Grid.GetRow(e) == row && Grid.GetColumn(e) == column);
+        }
+
+        public static T AddChildren<T>(this T control, params UIElement[] children) where T : IAddChild
+        {
+            var add = new Action<object>(control.AddChild);
+            foreach (var child in children)
+            {
+                add(child);
+            }
+
+            return control;
+        }
+        public static T RemoveChildren<T>(this T control, params UIElement[] children) where T : Panel
+        {
+            var elementCollection = control.Children;
+            foreach (var child in children)
+            {
+                elementCollection.Remove(child);
+            }
+
+            return control;
+        }
+
+        public static void Repeat(this int count, Action<int> callback)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                callback(i);
+            }
+        }
+
+        public static int Subtract(this int first, int second) => first - second;
+        
+
+        public static T SetBackground<T>(this T control, Brush brush) where T : Panel
+        {
+            control.Background = brush;
+            return control;
+        }
+        public static T ForEach<T>(this T item) where T : IEnumerable
+        {
+            foreach (var _ in item) { }
+            return item;
+        }
+        public static IEnumerable<T> ForEach<T>(this IEnumerable<T> item, Action<T> action)
+        {
+            foreach (var _ in item)
+            {
+                action(_);
+            }
+            return item;
+        }
+        public static IEnumerable<T> Repeat<T>(this int count, Func<T> ctor)
+        {
+            return Enumerable.Range(0, count).Select((i)=>ctor());
         }
     }
 }

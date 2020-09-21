@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using static KriterisEdit.Extensions;
 using static KriterisEdit.GlobalStatics;
 using static System.IO.File;
@@ -48,29 +49,45 @@ namespace KriterisEdit
             {
                 return dropped;
             });
+
+            _Grid()
+                .Var(out var grid)
+                .SetShowGridLines(true)
+                .Rows()
+                    [_Button("r1c1"), _Button("r1c2"), _Button("r1c3")]
+                    [_Button("r2c1"), _Button("r2c2")]
+                .Build()
+                ;
+            UIElement XamlBuilderControl()
+            {
+                _DockPanel().Var(out var outerPanel);
+                return outerPanel;
+            }
+
+            _DockPanel()._Content(
+                _DockPanel()._Dock(Dock.Top)
+                    ._Content(
+                        _Label()._Dock(Dock.Left)._Content("mask:"),
+                        _TextBox().Bind(FileMask),
+                        _TextBox().Bind(FileMask)
+                    ),
+                _DockPanel()
+                    ._Dock(Dock.Top)
+                    ._Content(
+                        _Label()._Content("files:"),
+                        _ListView("Files")
+                            ._Dock(Dock.Top)
+                            ._Max(height: 100)
+                            ._Min(height: 100)
+                            ._AllowDrop()
+                            .Bind(DroppedFiles, DroppedFilesExpanded)
+                    ),
+                xmlNodes
+            ).Var(out var bulkXml);
             window
                 ._Min(1600)
                 ._Content(
-                    _DockPanel()._Content(
-                        _DockPanel()._Dock(Dock.Top)
-                            ._Content(
-                                _Label()._Dock(Dock.Left)._Content("mask:"),
-                                _TextBox().Bind(FileMask),
-                                _TextBox().Bind(FileMask)
-                            ),
-                        _DockPanel()
-                            ._Dock(Dock.Top)
-                            ._Content(
-                                _Label()._Content("files:"),
-                                _ListView("Files")
-                                    ._Dock(Dock.Top)
-                                    ._Max(height: 100)
-                                    ._Min(height: 100)
-                                    ._AllowDrop()
-                                    .Bind(DroppedFiles, DroppedFilesExpanded)
-                            ),
-                        xmlNodes
-                    )
+                    grid
                 );
 
             Redux.State = new State();

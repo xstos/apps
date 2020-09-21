@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using static KriterisEdit.GlobalStatics;
+
 namespace KriterisEdit
 {
     public class Calcs
@@ -31,28 +33,28 @@ namespace KriterisEdit
 
         public static _Cell New(string name, object value)
         {
-            var c = new _Cell();
+            var cell = new _Cell();
             
-            c.SetValue = (v) =>
+            cell.SetValue = (_value) =>
             {
-                c.GetValue = () => v;
-                foreach (var (f,dirty) in c.OnSet)
+                cell.GetValue = () => _value;
+                foreach (var (f,dirty) in cell.OnSet)
                 {
                     dirty();
                 }
             };
-            c.GetValue = value.ToCellValue;
-            c.Address = Address.New(name);
-            c.DefaultValue = value.ToCellValue;
-            c.Refresh = ()=>
+            cell.GetValue = value.ToCellValue;
+            cell.Address = Address.New(name);
+            cell.DefaultValue = value.ToCellValue;
+            cell.Refresh = ()=>
             {
-                foreach (var (f,dirty) in c.OnSet)
+                foreach (var (f,dirty) in cell.OnSet)
                 {
                     dirty();
                 }
             };
-            c.Refresh();
-            return c;
+            cell.Refresh();
+            return cell;
         }
 
     }
@@ -132,6 +134,4 @@ namespace KriterisEdit
             return cell.Address;
         }
     }
-
-    
 }
