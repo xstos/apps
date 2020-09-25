@@ -49,7 +49,7 @@ namespace KriterisEdit
             {
                 return dropped;
             });
-
+            Editor.New(window).Var(out var react);
             _Grid()
                 .Var(out var grid)
                 .SetShowGridLines(true)
@@ -64,17 +64,17 @@ namespace KriterisEdit
                 return outerPanel;
             }
 
-            _DockPanel()._Content(
+            _DockPanel()._Add(
                 _DockPanel()._Dock(Dock.Top)
-                    ._Content(
-                        _Label()._Dock(Dock.Left)._Content("mask:"),
+                    ._Add(
+                        _Label()._Dock(Dock.Left)._Add("mask:"),
                         _TextBox().Bind(FileMask),
                         _TextBox().Bind(FileMask)
                     ),
                 _DockPanel()
                     ._Dock(Dock.Top)
-                    ._Content(
-                        _Label()._Content("files:"),
+                    ._Add(
+                        _Label()._Add("files:"),
                         _ListView("Files")
                             ._Dock(Dock.Top)
                             ._Max(height: 100)
@@ -83,12 +83,7 @@ namespace KriterisEdit
                             .Bind(DroppedFiles, DroppedFilesExpanded)
                     ),
                 xmlNodes
-            ).Var(out var bulkXml);
-            window
-                ._Min(1600)
-                ._Content(
-                    grid
-                );
+            ).Var(out var pnl);
 
             Redux.State = new State();
             Redux.Reducer = (state, action) =>
@@ -101,7 +96,7 @@ namespace KriterisEdit
                         var filesAndFolders = dropped._Bucket(("files", Exists), ("folders", Directory.Exists));
                         //filesAndFolders["folders"].SelectMany(folder=>)
                         state.Files = dropped;
-                        fileList._Content(dropped);
+                        fileList._Add(dropped);
                         var nodes = dropped
                             .Where(Exists)
                             .SelectMany(file =>

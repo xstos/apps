@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using Newtonsoft.Json;
 using static KriterisEdit.GlobalStatics;
-
+using static KriterisEdit.Extensions;
 namespace KriterisEdit
 {
     public class Calcs
@@ -132,6 +137,95 @@ namespace KriterisEdit
             var cell = _Cell.New(name, value);
             _cells.Add(cell.Address,cell);
             return cell.Address;
+        }
+    }
+
+    public class El
+    {
+        public Action<UIElement> AddLeft;
+        public Action RemoveLeft;
+        public Func<UIElement> GetValue;
+    }
+
+    
+    public class Editor
+    {
+        public static Editor New(Window window)
+        {
+            var ret = new Editor();
+            _StackPanel().Var(out var container);
+            window.Content = container;
+            
+            var tree = Tree.New();
+            tree.Render = panel =>
+            {
+                
+            };
+
+            tree.NewValue().Var(out var hello).SetData("hello");
+            tree.Root
+                .AddChild(hello)
+                .AddChild(hello);
+            tree.Render(container);
+
+            static El Cursor()
+            {
+                var textBlock = new TextBlock();
+                textBlock.Text = "█";
+
+                // void Callback(object? sender, EventArgs args) => 
+                //     c.Text = c.Text == " " ? "█" : " ";
+                //
+                // var dispatcherTimer = new DispatcherTimer(
+                //     TimeSpan.FromMilliseconds(200),DispatcherPriority.Normal,
+                //     Callback, Dispatcher.CurrentDispatcher);
+                // dispatcherTimer.Start();
+                
+                return new El()
+                {
+                    GetValue = ()=>textBlock,
+                    AddLeft = (el) =>
+                    {
+                        if (textBlock.Parent is Panel p)
+                        {
+                            p.Children.IndexOf(textBlock).Var(out var ix);
+                            p.Children.Insert(ix,el);
+                        }
+                    },
+                    RemoveLeft = () =>
+                    {
+                        if (textBlock.Parent is Panel p)
+                        {
+                            p.Children.IndexOf(textBlock).Var(out var ix);
+                            if (ix > 0)
+                            {
+                                p.Children.RemoveAt(ix-1);
+                            }
+                        }
+                    }
+                };
+            }
+
+            Cursor().Var(out var cursor);
+            container.Children.Add(cursor.GetValue());
+            window._Add(container);
+            window.PreviewKeyDown += (sender, args) =>
+            {
+                void Add(string text)
+                {
+                    cursor.AddLeft(new TextBlock(){Text = text});
+                }
+                switch (args.Key)
+                {
+                    case Key.Back: cursor.RemoveLeft();
+                        return;
+                    case Key.Space: Add(" ");
+                        return; 
+                }
+                Add(args.Key.ToString());
+                
+            };
+            return ret;
         }
     }
 }

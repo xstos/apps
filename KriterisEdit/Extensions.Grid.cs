@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -62,6 +63,11 @@ namespace KriterisEdit
                 .Repeat(()=>new RowDefinition() {Height = len})
                 .ForEach(grid.RowDefinitions.Add);
             return grid;
+        }
+        
+        public static IEnumerable<UIElement> GetChildren(this Grid grid, int row, int column)
+        {
+            return grid.Children.Cast<UIElement>().Where(e => Grid.GetRow(e) == row && Grid.GetColumn(e) == column);
         }
     }
 }

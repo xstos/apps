@@ -51,5 +51,9 @@ namespace KriterisEdit
         {
             return new DockPanel();
         }
+        public static DockPanel _StackPanel()
+        {
+            return new DockPanel();
+        }
     }
 }

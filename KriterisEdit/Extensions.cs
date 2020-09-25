@@ -25,13 +25,13 @@ namespace KriterisEdit
 
         public static T[] _Arr<T>(params T[] items) => items;
 
-        public static TextBox _Content(this TextBox _, string text)
+        public static TextBox _Add(this TextBox _, string text)
         {
             _.Text = text;
             return _;
         }
 
-        public static T _Content<T>(this T _, object content) where T : ContentControl
+        public static T _Add<T>(this T _, object content) where T : ContentControl
         {
             _.Content = content;
             return _;
@@ -104,7 +104,7 @@ namespace KriterisEdit
             return _;
         }
 
-        public static T _Content<T>(this T _, params UIElement[] children) where T : Panel
+        public static T _Add<T>(this T _, params UIElement[] children) where T : Panel
         {
             foreach (var child in children)
             {
@@ -114,7 +114,7 @@ namespace KriterisEdit
             return _;
         }
 
-        public static ListView _Content(this ListView _, params object[] items)
+        public static ListView _Add(this ListView _, params object[] items)
         {
             _.Items.Clear();
             var coll = _.Items;
@@ -219,10 +219,8 @@ namespace KriterisEdit
             return func;
         }
 
-        public static IEnumerable<UIElement> GetChildren(this Grid grid, int row, int column)
-        {
-            return grid.Children.Cast<UIElement>().Where(e => Grid.GetRow(e) == row && Grid.GetColumn(e) == column);
-        }
+        public static string EmptyId = Guid.Empty.ToString("N");
+        public static string NewId() => Guid.NewGuid().ToString("N");
 
         public static T AddChildren<T>(this T control, params UIElement[] children) where T : IAddChild
         {
@@ -245,16 +243,7 @@ namespace KriterisEdit
             return control;
         }
 
-        public static void Repeat(this int count, Action<int> callback)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                callback(i);
-            }
-        }
-
         public static int Subtract(this int first, int second) => first - second;
-        
 
         public static T SetBackground<T>(this T control, Brush brush) where T : Panel
         {
