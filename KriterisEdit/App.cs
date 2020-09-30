@@ -64,17 +64,17 @@ namespace KriterisEdit
                 return outerPanel;
             }
 
-            _DockPanel()._Add(
+            _DockPanel().Add(
                 _DockPanel()._Dock(Dock.Top)
-                    ._Add(
-                        _Label()._Dock(Dock.Left)._Add("mask:"),
+                    .Add(
+                        _Label()._Dock(Dock.Left).Add("mask:"),
                         _TextBox().Bind(FileMask),
                         _TextBox().Bind(FileMask)
                     ),
                 _DockPanel()
                     ._Dock(Dock.Top)
-                    ._Add(
-                        _Label()._Add("files:"),
+                    .Add(
+                        _Label().Add("files:"),
                         _ListView("Files")
                             ._Dock(Dock.Top)
                             ._Max(height: 100)
@@ -96,7 +96,7 @@ namespace KriterisEdit
                         var filesAndFolders = dropped._Bucket(("files", Exists), ("folders", Directory.Exists));
                         //filesAndFolders["folders"].SelectMany(folder=>)
                         state.Files = dropped;
-                        fileList._Add(dropped);
+                        fileList.Add(dropped);
                         var nodes = dropped
                             .Where(Exists)
                             .SelectMany(file =>

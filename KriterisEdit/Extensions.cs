@@ -25,13 +25,13 @@ namespace KriterisEdit
 
         public static T[] _Arr<T>(params T[] items) => items;
 
-        public static TextBox _Add(this TextBox _, string text)
+        public static TextBox Add(this TextBox _, string text)
         {
             _.Text = text;
             return _;
         }
 
-        public static T _Add<T>(this T _, object content) where T : ContentControl
+        public static T Add<T>(this T _, object content) where T : ContentControl
         {
             _.Content = content;
             return _;
@@ -104,7 +104,7 @@ namespace KriterisEdit
             return _;
         }
 
-        public static T _Add<T>(this T _, params UIElement[] children) where T : Panel
+        public static T Add<T>(this T _, params UIElement[] children) where T : Panel
         {
             foreach (var child in children)
             {
@@ -114,7 +114,7 @@ namespace KriterisEdit
             return _;
         }
 
-        public static ListView _Add(this ListView _, params object[] items)
+        public static ListView Add(this ListView _, params object[] items)
         {
             _.Items.Clear();
             var coll = _.Items;
@@ -160,7 +160,7 @@ namespace KriterisEdit
                 }
             */
         }
-
+         
         public static T _AddHandler<T, TEventArgs>(this T source, string eventName, EventHandler<TEventArgs> handler)
             where TEventArgs : EventArgs
         {

@@ -156,23 +156,13 @@ namespace KriterisEdit
             _StackPanel().Var(out var container);
             window.Content = container;
             
-            var tree = Tree.New();
-            tree.Render = panel =>
-            {
-                
-            };
-
-            tree.NewValue().Var(out var hello).SetData("hello");
-            tree.Root
-                .AddChild(hello)
-                .AddChild(hello);
-            tree.Render(container);
 
             static El Cursor()
             {
                 var textBlock = new TextBlock();
                 textBlock.Text = "█";
-
+                var persist = new Scripting();
+                
                 // void Callback(object? sender, EventArgs args) => 
                 //     c.Text = c.Text == " " ? "█" : " ";
                 //
@@ -208,7 +198,7 @@ namespace KriterisEdit
 
             Cursor().Var(out var cursor);
             container.Children.Add(cursor.GetValue());
-            window._Add(container);
+            window.Add(container);
             window.PreviewKeyDown += (sender, args) =>
             {
                 void Add(string text)
