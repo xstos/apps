@@ -154,16 +154,12 @@ namespace KriterisEdit
         {
             var ret = new Editor();
             
-            var persist = new Persist();
-            var tb = persist.New<TextBlock>();
-            persist.New<DockPanel>().Var(out var dp).Add(tb);
-            tb.Set(nameof(TextBlock.Text), "hello!");
-            window.Content = dp.Value;
+            
+            
             static El Cursor()
             {
                 var textBlock = new TextBlock();
                 textBlock.Text = "█";
-                
                 
                 // void Callback(object? sender, EventArgs args) => 
                 //     c.Text = c.Text == " " ? "█" : " ";

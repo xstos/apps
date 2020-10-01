@@ -37,25 +37,30 @@ namespace KriterisEdit
         
         static Window BuildWindow(Window window)
         {
+            window.Content = Persist.Example().Value;
+            
+            //CellExperiments(window);
+            return window;
+        }
+
+        static void CellExperiments(Window window)
+        {
             var (xmlNodes, fileList) = (_ListView("Xml"), _ListView("Todo"));
             Instance.Log = s => Dispatch(Message.Log, s);
             var defaultFiles = _Arr(@"C:\repos\cog\dev\src", "drag", "files", "here");
-            
+
             var FileMask = ("FileMask", "*.csproj").Cell();
             var DroppedFiles = ("DroppedFiles", defaultFiles).Cell();
             var DroppedFilesExpanded = ("DroppedFilesExpanded", _Arr<string>()).Cell();
-            
-            Formula((DroppedFiles,FileMask),DroppedFilesExpanded, (string[] dropped, string mask) =>
-            {
-                return dropped;
-            });
+
+            Formula((DroppedFiles, FileMask), DroppedFilesExpanded, (string[] dropped, string mask) => { return dropped; });
             Editor.New(window).Var(out var react);
             _Grid()
                 .Var(out var grid)
                 .SetShowGridLines(true)
                 .Rows()
-                    [_Button("r1c1"), _Button("r1c2"), _Button("r1c3")]
-                    [_Button("r2c1"), _Button("r2c2")]
+                [_Button("r1c1"), _Button("r1c2"), _Button("r1c3")]
+                [_Button("r2c1"), _Button("r2c2")]
                 .Build()
                 ;
 
@@ -110,7 +115,6 @@ namespace KriterisEdit
 
                 return state;
             };
-            return window;
         }
     }
 }

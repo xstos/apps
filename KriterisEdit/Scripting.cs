@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel.Composition.Hosting;
 using System.Linq;
+using System.Windows;
 using System.Windows.Controls;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
@@ -34,14 +35,16 @@ namespace KriterisEdit
     {
         public static List<object> Vars = new List<object>();
         List<string> commands = new List<string>();
-        public object Value { get; set; }
+        public object Value => Vars[Index];
         public int Index { get; set; }
 
         string Escape(object? o)
         {
             if (o == null) return "null";
             if (o is string s) return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(s, true);
-            return o.ToString();
+            var ret = o.ToString();
+            if (ret == null) return "null";
+            return ret;
         }
         public Persist Set(string prop, object value)
         {
@@ -50,15 +53,16 @@ namespace KriterisEdit
             Eval(cmd);
             return this;
         }
+        
         public Persist Add(Persist child)
         {
             switch (Value)
             {
                 case DockPanel dock:
 @$"
-var parent = (DockPanel)KriterisEdit.Persist.Vars[{Index}];
-var child = (UIElement)KriterisEdit.Persist.Vars[{child.Index}];
-item.Children.Add(child);
+var parent = ({typeof(DockPanel).GetFriendlyName()})KriterisEdit.Persist.Vars[{Index}];
+var child = ({typeof(UIElement).GetFriendlyName()})KriterisEdit.Persist.Vars[{child.Index}];
+parent.Children.Add(child);
 ".Var(out var cmd);
                 Eval(cmd);
                     break;
@@ -69,6 +73,7 @@ item.Children.Add(child);
         public void Eval(string cmd)
         {
             commands.Add(cmd);
+            Console.WriteLine(cmd);
             Scripting.Eval(cmd);
         }
         public Persist New<T>()
@@ -78,15 +83,23 @@ item.Children.Add(child);
             var cmd = $"KriterisEdit.Persist.Vars.Add(new {name}());";
             Eval(cmd);
             return new Persist() {
-                commands = this.commands,
+                commands = commands,
                 Index = index,
-                Value = Vars[Index]
             };
         }
 
         public static Persist New()
         {
             return new Persist();
+        }
+
+        public static Persist Example()
+        {
+            var persist = new Persist();
+            var textBlock = persist.New<TextBlock>();
+            persist.New<DockPanel>().Var(out var dockPanel).Add(textBlock);
+            textBlock.Set(nameof(TextBlock.Text), "hello!");
+            return dockPanel;
         }
     }
 }
