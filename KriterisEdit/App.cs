@@ -58,11 +58,6 @@ namespace KriterisEdit
                     [_Button("r2c1"), _Button("r2c2")]
                 .Build()
                 ;
-            UIElement XamlBuilderControl()
-            {
-                _DockPanel().Var(out var outerPanel);
-                return outerPanel;
-            }
 
             _DockPanel().Add(
                 _DockPanel()._Dock(Dock.Top)

@@ -153,15 +153,17 @@ namespace KriterisEdit
         public static Editor New(Window window)
         {
             var ret = new Editor();
-            _StackPanel().Var(out var container);
-            window.Content = container;
             
-
+            var persist = new Persist();
+            var tb = persist.New<TextBlock>();
+            persist.New<DockPanel>().Var(out var dp).Add(tb);
+            tb.Set(nameof(TextBlock.Text), "hello!");
+            window.Content = dp.Value;
             static El Cursor()
             {
                 var textBlock = new TextBlock();
                 textBlock.Text = "█";
-                var persist = new Scripting();
+                
                 
                 // void Callback(object? sender, EventArgs args) => 
                 //     c.Text = c.Text == " " ? "█" : " ";
@@ -197,8 +199,6 @@ namespace KriterisEdit
             }
 
             Cursor().Var(out var cursor);
-            container.Children.Add(cursor.GetValue());
-            window.Add(container);
             window.PreviewKeyDown += (sender, args) =>
             {
                 void Add(string text)
