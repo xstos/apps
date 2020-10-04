@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
@@ -287,7 +288,16 @@ namespace KriterisEdit
             { typeof(ulong), "ulong" },
             { typeof(void), "void" }
         };
-        
+        public static string _GetAssemblyDirectoryPath(this Assembly ass) => 
+            Path.GetDirectoryName(_GetAssemblyFullName(ass));
+
+        public static string _GetAssemblyFullName(this Assembly ass)
+        {
+            var codeBase = ass.CodeBase;
+            var uri = new UriBuilder(codeBase);
+            var path = Uri.UnescapeDataString(uri.Path);
+            return path;
+        }
         //https://stackoverflow.com/questions/4185521/c-sharp-get-generic-type-name
         public static string GetFriendlyName(this Type type)
         {

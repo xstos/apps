@@ -3,7 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using WpfPlus;
 using static KriterisEdit.Extensions;
 using static KriterisEdit.GlobalStatics;
 using static System.IO.File;
@@ -24,20 +24,27 @@ namespace KriterisEdit
         static Application BuildApp()
         {
             var app = new Application();
-            app.MainWindow = new Window();
+            var window = new Window();
+            app.MainWindow = window;
+            
+            Application.Current.Resources.MergedDictionaries.Add(new DarkTheme());
+            window.SetResourceReference(Control.StyleProperty, "FlatWindowStyle");
             void Activated(object? sender, EventArgs args)
             {
                 app.Activated -= Activated;
-                BuildWindow(app.MainWindow);
+                BuildWindow(window);
             }
 
             app.Activated += Activated;
             return app;
         }
-        
+
         static Window BuildWindow(Window window)
         {
-            window.Content = Persist.Example().Value;
+            window.Width = 800;
+            window.Height = 600;
+            
+            window.Content = Persist.Example(window).Value;
             
             //CellExperiments(window);
             return window;
