@@ -1,0 +1,3 @@
+VCRUNTIME140.DLL NOT FOUND:
+https://users.rust-lang.org/t/statically-linking-to-crt-on-msvc/9755
+https://stackoverflow.com/questions/48675235/error-the-option-z-is-only-accepted-on-the-nightly-compiler/48675452
