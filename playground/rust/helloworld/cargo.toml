@@ -2,5 +2,9 @@
 name = "hello-world"
 version = "0.1.0"
 
+[profile.dev]
+opt-level = 3
+
 [dependencies]
 sdl2 = { version = "0.34.3", features = ["bundled", "static-link"] }
+minifb = { version = "*" }
