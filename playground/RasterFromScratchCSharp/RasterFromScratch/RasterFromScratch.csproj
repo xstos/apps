@@ -5,6 +5,110 @@
         <TargetFramework>netcoreapp3.1-windows</TargetFramework>
         <UseWPF>true</UseWPF>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <PixelFarm>..\..\..\..\..\paintlab\PixelFarm\</PixelFarm>
     </PropertyGroup>
+
+    <ItemGroup>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\AffineMat.cs">
+        <Link>PixelFarm\AffineMat.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\BitmapBufferFormat.cs">
+        <Link>PixelFarm\BitmapBufferFormat.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\ClipLiangBarsky.cs">
+        <Link>PixelFarm\ClipLiangBarsky.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\Color.cs">
+        <Link>PixelFarm\Color.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\ICoordTransformer.cs">
+        <Link>PixelFarm\ICoordTransformer.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\Image.cs">
+        <Link>PixelFarm\Image.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.BasicVisualElements_SH\Q1Rect.cs">
+        <Link>PixelFarm\Q1Rect.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\0_ScanlineSpan.cs">
+        <Link>PixelFarm\0_ScanlineSpan.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\1_Scanline.cs">
+        <Link>PixelFarm\1_Scanline.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\2_ScanlinePacked8.cs">
+        <Link>PixelFarm\2_ScanlinePacked8.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\4.1_ScanlineRasterizer.cs">
+        <Link>PixelFarm\4.1_ScanlineRasterizer.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\4.2_CellAARasterizer.cs">
+        <Link>PixelFarm\4.2_CellAARasterizer.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\4.3_VectorClipper.cs">
+        <Link>PixelFarm\4.3_VectorClipper.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\5_DestBitmapRasterizer.cs">
+        <Link>PixelFarm\5_DestBitmapRasterizer.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\02_Rasterization\SubPixConst.cs">
+        <Link>PixelFarm\SubPixConst.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\04_FragmentProcessing\0_ISpanGenerator.cs">
+        <Link>PixelFarm\0_ISpanGenerator.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\04_FragmentProcessing\IGammaFunction.cs">
+        <Link>PixelFarm\IGammaFunction.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\05_PixelProcessing\BitmapBlenderBase.cs">
+        <Link>PixelFarm\BitmapBlenderBase.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\05_PixelProcessing\IBitmapBlender.cs">
+        <Link>PixelFarm\IBitmapBlender.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\05_PixelProcessing\PixelBlender32.cs">
+        <Link>PixelFarm\PixelBlender32.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.CpuBlit_Layer1\05_PixelProcessing\PixelBlenderBGRA.cs">
+        <Link>PixelFarm\PixelBlenderBGRA.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\AggMathRound.cs">
+        <Link>PixelFarm\AggMathRound.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\ArrayList_T.cs">
+        <Link>PixelFarm\ArrayList_T.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\CO.cs">
+        <Link>PixelFarm\CO.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\FillingRule.cs">
+        <Link>PixelFarm\FillingRule.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\IBitmapSrc.cs">
+        <Link>PixelFarm\IBitmapSrc.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\MemBitmap.cs">
+        <Link>PixelFarm\MemBitmap.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\MemMx.cs">
+        <Link>PixelFarm\MemMx.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\NativeMemMx.cs">
+        <Link>PixelFarm\NativeMemMx.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\TempMemPtr.cs">
+        <Link>PixelFarm\TempMemPtr.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\VertexStore.cs">
+        <Link>PixelFarm\VertexStore.cs</Link>
+      </Compile>
+      <Compile Include="$(PixelFarm)src\Tests\Test_CpuBlitCoreRasterizer\PORT\Main.cs">
+        <Link>PixelFarm\Main.cs</Link>
+      </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="System.Drawing.Common" Version="5.0.0" />
+    </ItemGroup>
 
 </Project>

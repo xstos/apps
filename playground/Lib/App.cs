@@ -68,14 +68,14 @@ namespace Cells
             cell(Sym.splitOpts)
                 .setValue(StringSplitOptions.None);
             var call = cell(Sym.text)
-                .call(Fun.Split, cell(Sym.splitChar), cell(Sym.splitOpts));
+                .callMethod(Fun.Split, cell(Sym.splitChar), cell(Sym.splitOpts));
             cell(Sym.splitText)
                 .setValue(call);
         }
 
-        public static O call(this O target, string name, params O[] args)
+        public static O callMethod(this O target, string methodName, params O[] args)
         {
-            return state.calls.add(target, name, args);
+            return state.formulas.callMethod(target, methodName, args);
         }
         
         public static O cell(string key)
@@ -83,55 +83,59 @@ namespace Cells
             return state.cells.GetOrCreate(key);
         }
 
-        public class Calls
+        public class Formulas
         {
             List<O> calls = new List<O>();
-            public O add(O target, string name, params O[] args)
+            public O callMethod(O target, string methodName, params O[] args)
             {
                 var ret = new O();
                 ret.id = calls.Count;
                 ret.type = "call";
-                ret.name = name;
+                ret.name = methodName;
                 calls.Add(ret);
-                target.connectTo(ret);
-                foreach (var arg in args)
-                {
-                    arg.connectTo(ret);
-                }
-
+                ret.dependsOn(target, args);
                 return ret;
             }
         }
 
         public class Flows
         {
-            List<List<int>> precedents = new List<List<int>>();
-            List<List<int>> dependents = new List<List<int>>();
-            List<int> dirties = new List<int>();
-            public void dirty(O o)
-            {
-                dirties.Add(o.id);
-            }
+            List<List<ORef>> precedents = new List<List<ORef>>();
+            List<List<ORef>> dependents = new List<List<ORef>>();
 
-            public Flows add(string type, O @from, O to)
+            public Flows add(O from, O to)
             {
-                var fromId = @from.id;
-                var toId = to.id;
                 add(precedents, toId, fromId);
                 add(dependents, fromId, toId);
                 return this;
             }
 
-            static void add(List<List<int>> list, int index, int childId)
+            static void add(List<List<ORef>> list, O from, O to)
             {
-                var pre = list.SafeGet(index);
+                var fromId = from.id;
+                var pre = list.SafeGet(fromId);
                 if (pre == null)
                 {
-                    pre = new List<int>();
-                    list.SafeSet(index, pre);
+                    pre = new List<ORef>();
+                    list.SafeSet(fromId, pre);
                 }
 
-                pre.Add(childId);
+                pre.Add(to);
+            }
+        }
+
+        public class ORef
+        {
+            public int id;
+
+            public static implicit operator ORef(O o)
+            {
+                return new ORef() {id = o.id};
+            }
+
+            public static implicit operator O(ORef o)
+            {
+                return state.cells[o];
             }
         }
         public class O
@@ -148,7 +152,6 @@ namespace Cells
             public O setValue(object o)
             {
                 data = o;
-                state.flows.dirty(this);
                 return this;
             }
 
@@ -164,25 +167,40 @@ namespace Cells
                 state.flows.add("", this, o);
                 return this;
             }
+
+            public O dependsOn(O target, IEnumerable<O> items)
+            {
+                state.flows.add("", target, this);
+                return this;
+            }
+
         }
         public class Cells
         {
-            Dictionary<string,O> cells = new Dictionary<string, O>();
+            List<O> cells = new List<O>();
+            Dictionary<string,int> byName = new Dictionary<string, int>();
+
+            public O this[ORef r] => cells[r.id];
+
             public O GetOrCreate(string name)
             {
-                if (cells.TryGetValue(name, out var obj)) return obj;
+                if (byName.TryGetValue(name, out var obj))
+                {
+                    return cells[obj];
+                }
                 var ret = new O();
                 ret.id = cells.Count;
                 ret.type = "cell";
                 ret.name = name;
                 ret.data = null;
-                cells.Add(name, ret);
+                cells.Add(ret);
+                byName[name] = ret.id;
                 return ret;
             }
         }
         public class State
         {
-            public Calls calls = new Calls();
+            public Formulas formulas = new Formulas();
             public Cells cells = new Cells();
             public Flows flows = new Flows();
         }
