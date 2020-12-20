@@ -4,14 +4,23 @@
 //https://github.com/ysgard/sprite-blitting-rs
 //https://stackoverflow.com/questions/19605132/is-it-possible-to-use-global-variables-in-rust
 extern crate sdl2;
+extern crate fontdue;
+extern crate druid;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use std::time::{ Instant};
+
 mod hello;
+mod fonts;
+mod druidTest;
+
 fn main() -> Result<(), String>
 {
-    hello::main2();
+    druidTest::druidTest();
     return Ok(());
+    fonts::fontexample();
+    hello::main2();
+
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let width = 1024;

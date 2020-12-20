@@ -6,11 +6,9 @@ extern crate minifb;
 use std::time::{Instant};
 use self::minifb::{Window, WindowOptions, Key, MouseMode};
 
-pub fn makeColor(red: u32, green: u32, blue: u32) -> u32 {
+pub fn makeColor(red: u32, green: u32, blue: u32) -> u32
+{
     (red << 16) | (green << 8) | blue
-}
-fn returns_closure() -> Box<dyn Fn(i32) -> i32> {
-    Box::new(|x| x + 1)
 }
 pub fn main2() {
     let w = 1920;
@@ -22,7 +20,6 @@ pub fn main2() {
     let mut startTime = Instant::now();
     let mut numframes = 0;
     while window.is_open() && !window.is_key_down(Key::Escape) {
-
         //fill the buffer with a new color
         let mycolor = makeColor(colorIndex, 0, 0);
         for i in 0..len {
