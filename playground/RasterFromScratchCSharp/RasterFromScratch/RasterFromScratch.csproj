@@ -102,9 +102,6 @@
       <Compile Include="$(PixelFarm)src\PixelFarm\PixelFarm.Painter_Layer1_SH\VertexStore.cs">
         <Link>PixelFarm\VertexStore.cs</Link>
       </Compile>
-      <Compile Include="$(PixelFarm)src\Tests\Test_CpuBlitCoreRasterizer\PORT\Main.cs">
-        <Link>PixelFarm\Main.cs</Link>
-      </Compile>
     </ItemGroup>
 
     <ItemGroup>
