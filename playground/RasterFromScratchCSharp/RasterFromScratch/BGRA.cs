@@ -41,5 +41,10 @@ namespace RasterFromScratch
         {
             return Color.FromArgb(bgra.Alpha, bgra.Red, bgra.Green, bgra.Blue);
         }
+
+        public static implicit operator BGRA(Color color)
+        {
+            return new BGRA() {Alpha = color.A, Blue = color.B, Red = color.R, Green = color.G};
+        }
     }
 }

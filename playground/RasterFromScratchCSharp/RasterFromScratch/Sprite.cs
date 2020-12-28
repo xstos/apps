@@ -34,6 +34,19 @@ namespace RasterFromScratch
                 ptr[i] = value;
             }
         }
+
+        public Sprite Fill(Func<int, int, BGRA, BGRA> selector)
+        {
+            for (int i = 0; i < Height; i++)
+            {
+                for (int j = 0; j < Width; j++)
+                {
+                    Data[i,j] = selector(i, j, Data[i,j]);
+                }
+            }
+
+            return this;
+        }
         public Sprite Fill(BGRA value) => Fill(this,value);
 
         public static Sprite Fill(Sprite surface, BGRA value)
