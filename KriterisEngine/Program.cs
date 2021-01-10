@@ -7,11 +7,15 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using Bitmap = System.Drawing.Bitmap;
 using Color = System.Drawing.Color;
+using Font = System.Drawing.Font;
 using FontFamily = System.Drawing.FontFamily;
+using Graphics = System.Drawing.Graphics;
 using Image = System.Windows.Controls.Image;
 using PixelFormat = System.Drawing.Imaging.PixelFormat;
 using Point = System.Drawing.Point;
+using SolidBrush = System.Drawing.SolidBrush;
 
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
 
@@ -22,12 +26,20 @@ namespace KriterisEngine
         [STAThread]
         public static void Main(string[] args)
         {
-            
-            
-            int width = 50, height = 50, dpi = 96;
+            int width = 300, height = 100, dpi = 96;
             var bmp = new WriteableBitmap(width, height, dpi, dpi, PixelFormats.Bgra32, null);
             var surface = Sprite.New(width, height);
             surface.Fill(Color.Transparent);
+            
+            surface.Fill((x, y, color) =>
+            {
+                if (x % 2 == 0)
+                {
+                    return y % 2 != 0 ? Color.LightGray : Color.Transparent;
+                }
+                return y % 2 == 0 ? Color.LightGray : Color.Transparent;
+            });
+            
             var image = new Image();
             image.Source = bmp;
             image.Width = width;
@@ -46,35 +58,36 @@ namespace KriterisEngine
             var win = new Window
             {
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
-                Width = 1200,
-                Height = 1200,
+                Width = 1920,
+                Height = 1080,
             };
             
             var b = new Bitmap(1, 1);
             var g = Graphics.FromImage(b);
-            var font = new Font(new FontFamily("Consolas"), 24);
-            var fontSize = g.MeasureString("a", font);
+
+            var fontFamily = new FontFamily("Consolas");
+            
+            var font = new Font(fontFamily, 24);
+            var text = "aWH█\nfoo";
+            var fontSize = g.MeasureString(text, font);
 
             var dp = new DockPanel();
+            dp.LayoutTransform = new ScaleTransform(5.0, 5.0);
             var wrapLeft = new WrapPanel();
-            var wrap2 = new WrapPanel();
-            DockPanel.SetDock(wrapLeft,Dock.Left);
-
-
+            var debugPanel = new WrapPanel().Dock(Dock.Bottom);
 
             wrapLeft.Background = new SolidColorBrush(Colors.Chartreuse);
-            wrap2.Background = new SolidColorBrush(Colors.Bisque);
+            debugPanel.Background = new SolidColorBrush(Colors.Bisque);
 
             wrapLeft.Children.Add(image);
             
-            dp.Children.Add(wrapLeft.BorderAround(Colors.Yellow));
-            dp.Children.Add(wrap2.BorderAround(Colors.Green));
             
-            
+            dp.Children.Add(debugPanel);
+            dp.Children.Add(wrapLeft);
             
             Sprite RenderText()
             {
-
+                //https://docs.microsoft.com/en-us/dotnet/desktop/winforms/advanced/how-to-obtain-font-metrics?view=netframeworkdesktop-4.8
                 var txtBmp = new Bitmap((int)fontSize.Width, (int)fontSize.Height);
                 txtBmp.SetResolution(dpi,dpi);
                 var brush = new SolidBrush(Color.Black);
@@ -82,9 +95,14 @@ namespace KriterisEngine
                 g2.InterpolationMode = InterpolationMode.NearestNeighbor;
                 g2.SmoothingMode = SmoothingMode.None;
                 //g.Clear(Color.Transparent);
-                g2.DrawString("a",font,brush,0,0);
-                g2.CompositingQuality = CompositingQuality.HighQuality;
-                wrap2.Children.Add(txtBmp.ToImage().BorderAround(Colors.Black));
+                g2.DrawString(text,font,brush,0,0);
+                var p = new System.Drawing.Pen(Color.Black);
+                g2.FillRectangle(brush,0,0,1,1);
+                g2.FillRectangle(brush,0,txtBmp.Height-2,1,1);
+                g2.FillRectangle(brush,txtBmp.Width-2,txtBmp.Height-2,1,1);
+                g2.FillRectangle(brush,txtBmp.Width-2,0,1,1);
+                //g2.CompositingQuality = CompositingQuality.HighQuality;
+                debugPanel.Children.Add(txtBmp.ToImage());
                 var data = txtBmp.LockBits(new Rectangle(new Point(0,0), fontSize.ToSize()),ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
                 var sprite = Sprite.New((int) fontSize.Width, (int) fontSize.Height);
                 unsafe
@@ -102,7 +120,6 @@ namespace KriterisEngine
                 SurfaceToScreen();
             };
             
-            dp.LayoutTransform = new ScaleTransform(5.0, 5.0);
             win.Content = dp;
             var app = new Application();
             app.Run(win);
@@ -127,6 +144,11 @@ namespace KriterisEngine
             return img;
         }
 
+        public static T Dock<T>(this T item, Dock dock) where T : UIElement
+        {
+            DockPanel.SetDock(item,dock);
+            return item;
+        }
         public static Border BorderAround<T>(this T item, System.Windows.Media.Color c) where T: UIElement
         {
             var b = new Border();

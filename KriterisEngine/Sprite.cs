@@ -44,8 +44,8 @@ namespace KriterisEngine
         {
             var offsetWidth = source.Width + x;
             var offsetHeight = source.Height + y;
-            var drawWidth = Math.Min(offsetWidth, source.Width);
-            var drawHeight = Math.Min(offsetHeight, source.Height);
+            var drawWidth = Math.Min(offsetWidth, destination.Width);
+            var drawHeight = Math.Min(offsetHeight, destination.Height);
             for (int i = 0; i < drawHeight; i++)
             {
                 for (int j = 0; j < drawWidth; j++)
