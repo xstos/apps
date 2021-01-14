@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -21,6 +22,8 @@ using SolidBrush = System.Drawing.SolidBrush;
 using static KriterisEngine.Obj;
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
 
+// https://github.com/waf/replay-csharp/tree/e433ad0da9c637d44ebe79ef13b25a3a89b27c35
+// https://carlos.mendible.com/2017/03/02/create-a-class-with-net-core-and-roslyn/
 namespace KriterisEngine
 {
     class Program
@@ -35,13 +38,22 @@ namespace KriterisEngine
             
             surface.Fill((x, y, color) =>
             {
-                if (x % 2 == 0)
+                var xOdd = x % 2 != 0;
+                var yOdd = y % 2 != 0;
+                if (xOdd)
                 {
-                    return y % 2 != 0 ? Color.LightGray : color;
+                    return yOdd ? Color.LightGray : color;
                 }
-                return y % 2 == 0 ? Color.LightGray : color;
+                return !yOdd ? Color.LightGray : color;
             });
-            
+
+            void foo()
+            {
+                void foo2()
+                {
+                    
+                }
+            }
             var image = new Image();
             image.Source = bmp;
             image.Width = width;
@@ -84,7 +96,7 @@ namespace KriterisEngine
 
             wrapLeft.Children.Add(image);
             
-            
+            //https://www.wpf-tutorial.com/panels/dockpanel/
             rootDock.Children.Add(debugPanel);
             rootDock.Children.Add(wrapLeft);
             
@@ -116,13 +128,10 @@ namespace KriterisEngine
 
                 return sprite;
             }
-
             
             surface.Draw(RenderText(), 0,0);
             
-            
-            
-            win.Loaded += (sender, windowLoadedEventArgs) =>
+            win.Loaded += (windowSender, windowLoadedEventArgs) =>
             {
                 var defaultSize = rootDock.DesiredSize;
                 Emit("window.size.changed", 
@@ -135,6 +144,7 @@ namespace KriterisEngine
 
                 Emit("window.keydown")
                     .Out(out var emitKeyDown);
+                
                 rootDock.SizeChanged += (sender, eventArgs) =>
                 {
                     emitSizeChanged(("value", eventArgs.NewSize));
@@ -144,15 +154,13 @@ namespace KriterisEngine
                     var droppedFiles = eventArgs.GetDroppedFiles();
                     emitFilesDropped(("value", droppedFiles));
                 };
-                win.KeyDown += (o, ke) =>
+                win.KeyDown += (o, keyArgs) =>
                 {
-                    var ctrl = ControlKeys.Select(IsKeyDown).ToDictionary(p=>p.Item1, p=>p.Item2);
-                    emitKeyDown(("value", ke.Key), ("control", ctrl));
+                    var ctrl = ControlKeys.Select(IsKeyDown).ToArray();
+                    emitKeyDown(("value", keyArgs.Key), ("control", ctrl));
                 };
                 SurfaceToScreen();
             };
-             
-            
             
             win.Content = rootDock;
             var app = new Application();
@@ -163,6 +171,7 @@ namespace KriterisEngine
     
     public class Obj
     {
+        public static List<(string, (string, object)[])> Events = new List<(string, (string, object)[])>();
         public static Key[] ControlKeys = { Key.LeftCtrl, Key.RightCtrl, Key.LeftShift, Key.RightShift, Key.LeftAlt, Key.RightAlt };
         public delegate void EmitDelegate(params (string, object)[] args);
         public static (Key, bool) IsKeyDown(Key key) => (key, Keyboard.IsKeyDown(key));

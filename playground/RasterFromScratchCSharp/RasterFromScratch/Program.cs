@@ -16,7 +16,11 @@ namespace RasterFromScratch
         public static void Main(string[] args)
         {
             //Program2.PixelFarmExample();
-
+            // https://www.reddit.com/r/GraphicsProgramming/comments/hhbw93/how_to_write_own_software_rasterizer/
+            // https://magcius.github.io/xplain/article/rast1.html
+            // https://www.davrous.com/2013/06/13/tutorial-series-learning-how-to-write-a-3d-soft-engine-from-scratch-in-c-typescript-or-javascript/
+            // https://stackoverflow.com/questions/43267557/c-sharp-fonts-as-2d-points
+            // https://gamedev.stackexchange.com/questions/81267/how-do-i-generalise-bresenhams-line-algorithm-to-floating-point-endpoints/81332#81332
             RawPixelsExample();
         }
 
