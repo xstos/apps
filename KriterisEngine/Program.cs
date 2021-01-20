@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Bitmap = System.Drawing.Bitmap;
@@ -47,13 +49,6 @@ namespace KriterisEngine
                 return !yOdd ? Color.LightGray : color;
             });
 
-            void foo()
-            {
-                void foo2()
-                {
-                    
-                }
-            }
             var image = new Image();
             image.Source = bmp;
             image.Width = width;
@@ -86,19 +81,19 @@ namespace KriterisEngine
             var fontSize = g.MeasureString(text, font);
 
             var rootDock = new DockPanel();
-            rootDock.LayoutTransform = new ScaleTransform(5.0, 5.0);
+            rootDock.LayoutTransform = new ScaleTransform(4.0, 4.0);
             rootDock.AllowDrop = true;
-            var wrapLeft = new WrapPanel();
+            var main = new WrapPanel();
             var debugPanel = new WrapPanel().Dock(Dock.Bottom);
-
-            wrapLeft.Background = new SolidColorBrush(Colors.Chartreuse);
+            
+            main.Background = new SolidColorBrush(Colors.Chartreuse);
             debugPanel.Background = new SolidColorBrush(Colors.Yellow);
 
-            wrapLeft.Children.Add(image);
+            main.Children.Add(image);
             
             //https://www.wpf-tutorial.com/panels/dockpanel/
             rootDock.Children.Add(debugPanel);
-            rootDock.Children.Add(wrapLeft);
+            rootDock.Children.Add(main);
             
             Sprite RenderText()
             {
@@ -164,21 +159,44 @@ namespace KriterisEngine
             
             win.Content = rootDock;
             var app = new Application();
+            
+            
             app.Run(win);
         }
-
     }
-    
+
+    public class Db
+    {
+        public Func<object, Db> Write;
+        public static Db New(string path)
+        {
+            var fs = File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read);
+            var bs = new BinarySerializer(fs);
+            
+            
+            var db = new Db();
+            db.Write = o =>
+            {
+                
+                return db;
+            };
+            return db;
+        }
+    }
     public class Obj
     {
-        public static List<(string, (string, object)[])> Events = new List<(string, (string, object)[])>();
+        public static List<object> Events = new List<object>();
         public static Key[] ControlKeys = { Key.LeftCtrl, Key.RightCtrl, Key.LeftShift, Key.RightShift, Key.LeftAlt, Key.RightAlt };
         public delegate void EmitDelegate(params (string, object)[] args);
         public static (Key, bool) IsKeyDown(Key key) => (key, Keyboard.IsKeyDown(key));
         public static EmitDelegate Emit(string eventText, params (string, object)[] args)
         {
             var def = args.FirstOrDefault(p => p.Item1 == "default");
-            return args2 => { }; //todo
+            
+            return args2 =>
+            {
+                var newArgs = args2.Concat(("date.time", DateTime.UtcNow));
+            }; //todo
 
         }
         public static Obj New()
@@ -186,51 +204,6 @@ namespace KriterisEngine
             return new Obj();
         }
 
-    }
-    public static class Extensions
-    {
-        public static T Out<T>(this T item, out T outVar)
-        {
-            outVar = item;
-            return item;
-        }
-        public static string[] GetDroppedFiles(this DragEventArgs e)
-        {
-            if (!e.Data.GetDataPresent(DataFormats.FileDrop))
-            {
-                return new string[0];
-            }
-
-            return (string[]) e.Data.GetData(DataFormats.FileDrop);
-        }
-        
-        public static Image ToImage(this Bitmap bmp)
-        {
-            var img = new Image();
-            img.Width = bmp.Width;
-            img.Height = bmp.Height;
-            RenderOptions.SetBitmapScalingMode(img, BitmapScalingMode.NearestNeighbor);
-            img.Source = Imaging.CreateBitmapSourceFromHBitmap(
-                bmp.GetHbitmap(), 
-                IntPtr.Zero, 
-                Int32Rect.Empty, 
-                BitmapSizeOptions.FromWidthAndHeight(bmp.Width, bmp.Height));
-            return img;
-        }
-
-        public static T Dock<T>(this T item, Dock dock) where T : UIElement
-        {
-            DockPanel.SetDock(item,dock);
-            return item;
-        }
-        public static Border BorderAround<T>(this T item, System.Windows.Media.Color c) where T: UIElement
-        {
-            var b = new Border();
-            b.BorderBrush = new SolidColorBrush(c);
-            b.BorderThickness = new Thickness(1);
-            b.Child = item;
-            return b;
-        }
     }
 }
 

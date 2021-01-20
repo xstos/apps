@@ -46,9 +46,9 @@ namespace KriterisEngine
             var offsetHeight = source.Height + y;
             var drawWidth = Math.Min(offsetWidth, destination.Width);
             var drawHeight = Math.Min(offsetHeight, destination.Height);
-            for (int i = 0; i < drawHeight; i++)
+            for (var i = 0; i < drawHeight; i++)
             {
-                for (int j = 0; j < drawWidth; j++)
+                for (var j = 0; j < drawWidth; j++)
                 {
                     var src = source.Data[i, j];
                     if (src.Alpha==0) continue;
@@ -58,9 +58,9 @@ namespace KriterisEngine
         }
         public Sprite Fill(Func<int, int, BGRA, BGRA> selector)
         {
-            for (int i = 0; i < Height; i++)
+            for (var i = 0; i < Height; i++)
             {
-                for (int j = 0; j < Width; j++)
+                for (var j = 0; j < Width; j++)
                 {
                     Data[i,j] = selector(i, j, Data[i,j]);
                 }
