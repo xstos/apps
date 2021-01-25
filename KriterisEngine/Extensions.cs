@@ -1,8 +1,10 @@
 using System;
 using System.Drawing;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
+using System.Windows.Markup;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Image = System.Windows.Controls.Image;
@@ -61,7 +63,21 @@ namespace KriterisEngine
             b.Child = item;
             return b;
         }
-        
+
+        public static Prop Get(this Prop[] xs, string prop)
+        {
+            return xs.First(p => p.Item1 == prop);
+        }
+
+        public static T Add<T>(this T parent, params UIElement[] children) where T : UIElement, IAddChild 
+        {
+            foreach (var uiElement in children)
+            {
+                parent.AddChild(uiElement);
+            }
+
+            return parent;
+        }
     }
     
 }
