@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows;
@@ -78,6 +79,35 @@ namespace KriterisEngine
 
             return parent;
         }
+
+        public static P AddItems<T,P>(this P parent, IEnumerable<T> items, Func<T,ListBoxItem> itemGenerator) where P: ItemsControl
+        {
+            var list = parent.Items;
+            foreach (var item in items)
+            {
+                list.Add(itemGenerator(item));
+            }
+
+            return parent;
+        }
+
+        public static IEnumerable<ListBoxItem> GetListBoxItems(this ItemsControl parent)
+        {
+            return parent.Items.Cast<ListBoxItem>();
+        }
+
+        public static void ForEach<T>(this IEnumerable<T> items, Action<T> action)
+        {
+            foreach (var item in items)
+            {
+                action(item);
+            }
+        }
+
+        public static UIElement New(this IEnumerable<AutoCompleteItem> items, Action<AutoComplete> loaded)
+        {
+            return AutoComplete.New(items, loaded);
+        } 
     }
     
 }

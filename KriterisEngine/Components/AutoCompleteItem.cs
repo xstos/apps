@@ -6,24 +6,18 @@ using System.Windows.Controls;
 
 namespace KriterisEngine
 {
-    public delegate void AutoCompleteFilterDelegate(ListBoxItem lbi, AutoCompleteItem aci, string text);
-    public delegate void AutoCompleteRegisterDelegate(ListBox lb, TextBox tb);
     public class AutoCompleteItem
     {
         public object Data { get; private set; }
         public Func<object> GetItem { get; private set; } = () => new TextBlock() {Text = Guid.NewGuid().ToString("N")};
-        public Func<string, bool> Search { get; private set; }
         
-        AutoCompleteItem()
-        {   
-            Search = s => Data.ToString().Contains(s);
-        }
-        
-        public static AutoCompleteItem New(string text, object data = null)
+        public static AutoCompleteItem New(string text, object data = null, Func<object> getItem=null)
         {
-            return new AutoCompleteItem()
+            object GetItemDefault() => new TextBlock() {Text = text};
+
+            return new()
             {
-                GetItem = () => new TextBlock() {Text = text},
+                GetItem = getItem ?? GetItemDefault,
                 Data = data ?? text ?? "",
             };
         }
@@ -31,61 +25,82 @@ namespace KriterisEngine
         public static implicit operator AutoCompleteItem(string text) => New(text);
     }
 
-    public static class AutoComplete
+    public class AutoComplete
     {
-        public static void Filter(ListBoxItem lbi, AutoCompleteItem aci, string searchText)
+        public delegate bool _IsVisible(
+            ListBoxItem listBoxItem, 
+            AutoCompleteItem autoCompleteItem, 
+            string searchText
+        );
+        public StackPanel Control { get; set; }
+        public ListBox SearchResults { get; set; }
+        public TextBox SearchBox { get; set; }
+        public Func<AutoCompleteItem> GetSelectedItem { get; }
+        /// <summary>
+        /// Callback determining if a search result row is visible
+        /// </summary>
+        public _IsVisible IsVisible { get; set; } = (listBoxItem, autoCompleteItem, searchText) =>
+            autoCompleteItem.Data.ToString().Contains(searchText);
+
+        public AutoComplete()
+        {
+            GetSelectedItem = () => (SearchResults.SelectedItem as ListBoxItem).Tag as AutoCompleteItem;
+        }
+        
+        static void Filter(ListBoxItem listBoxItem, string searchText, _IsVisible isVisible)
         {
             if (string.IsNullOrEmpty(searchText))
             {
-                lbi.Visibility = Visibility.Visible;
+                listBoxItem.Visibility = Visibility.Visible;
                 return;
             }
 
-            lbi.Visibility = aci.Search(searchText)
+            listBoxItem.Visibility = isVisible(listBoxItem, listBoxItem.Tag as AutoCompleteItem, searchText)
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
         
-        public static UIElement New(this IEnumerable<AutoCompleteItem> items,
-            AutoCompleteRegisterDelegate register = null, AutoCompleteFilterDelegate filter = null)
+        public static UIElement New(IEnumerable<AutoCompleteItem> items, Action<AutoComplete> loaded)
         {
-            var sp = new StackPanel();
-            var lb = new ListBox();
-            sp.Width = 200; 
-            sp.Height = 500;
-            var tb = new TextBox();
-            tb.Dock(Dock.Top);
-            tb.TextChanged += (sender, args) =>
+            new AutoComplete().Out(out var context);
+            
+            var parentPanel = new StackPanel();
+            var searchResults = new ListBox();
+            var searchBox = new TextBox();
+
+            parentPanel.Width = 200; 
+            parentPanel.Height = 500;
+            searchBox.Dock(Dock.Top);
+            
+            searchBox.TextChanged += (sender, args) =>
             {
-                var txt = tb.Text;
-                foreach (var o in lb.Items.Cast<ListBoxItem>())
-                {
-                    var tc = filter ?? Filter;
-                    tc(o, o.Tag as AutoCompleteItem, txt);
-                }
+                var searchText = searchBox.Text;
+                searchResults
+                    .GetListBoxItems()
+                    .ForEach(o => Filter(o, searchText, context.IsVisible));
             };
             
-            foreach (var item in items)
-            {
-                var lbi = new ListBoxItem {Tag = item, Content = item.GetItem()};
-                lb.Items.Add(lbi);
-                
-            }
-            sp.Children.Add(tb);
-            sp.Children.Add(lb);
-            register?.Invoke(lb, tb);
-            return sp;
+            searchResults.AddItems(items, item => new ListBoxItem {Tag = item, Content = item.GetItem()});
+
+            parentPanel.Children.Add(searchBox);
+            parentPanel.Children.Add(searchResults);
+            
+            context.Control = parentPanel;
+            context.SearchBox = searchBox;
+            context.SearchResults = searchResults;
+            loaded(context);
+            
+            return parentPanel;
         }
         
-        public static UIElement Example(AutoCompleteRegisterDelegate register)
+        public static UIElement ExampleUsage(Action<AutoComplete> loaded)
         {
-            var autoComplete = new AutoCompleteItem[]
+            return new AutoCompleteItem[]
             {
-                AutoCompleteItem.New("banana"),
-                AutoCompleteItem.New("apple"),
-                AutoCompleteItem.New("mango"),
-            };
-            return autoComplete.New(register);
+                "banana",
+                "apple",
+                "mango",
+            }.New(loaded);
         }
     }
 }

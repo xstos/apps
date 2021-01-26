@@ -3,7 +3,6 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
 
 namespace KriterisEngine
 {
@@ -24,11 +23,12 @@ namespace KriterisEngine
             wrap.Add(
                 new TextBox().Out(out var tb1),
                 new TextBox().Out(out var tb2),
-                AutoComplete.Example((lb, tb) =>
+                AutoComplete.ExampleUsage(context =>
                 {
-                    tb.KeyUp += (sender, args) =>
+                    context.SearchBox.Focus();
+                    context.SearchBox.KeyUp += (sender, args) =>
                     {
-                        var data = ((lb.SelectedItem as ListBoxItem).Tag as AutoCompleteItem).Data; //todo fix this
+                        var data = context.GetSelectedItem().Data;
                         if (args.Key == Key.Enter)
                         {
                             wrap.Children.Add(new TextBlock() {Text = data.ToString()});
@@ -44,7 +44,7 @@ namespace KriterisEngine
                     switch (eventArgs.Key)
                     {
                         case Key.Oem3: // `
-
+                            
                             break;
                     }
                 };
