@@ -44,7 +44,11 @@ namespace KriterisEngine
 
         public AutoComplete()
         {
-            GetSelectedItem = () => (SearchResults.SelectedItem as ListBoxItem).Tag as AutoCompleteItem;
+            GetSelectedItem = () =>
+            (
+                (SearchResults.SelectedItem as ListBoxItem)
+                ?? SearchResults.GetListBoxItems().FirstOrDefault()
+            )?.Tag as AutoCompleteItem;
         }
         
         static void Filter(ListBoxItem listBoxItem, string searchText, _IsVisible isVisible)
