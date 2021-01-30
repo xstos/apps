@@ -10,6 +10,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using KriterisEngine.ReactRedux;
 using Bitmap = System.Drawing.Bitmap;
 using Color = System.Drawing.Color;
 using Font = System.Drawing.Font;

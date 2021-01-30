@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using AdonisUI;
+using KriterisEngine.ReactRedux;
 using static KriterisEngine.Common;
 using static KriterisEngine.Global;
 using Brushes = System.Windows.Media.Brushes;
@@ -26,36 +27,8 @@ namespace KriterisEngine
 
             var app = new Application();
             MakeDark(app, win);
-            G.Dispatcher = () => app.Dispatcher;
-            G.OnShown = (action) => OnNextIsVisibleChanged(win, action);
-            G.Event = (e,o) =>
-            {
-                switch (e)
-                {
-                    case EventTypes.New:
-                        if (o is UIElement el)
-                        {
-                            State.New(el);
-                            el.Build();
-                        } 
-                        break;
-                    case EventTypes.Add:
-                        if (o is Tuple<UIElement, UIElement> el2)
-                        {
-                            var (parent, child) = el2;
-                            parent.MetaObj().AddChild(child.MetaObj());
-                        }
-                        break;
-                }
-            };
             
-
-            G.OnShown(BuildWindow);
-
-            void Emit(object @event)
-            {
-                
-            }
+            
             void BuildWindow()
             {
                 // win.Activate();
@@ -69,33 +42,28 @@ namespace KriterisEngine
                             break;
                     }
                 };
+                Cell().AddChild(
+                    Cell(),
+                    Cell()
+                ).Out(out var cell);
                 
-                New<WrapPanel>().Out(out var wrap);
-                wrap.AddChildren(
-                    New<TextBox>().Out(out var tb1),
-                    New<TextBox>().Out(out var tb2),
-                    New<WrapPanel>().AddChildren(
-                        New<TextBlock>(tb => tb.Text = "Hello"),
-                        New<WrapPanel>(panel => { panel.Background = Brushes.Salmon;})
-                    )
-                    // AutoComplete.ExampleUsage(context =>
-                    // {
-                    //     context.SearchBox.KeyUp += (sender, args) =>
-                    //     {
-                    //         var selectedItem = context.GetSelectedItem();
-                    //         if (selectedItem == null) return;
-                    //         var data = selectedItem.Data;
-                    //         if (args.Key == Key.Enter)
-                    //         {
-                    //             wrap.Children.Add(new TextBlock() {Text = data.ToString()});
-                    //         }
-                    //     };
-                    //     context.SearchBox.SetFocus();
-                    // })
-                );
-                win.Content = wrap;
+                // AutoComplete.ExampleUsage(context =>
+                // {
+                //     context.SearchBox.KeyUp += (sender, args) =>
+                //     {
+                //         var selectedItem = context.GetSelectedItem();
+                //         if (selectedItem == null) return;
+                //         var data = selectedItem.Data;
+                //         if (args.Key == Key.Enter)
+                //         {
+                //             wrap.Children.Add(new TextBlock() {Text = data.ToString()});
+                //         }
+                //     };
+                //     context.SearchBox.SetFocus();
+                // })
+                win.Content = cell.GetContent();
             }
-
+            ReactDOM.Render(Example.MakeApp(), win);
             app.Run(win);
         }
         

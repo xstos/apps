@@ -5,28 +5,26 @@ using System.Windows.Controls;
 
 namespace KriterisEngine.ReactRedux
 {
+    public delegate void _StateChangedCallback(State state, StateChangedArgs args);
+    public delegate void _RegisterStateChangedCallback(_StateChangedCallback callback);
+    public delegate _RegisterStateChangedCallback _StateSliceChanged(StateSlice slice);
 
-    public class Callback<T>
-    {
-        Action<T> action;
-
-        public Callback()
-        {
-            
-        }
-    }
     public class Example
     {
-        public static void MakeApp()
+        public static App MakeApp()
         {
-            static Action<State> F(Action<State> action) => action;
             static Store LoadStore()
             {
-                var callbacks = new Dictionary<string, Action<State>>();
-
-                Action<Action<State>> StateChanged(StateSlice slice)
+                new Dictionary<string, _StateChangedCallback>().Out(out var callbacks);
+                new State().Out(out var state);
+                State GetState()
                 {
-                    void Subscribe(Action<State> callback)
+                    return state;
+                }
+
+                _RegisterStateChangedCallback StateChanged(StateSlice slice)
+                {
+                    void Subscribe(_StateChangedCallback callback)
                     {
                         callbacks[slice] = callback;
                     }
@@ -35,152 +33,108 @@ namespace KriterisEngine.ReactRedux
                 }
                 return new Store()
                 {
-                    Reducer = MainReducer,
-                    StateChanged = StateChanged
+                    Reducer = Reducer,
+                    StateChanged = StateChanged,
+                    GetState = GetState,
+                    
                 };
             }
 
             var store = LoadStore();
-            var getState = store.GetState;
-            var subscribe = store.Subscribe;
-            var dispatch = store.Dispatch;
-            var stateChanged = store.StateChanged;
+            store.GetState.Out(out var getState);
+            store.Subscribe.Out(out var subscribe);
+            store.Dispatch.Out(out var dispatch);
+            store.StateChanged.Out(out var stateChanged);
             UIElement App()
             {
-                UIElement WindowPanelComponent()
+                WindowPanelComponent().Out(out var mainPanel);
+                WrapPanel WindowPanelComponent()
                 {
                     new WrapPanel().Out(out var root);
                     root.MouseUp += (sender, args) =>
                     {
-                        Guid.NewGuid().Out(out var id);
-                        dispatch(("makeButton", id));
-                        stateChanged($"Controls/{id}")(state =>
-                        {
-                            MakeButton(id);
-                        });
+                        dispatch(("new.button", null));
                     };
                     
                     return root;
                 }
-                UIElement MakeButton(Guid id)
+                stateChanged($"controls/@id/@create")((state, args) =>
+                {
+                    ButtonComponent(args.Id).Out(out var el);
+                    mainPanel.Children.Add(el);
+                });
+                Button ButtonComponent(StateId id)
                 {
                     new Button().Out(out var button);
-
-                    button.Content = getState().GetValue("Number", 0);
+                    button.Content = getState().Do(What.Read, $"controls/{id}/numclicks", 0);
                     button.Click += (sender, args) =>
                     {
                         dispatch(("increment", id));
                     };
                     button.MouseLeftButtonUp += (sender, args) =>
                     {
-                        
+                        dispatch(("delete", id));
                     };
-                    var numberChanged = stateChanged("Number");
-                    numberChanged(state =>
+                    
+                    stateChanged($"controls/{id}/numclicks")
+                    ((state, args) =>
                     {
-                        button.Content = state.GetValue("Number", 0);
+                        button.Content = getState().Do(What.Read, $"controls/{id}/numclicks", 0);
                     });
+                    
+                    stateChanged($"controls/{id}/@delete")
+                    ((state, args) =>
+                    {
+                        mainPanel.Children.Remove(button);                        
+                    });
+                    
                     return button;
                 }
 
-                return WindowPanelComponent();
+                return mainPanel;
             }
 
-            static State MainReducer(State state, Message message)
+            static State Reducer(State state, Message message)
             {
                 switch (message.Type)
                 {
+                    case "new.button":
+                        message.Payload.To<StateId>().Out(out var id2);
+                        state.Do(What.Create, $"controls/{id2}/numclicks", 0);
+                        break;
                     case "increment":
-                        var oldNumber = message.Payload.To<int>();
-                        state.SetValue("Number", oldNumber + 1);
+                        message.Payload.To<StateId>().Out(out var id);
+                        static object Transaction(object oldNumber)
+                        {
+                            return oldNumber.To<int>() + 1;
+                        }
+                        state.Do(What.Update, $"controls/{id}/numclicks", null, Transaction);
                         break;
-                    case "makeButton":
-                        message.Payload.To<Guid>().Out(out var id);
-                        state.AddValue($"Controls/{id}[]/Count", 0);
-                        
-                        break;
+                    
                 }
                 return state;
             }
-            
-            
-        }
-    }
 
-    public class Message
-    {
-        public string Type { get; private set; }
-        public object Payload { get; private set; }
-        public Message(string type, object payload)
-        {
-            this.Type = type;
-            this.Payload = payload;
-        }
-
-        public static implicit operator Message((string type, object payload) msg)
-        {
-            return new Message(msg.type, msg.payload);
-        }
-    }
-
-    public class State
-    {
-        Dictionary<string, object> Values = new Dictionary<string, object>();
-        public T GetValue<T>(string path, T defaultValue)
-        {
-            if (Values.TryGetValue(path, out var ret)) return (T)ret;
-            return defaultValue;
-        }
-
-        public State AddValue<T>(string path, T value)
-        {
-            if (Values.TryGetValue(path, out var ret))
+            return new App()
             {
-                ret.To<List<T>>().Out(out var list);
-                list.Add(value);
-                return this;
-            }
-
-            new List<T>().Out(out var list2);
-            Values[path] = list2;
-            list2.Add(value);
-            return this;
+                Render = App
+            };
         }
-        public State SetValue<T>(string path, T value)
-        {
-            Values[path] = value;
-            return this;
-        }
-    }
-    public class Store
-    {
-        public Action<Message> Dispatch { get; set; }
-        public Func<State> GetState { get; set; }
-        public Func<Action<Message>, Action> Subscribe { get; set; }
-        public Func<State, Message, State> Reducer { get; set; } = (state, message) => state;
-        public Func<StateSlice, Action<Action<State>>> StateChanged { get; set; }
     }
 
-    public class StateSlice
-    {
-        public static implicit operator string(StateSlice slice)
-        {
-            return "";
-        }
-        public static implicit operator StateSlice(string path)
-        {
-            return new StateSlice();
-        }
-    }
+
     public class App
     {
-        public Func<State, UIElement> Render { get; set; }
+        public Func<UIElement> Render { get; set; }
     }
     public class ReactDOM
     {
         public static void Render(App app, UIElement target)
         {
-            
+            if (target is Window window)
+            {
+                window.Content = app.Render();
+            }
         }
     }
 }
