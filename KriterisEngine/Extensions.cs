@@ -8,10 +8,15 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Markup;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using Image = System.Windows.Controls.Image;
 using static KriterisEngine.Global;
+using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
+using Color = System.Windows.Media.Color;
+using Rectangle = System.Windows.Shapes.Rectangle;
 
 namespace KriterisEngine
 {
@@ -83,7 +88,7 @@ namespace KriterisEngine
             return ret;
         }
 
-        public static T AddChildren<T>(this T parent, params UIElement[] children) where T : UIElement, IAddChild
+        public static T Add<T>(this T parent, params UIElement[] children) where T : UIElement, IAddChild
         {
             foreach (var child in children)
             {
@@ -104,13 +109,62 @@ namespace KriterisEngine
                 
             } else if (el is WrapPanel wrapPanel)
             {
+                wrapPanel.FocusVisualStyle = MakeFocusStyle(Brushes.Red);
+                wrapPanel.Focusable = true;
                 FocusManager.SetIsFocusScope(wrapPanel, true);
-                wrapPanel.Children.Add(new TextBlock() {Text = "\x2007"});
+                wrapPanel.MinWidth = 100;
+                wrapPanel.MinHeight = 100;
+                
+                var bg = new SolidColorBrush(Color.FromArgb(10,
+                    (byte)G.RandBetween(200, 255), 
+                    (byte)G.RandBetween(200, 255), 
+                    (byte)G.RandBetween(200, 255)));
+                wrapPanel.Background = bg;
             }
 
             return el;
         }
         
+        static Style MakeFocusStyle(SolidColorBrush color)
+        {
+            new FrameworkElementFactory(typeof(Rectangle))
+            {
+                Name = "BetterFocusRectangle_"+color
+            }.SetValues(
+                (Rectangle.StrokeThicknessProperty, 3d),
+                (Rectangle.StrokeProperty, color),
+                (Rectangle.StrokeDashArrayProperty, DoubleCollection.Parse("1 2"))
+            ).Out(out var elementFactory);
+
+            new ControlTemplate().Out(out var controlTemplate).VisualTree = elementFactory;
+            new Setter(Control.TemplateProperty, controlTemplate).Out(out var setter);
+            new Style().Out(out var style).Setters.Add(setter);
+            return style;
+        }
+
+        public static FrameworkElementFactory SetValues(this FrameworkElementFactory factory,params (DependencyProperty dp, object value)[] props)
+        {
+            foreach (var (dp, v) in props)
+            {
+                factory.SetValue(dp, v);
+            }
+
+            return factory;
+        }
+        public static T Do<T>(this T item, Action<T> action)
+        {
+            action(item);
+            return item;
+        }
+        public static T To<T>(this object el)
+        {
+            if (el is T to)
+            {
+                return to;
+            }
+
+            return default;
+        }
         public static P AddItems<T, P>(this P parent, IEnumerable<T> items, Func<T, ListBoxItem> itemGenerator)
             where P : ItemsControl
         {
@@ -148,5 +202,42 @@ namespace KriterisEngine
             Global.G.Dispatcher().InvokeAsync(() => { el.Focus(); }, DispatcherPriority.ContextIdle);
             return el;
         }
+
+        public static Brush MakeRandomBrush()
+        {
+            Color.FromArgb(50,
+                (byte)G.RandBetween(150, 255), 
+                (byte)G.RandBetween(150, 255), 
+                (byte)G.RandBetween(150, 255)
+            ).Out(out var color);
+            return new SolidColorBrush(color);
+        }
+
+        public static MyControl Cell()
+        {
+            new MyControl().Out(out var ret);
+            New<Border>().Out(out var border);
+            border.BorderBrush = MakeRandomBrush();
+            border.BorderThickness = new Thickness(3);
+            New<WrapPanel>().Out(out var wrapPanel);
+            border.Add(wrapPanel);
+
+            ret.AddChild = children =>
+            {
+                wrapPanel.Add(children.Select(c => c.GetContent()).ToArray());
+                return ret;
+            };
+            ret.GetContent = () => border;
+            return ret;
+        }
+    }
+
+    public delegate MyControl _AddChild(params MyControl[] children);
+    public class MyControl
+    {
+
+        public Func<UIElement> GetContent;
+        public _AddChild AddChild;
+
     }
 }

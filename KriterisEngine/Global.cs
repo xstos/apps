@@ -19,12 +19,16 @@ namespace KriterisEngine
     public class Global
     {
         public static ConditionalWeakTable<object,Meta> Props = new();
+        static Random random = new Random(0);
         public static Global G = new Global();
+       
         public static AppState State => G.AppState;
         public Func<Dispatcher> Dispatcher { get; set; }
         public Action<Action> OnShown { get; set; }
         public Action<EventTypes, object> Event { get; set; } = (e, o) => { };
         public AppState AppState { get; set; } = new AppState();
+        
+        public Func<int, int, int> RandBetween = random.Next;
     }
 
     public static class InjectedExtensions
