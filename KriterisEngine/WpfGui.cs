@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using AdonisUI;
 using KriterisEngine.ReactRedux;
 using static KriterisEngine.Common;
@@ -63,7 +64,13 @@ namespace KriterisEngine
                 // })
                 win.Content = cell.GetContent();
             }
-            ReactDOM.Render(Example.MakeApp(), win);
+
+            app.Dispatcher.InvokeAsync(() =>
+            {
+                ReactDOM.Render(Example.MakeApp(), win);
+                win.Activate();
+                win.Focus();
+            }, DispatcherPriority.ContextIdle);
             app.Run(win);
         }
         

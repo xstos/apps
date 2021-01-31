@@ -110,7 +110,7 @@ namespace KriterisEngine
         }
         public static string _Join(this IEnumerable<string> strings, string separator)
         {
-            return String.Join(separator, strings.ToArray());
+            return String.Join(separator, strings);
         }
         public static Stream _SeekTo(this Stream stream, SeekOrigin seekOrigin = SeekOrigin.Begin)
         {

@@ -2,18 +2,18 @@ using System.Linq;
 
 namespace KriterisEngine.ReactRedux
 {
-    public class StateSlice
+    public class Route
     {
-        public StateId Id { get; set; }
+        public Id Id { get; set; }
         public string Path { get; set; }
-        public string Action { get; set; } 
-        public static implicit operator string(StateSlice slice)
+        public What Action { get; set; } 
+        public static implicit operator string(Route route)
         {
-            return slice.Path;
+            return route.Path;
         }
-        public static implicit operator StateSlice(string path)
+        public static implicit operator Route(string path)
         {
-            new StateSlice().Out(out var ret);
+            new Route().Out(out var ret);
             
             path.Split('/').Out(out var parts);
             parts.Select(part =>
@@ -21,11 +21,12 @@ namespace KriterisEngine.ReactRedux
                     switch (part)
                     {
                         case "@id":
-                            ret.Id = StateId.New();
+                            ret.Id = Id.New();
                             return ret.Id.ToString();
                         case "@create":
-                            ret.Action = "create";
-                            return null;
+                            ret.Action = What.Create;
+                            return part;
+                            break;
                         default:
                             return part;
                     }
@@ -33,7 +34,7 @@ namespace KriterisEngine.ReactRedux
                 ._Join("/")
                 .Out(out var pathstr);
             ret.Path = pathstr;
-            return new StateSlice();
+            return ret;
         }
     }
 }

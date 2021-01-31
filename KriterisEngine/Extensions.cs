@@ -125,7 +125,7 @@ namespace KriterisEngine
             return el;
         }
         
-        static Style MakeFocusStyle(SolidColorBrush color)
+        public static Style MakeFocusStyle(SolidColorBrush color)
         {
             new FrameworkElementFactory(typeof(Rectangle))
             {
@@ -202,7 +202,7 @@ namespace KriterisEngine
             Global.G.Dispatcher().InvokeAsync(() => { el.Focus(); }, DispatcherPriority.ContextIdle);
             return el;
         }
-
+        
         public static Brush MakeRandomBrush()
         {
             Color.FromArgb(50,

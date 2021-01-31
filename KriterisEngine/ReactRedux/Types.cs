@@ -2,55 +2,36 @@ using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
 
 namespace KriterisEngine.ReactRedux
 {
     public delegate void _StateChangedCallback(State state, StateChangedArgs args);
     public delegate void _RegisterStateChangedCallback(_StateChangedCallback callback);
-    public delegate _RegisterStateChangedCallback _StateSliceChanged(StateSlice slice);
+    public delegate _RegisterStateChangedCallback _StaterouteChanged(Route route);
 
     public class Example
     {
         public static App MakeApp()
         {
-            static Store LoadStore()
-            {
-                new Dictionary<string, _StateChangedCallback>().Out(out var callbacks);
-                new State().Out(out var state);
-                State GetState()
-                {
-                    return state;
-                }
-
-                _RegisterStateChangedCallback StateChanged(StateSlice slice)
-                {
-                    void Subscribe(_StateChangedCallback callback)
-                    {
-                        callbacks[slice] = callback;
-                    }
-
-                    return Subscribe;
-                }
-                return new Store()
-                {
-                    Reducer = Reducer,
-                    StateChanged = StateChanged,
-                    GetState = GetState,
-                    
-                };
-            }
-
-            var store = LoadStore();
+            var store = Store.New(Reducer);
             store.GetState.Out(out var getState);
-            store.Subscribe.Out(out var subscribe);
             store.Dispatch.Out(out var dispatch);
             store.StateChanged.Out(out var stateChanged);
             UIElement App()
             {
                 WindowPanelComponent().Out(out var mainPanel);
+                
                 WrapPanel WindowPanelComponent()
                 {
                     new WrapPanel().Out(out var root);
+                    root.Background = new SolidColorBrush( Color.FromArgb(1, 0, 0, 0)); //clicks don't work when no bkgrnd
+                    root.FocusVisualStyle = Common.MakeFocusStyle(Brushes.Red);
+                    root.Focusable = true;
+                    
+                    //root.IsHitTestVisible = true;
+                    FocusManager.SetIsFocusScope(root, true);
                     root.MouseUp += (sender, args) =>
                     {
                         dispatch(("new.button", null));
@@ -63,7 +44,7 @@ namespace KriterisEngine.ReactRedux
                     ButtonComponent(args.Id).Out(out var el);
                     mainPanel.Children.Add(el);
                 });
-                Button ButtonComponent(StateId id)
+                Button ButtonComponent(Id id)
                 {
                     new Button().Out(out var button);
                     button.Content = getState().Do(What.Read, $"controls/{id}/numclicks", 0);
@@ -79,7 +60,7 @@ namespace KriterisEngine.ReactRedux
                     stateChanged($"controls/{id}/numclicks")
                     ((state, args) =>
                     {
-                        button.Content = getState().Do(What.Read, $"controls/{id}/numclicks", 0);
+                        button.Content = state.Do(What.Read, $"controls/{id}/numclicks", 0);
                     });
                     
                     stateChanged($"controls/{id}/@delete")
@@ -99,11 +80,11 @@ namespace KriterisEngine.ReactRedux
                 switch (message.Type)
                 {
                     case "new.button":
-                        message.Payload.To<StateId>().Out(out var id2);
+                        message.Payload.To<Id>().Out(out var id2);
                         state.Do(What.Create, $"controls/{id2}/numclicks", 0);
                         break;
                     case "increment":
-                        message.Payload.To<StateId>().Out(out var id);
+                        message.Payload.To<Id>().Out(out var id);
                         static object Transaction(object oldNumber)
                         {
                             return oldNumber.To<int>() + 1;
