@@ -230,6 +230,18 @@ namespace KriterisEngine
             ret.GetContent = () => border;
             return ret;
         }
+        
+        public static void OnNextIsVisibleChanged(UIElement win, Action action)
+        {
+            void Callback(object sender, DependencyPropertyChangedEventArgs args)
+            {
+                win.IsVisibleChanged -= Callback;
+                if (args.NewValue.Equals(false)) return;
+                action();
+            }
+
+            win.IsVisibleChanged += Callback;
+        }
     }
 
     public delegate MyControl _AddChild(params MyControl[] children);

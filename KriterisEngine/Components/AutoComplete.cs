@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 
 namespace KriterisEngine
 {
@@ -97,14 +98,30 @@ namespace KriterisEngine
             return parentPanel;
         }
         
-        public static UIElement ExampleUsage(Action<AutoComplete> loaded)
+        public static UIElement ExampleUsage()
         {
-            return new AutoCompleteItem[]
+            new AutoCompleteItem[]
             {
                 "banana",
                 "apple",
                 "mango",
-            }.New(loaded);
+            }.New(context =>
+            {
+                context.SearchBox.KeyUp += (sender, args) =>
+                {
+                    var selectedItem = context.GetSelectedItem();
+                    if (selectedItem == null) return;
+                    var data = selectedItem.Data;
+                    switch (args.Key)
+                    {
+                        case Key.Oem3: // `
+                            // do something with item
+                            break;
+                    }
+                };
+                context.SearchBox.SetFocus();
+            }).Out(out var el);
+            return el;
         }
     }
 }
