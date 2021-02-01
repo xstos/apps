@@ -39,7 +39,6 @@ namespace KriterisEngine.ReactRedux
                     button.Content = 0;
                     button.PreviewMouseDown += (sender, args) =>
                     {
-
                         if (args.LeftButton == MouseButtonState.Pressed)
                         {
                             dispatch(("increment.button", id));
