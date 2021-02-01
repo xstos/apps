@@ -11,7 +11,7 @@ namespace KriterisEngine.ReactRedux
     {
         public static App New(Application app, Window window)
         {
-            var store = Store.New();
+            Store.New().Out(out var store);
             store.Dispatch.Out(out var dispatch);
             store.Subscribe.Out(out var subscribe);
             UIElement App()
@@ -21,15 +21,13 @@ namespace KriterisEngine.ReactRedux
                 WrapPanel MakeRootPanel()
                 {
                     new WrapPanel().Out(out var root);
-                    root.Background = new SolidColorBrush( Color.FromArgb(1, 0, 0, 0)); //clicks don't work when no bkgrnd
-                    root.FocusVisualStyle = Common.MakeFocusStyle(Brushes.Red);
-                    root.Focusable = true;
+                    MakePanelFocusable(root);
                     new Button()
                     {
                         Content = "Add Counter"
                     }.Out(out var makeCounter);
                     root.Children.Add(makeCounter);
-                    FocusManager.SetIsFocusScope(root, true);
+                    
                     makeCounter.Click += (sender, args) =>
                     {
                         dispatch(("new.button", Id.New()));
@@ -38,6 +36,27 @@ namespace KriterisEngine.ReactRedux
                     return root;
                 }
 
+                Button MakeButton(Id id)
+                {
+                    new Button().Out(out var button);
+                    button.Content = 0;
+                    button.PreviewMouseDown += (sender, args) =>
+                    {
+
+                        if (args.LeftButton == MouseButtonState.Pressed)
+                        {
+                            dispatch(("increment.button", id));
+                        }
+                        else if (args.RightButton == MouseButtonState.Pressed)
+                        {
+                            dispatch(("delete.button", id));
+                        }
+                    };
+
+                    return button;
+                }
+
+                //message handlers
                 new Dictionary<object, (UIElement Parent, UIElement Child)>().Out(out var controls);
                 subscribe(message =>
                 {
@@ -63,26 +82,6 @@ namespace KriterisEngine.ReactRedux
                     }
                 });
                 
-                Button MakeButton(Id id)
-                {
-                    new Button().Out(out var button);
-                    button.Content = 0;
-                    button.PreviewMouseDown += (sender, args) =>
-                    {
-                        
-                        if (args.LeftButton == MouseButtonState.Pressed)
-                        {
-                            dispatch(("increment.button", id));
-                        } 
-                        else if (args.RightButton == MouseButtonState.Pressed)
-                        {
-                            dispatch(("delete.button", id));
-                        }
-                    };
-                    
-                    return button;
-                }
-                
                 return mainPanel;
             }
 
@@ -95,6 +94,14 @@ namespace KriterisEngine.ReactRedux
                 Render = App,
                 GetStore = ()=>store
             };
+        }
+
+        static void MakePanelFocusable(WrapPanel root)
+        {
+            root.Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)); //clicks don't work when no bkgrnd
+            root.FocusVisualStyle = Common.MakeFocusStyle(Brushes.Red);
+            root.Focusable = true;
+            FocusManager.SetIsFocusScope(root, true);
         }
     }
 
