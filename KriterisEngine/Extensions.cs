@@ -242,6 +242,15 @@ namespace KriterisEngine
 
             win.IsVisibleChanged += Callback;
         }
+
+        public static T MakePanelFocusable<T>(this T panel) where T: Panel
+        {
+            panel.Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)); //clicks don't work when no bkgrnd
+            panel.FocusVisualStyle = Common.MakeFocusStyle(Brushes.Red);
+            panel.Focusable = true;
+            FocusManager.SetIsFocusScope(panel, true);
+            return panel;
+        }
     }
 
     public delegate MyControl _AddChild(params MyControl[] children);

@@ -20,23 +20,20 @@ namespace KriterisEngine.ReactRedux
                 
                 WrapPanel MakeRootPanel()
                 {
-                    new WrapPanel().Out(out var root);
-                    MakePanelFocusable(root);
-                    new Button()
-                    {
-                        Content = "Add Counter"
-                    }.Out(out var makeCounter);
-                    root.Children.Add(makeCounter);
+                    new WrapPanel().Out(out var panel).MakePanelFocusable();
+                    new Button().Out(out var addCounterButton);
+                    addCounterButton.Content = "Add Counter";
+                    panel.Children.Add(addCounterButton);
                     
-                    makeCounter.Click += (sender, args) =>
+                    addCounterButton.Click += (sender, args) =>
                     {
                         dispatch(("new.button", Id.New()));
                     };
                     
-                    return root;
+                    return panel;
                 }
 
-                Button MakeButton(Id id)
+                Button MakeCounterButton(Id id)
                 {
                     new Button().Out(out var button);
                     button.Content = 0;
@@ -64,7 +61,7 @@ namespace KriterisEngine.ReactRedux
                     switch (message.Type)
                     {
                         case "new.button":
-                            MakeButton(id).Out(out var button);
+                            MakeCounterButton(id).Out(out var button);
                             mainPanel.Children.Add(button);
                             controls[id] = (mainPanel, button);
                             break;
@@ -96,13 +93,7 @@ namespace KriterisEngine.ReactRedux
             };
         }
 
-        static void MakePanelFocusable(WrapPanel root)
-        {
-            root.Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0)); //clicks don't work when no bkgrnd
-            root.FocusVisualStyle = Common.MakeFocusStyle(Brushes.Red);
-            root.Focusable = true;
-            FocusManager.SetIsFocusScope(root, true);
-        }
+        
     }
 
     public class App
