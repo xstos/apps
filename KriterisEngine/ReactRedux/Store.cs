@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using Newtonsoft.Json;
 
 namespace KriterisEngine.ReactRedux
 {
@@ -12,18 +14,23 @@ namespace KriterisEngine.ReactRedux
         public Action Replay { get; set; }
         public static Store New()
         {
+            var list = new List<Message>();
             Db.New(@"c:\temp\mydb.bin").Out(out var db);
-            
+            db.Close = () =>
+            {
+                db.Write(list.ToArray());
+            };
             Action<Message> subscriptions = message => { };
 
             void Dispatch(Message message)
             {
-                db.Write(message);
+                list.Add(message);
                 DispatchCore(message);
             }
 
             void DispatchCore(Message message1)
             {
+                Debug.WriteLine(JsonConvert.SerializeObject(message1));
                 subscriptions.Invoke(message1);
             }
 
@@ -34,7 +41,12 @@ namespace KriterisEngine.ReactRedux
 
             void Replay()
             {
-                db.GetItems().Cast<Message>().ForEach(DispatchCore);
+                db.Read().To<Message[]>().Out(out var messages);
+                messages ??= new Message[0];
+                Debug.WriteLine("Loading DB");
+                Debug.WriteLine(JsonConvert.SerializeObject(messages));
+                Debug.WriteLine("");
+                messages.ForEach(Dispatch);
             }
 
             return new Store()

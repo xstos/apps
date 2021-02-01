@@ -69,11 +69,12 @@ namespace KriterisEngine.ReactRedux
                     button.Content = 0;
                     button.PreviewMouseDown += (sender, args) =>
                     {
-                        if (Mouse.LeftButton == MouseButtonState.Pressed)
+                        
+                        if (args.LeftButton == MouseButtonState.Pressed)
                         {
                             dispatch(("increment.button", id));
                         } 
-                        else if (Mouse.RightButton == MouseButtonState.Pressed)
+                        else if (args.RightButton == MouseButtonState.Pressed)
                         {
                             dispatch(("delete.button", id));
                         }
@@ -81,8 +82,7 @@ namespace KriterisEngine.ReactRedux
                     
                     return button;
                 }
-
-                store.Replay();
+                
                 return mainPanel;
             }
 
@@ -92,13 +92,15 @@ namespace KriterisEngine.ReactRedux
             };
             return new App()
             {
-                Render = App
+                Render = App,
+                GetStore = ()=>store
             };
         }
     }
 
     public class App
     {
+        public Func<Store> GetStore { get; set; }
         public Func<UIElement> Render { get; set; }
     }
     public class ReactDOM

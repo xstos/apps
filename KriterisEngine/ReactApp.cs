@@ -25,10 +25,11 @@ namespace KriterisEngine
             app.Dispatcher.InvokeAsync(() =>
             {
                 ReactDOM.Render(exampleApp, win);
+                exampleApp.GetStore().Replay();
                 win.Activate();
                 win.Focus();
             }, DispatcherPriority.ContextIdle);
-
+            
             app.Run(win);
         }
     }

@@ -178,13 +178,6 @@ namespace KriterisEngine
             return EmitFunc;
         }
          
-        public static void BuildState()
-        {
-            foreach (var item in Db.GetItems().Cast<Prop[]>())
-            {
-                
-            }
-        }
         public static Prop New()
         {
             return new Prop();

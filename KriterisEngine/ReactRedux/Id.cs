@@ -9,7 +9,7 @@ namespace KriterisEngine.ReactRedux
         {
             return new Id() {Value = Guid.NewGuid()};
         }
-        Guid Value { get; set; }
+        public Guid Value { get; set; }
         public static implicit operator string(Id id) => id.Value.ToString("N");
 
         public override string ToString() => this;
