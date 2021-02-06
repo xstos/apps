@@ -41,7 +41,7 @@ namespace KriterisEngine.ReactRedux
 
             void Replay()
             {
-                db.Read().To<Message[]>().Out(out var messages);
+                db.Read().As<Message[]>().Out(out var messages);
                 messages ??= new Message[0];
                 Debug.WriteLine("Loading DB");
                 Debug.WriteLine(JsonConvert.SerializeObject(messages));

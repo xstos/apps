@@ -56,7 +56,7 @@ namespace KriterisEngine.ReactRedux
                 new Dictionary<object, (UIElement Parent, UIElement Child)>().Out(out var controls);
                 subscribe(message =>
                 {
-                    var id = message.Payload.To<Id>();
+                    var id = message.Payload.As<Id>();
                     switch (message.Type)
                     {
                         case "new.button":
@@ -65,10 +65,10 @@ namespace KriterisEngine.ReactRedux
                             controls[id] = (mainPanel, button);
                             break;
                         case "increment.button":
-                            controls[id].Child.To<Button>().Do(button =>
+                            controls[id].Child.As<Button>().Do(button =>
                             {
                                 //todo better state management like redux
-                                button.Content = button.Content.To<int>() + 1;
+                                button.Content = button.Content.As<int>() + 1;
                             });
                             break;
                         case "delete.button":
@@ -91,8 +91,6 @@ namespace KriterisEngine.ReactRedux
                 GetStore = ()=>store
             };
         }
-
-        
     }
 
     public class App

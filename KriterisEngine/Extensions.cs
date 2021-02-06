@@ -156,7 +156,7 @@ namespace KriterisEngine
             action(item);
             return item;
         }
-        public static T To<T>(this object el)
+        public static T As<T>(this object el)
         {
             if (el is T to)
             {
@@ -245,6 +245,20 @@ namespace KriterisEngine
             panel.Focusable = true;
             FocusManager.SetIsFocusScope(panel, true);
             return panel;
+        }
+
+        public static int ClampedOffset(this int index, int offset, int minValue, int MaxValue)
+        {
+            var desiredValue = index + offset;
+            if (desiredValue < minValue) return minValue;
+            if (desiredValue > MaxValue) return MaxValue;
+            return desiredValue;
+        }
+
+        public static T MoveSelection<T>(this T listBox, int offset) where T : ListBox
+        {
+            listBox.SelectedIndex = listBox.SelectedIndex.ClampedOffset(offset, 0, listBox.Items.Count - 1);
+            return listBox;
         }
     }
 

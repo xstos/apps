@@ -91,7 +91,7 @@ namespace KriterisEngine
                 var sorted = sort(items);
                 itemData.Zip(sorted, (a, b) => (a, b)).Out(out var zipped);
                 zipped.ForEach(pair => pair.a.Item = pair.b);
-                lb.Items.Filter = o => filter(o.To<ListBoxItemData<T>>().Item);
+                lb.Items.Filter = o => filter(o.As<ListBoxItemData<T>>().Item);
                 lb.Items.Refresh();
             }
 
@@ -122,6 +122,22 @@ namespace KriterisEngine
                 filteringListBox.RefreshItems();
             };
 
+            
+            
+            parentPanel.PreviewKeyDown += (sender, args) =>
+            {
+                switch (args.Key)
+                {
+                    case Key.Down:
+                        searchResults.MoveSelection(1);
+                        args.Handled = true;
+                        break;
+                    case Key.Up:
+                        searchResults.MoveSelection(-1);
+                        args.Handled = true;
+                        break;
+                }
+            };
             parentPanel.Children.Add(searchBox);
             parentPanel.Children.Add(searchResults);
 

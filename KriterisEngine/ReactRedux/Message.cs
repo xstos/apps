@@ -10,7 +10,7 @@ namespace KriterisEngine.ReactRedux
             this.Payload = payload;
         }
 
-        public T Get<T>() => Payload.To<T>();
+        public T Get<T>() => Payload.As<T>();
 
         public static implicit operator Message((string type, object payload) msg)
         {
