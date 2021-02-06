@@ -190,16 +190,11 @@ namespace KriterisEngine
             }
         }
 
-        public static UIElement New(this IEnumerable<AutoCompleteItem> items, Action<AutoComplete> loaded)
-        {
-            return AutoComplete.New(items, loaded);
-        }
-
         public static T SetFocus<T>(this T el) where T : UIElement
         {
             //https://www.codeproject.com/tips/478376/setting-focus-to-a-control-inside-a-usercontrol-in
             //https://stackoverflow.com/questions/9535784/setting-default-keyboard-focus-on-loading-a-usercontrol
-            Global.G.Dispatcher().InvokeAsync(() => { el.Focus(); }, DispatcherPriority.ContextIdle);
+            Application.Current.Dispatcher.InvokeAsync(() => { el.Focus(); }, DispatcherPriority.ContextIdle);
             return el;
         }
         
