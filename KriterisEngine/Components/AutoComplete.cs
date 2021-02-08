@@ -1,28 +1,18 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Input;
-using Microsoft.VisualBasic.CompilerServices;
-
+using static KriterisEngine.Common;
 namespace KriterisEngine
 {
     public class AutoComplete
     {
         public static UIElement ExampleUsage()
         {
-            static IEnumerable<string> Sort(string searchText, IEnumerable<string> items)
-            {
-                items
-                    .Select(item => (searchText.LevenshteinDistance(item), item))
-                    .OrderBy(tuple => tuple.Item1)
-                    .Select(tuple => tuple.item).ToList().Out(out var ret);
-                return ret;
-            }
+            static bool Filter(string searchText, string item) => item.Contains(searchText);
+            static IEnumerable<string> Sort(IEnumerable<string> items, string searchText) => items.SortLevenstein(searchText);
 
             new[]
             {
@@ -31,7 +21,7 @@ namespace KriterisEngine
                 "a",
                 "apple",
                 "mango",
-            }.NewAutoComplete((searchText, item) => item.Contains(searchText), Sort, context =>
+            }.NewAutoComplete(Filter, Sort, context =>
             {
                 context.SearchBox.KeyUp += (sender, args) =>
                 {
@@ -49,82 +39,52 @@ namespace KriterisEngine
             return el;
         }
     }
-    public class AutoComplete<T>
+    
+    public static partial class Component
     {
-        public StackPanel Control { get; set; }
-        public ListBox SearchResults { get; set; }
-        public TextBox SearchBox { get; set; }
-        public Func<T> GetSelectedItem { get; }
-
-        public AutoComplete()
+        public static FilterSortListBox<T> NewFilterSortListBox<T>(this IEnumerable<T> items, Func<T, bool> filter, Func<IEnumerable<T>, IEnumerable<T>> sort)
         {
-            GetSelectedItem = () =>
-            {
-                var se = SearchResults.SelectedItems;
-                return default;
-            };
-        }
-    }
-    public class FilteringSortingListBox<T>
-    {
-        public ListBox ListBox { get; set; }
-        public Action RefreshItems { get; set; }
-    }
-    public class ListBoxItemData<T>
-    {
-        public T Item { get; set; }
-        public override string ToString()
-        {
-            return Item.ToString();
-        }
-    }
-    public static class Ext
-    {
-        public static FilteringSortingListBox<T> NewListBox<T>(this IEnumerable<T> items, Func<T, bool> filter, Func<IEnumerable<T>, IEnumerable<T>> sort)
-        {
-            new ListBox().Out(out var lb);
-            var itemData = items.Select(item => new ListBoxItemData<T>() { Item = item }).ToList();
+            New<ListBox>().Out(out var lb);
+            var itemData = items.Wrap().ToList();
             lb.ItemsSource = itemData;
             
             void RefreshItems()
             {
                 var sorted = sort(items);
-                itemData.Zip(sorted, (a, b) => (a, b)).Out(out var zipped);
-                zipped.ForEach(pair => pair.a.Item = pair.b);
-                lb.Items.Filter = o => filter(o.As<ListBoxItemData<T>>().Item);
+                itemData.Zip(sorted, (itemDatum, newValue) => (itemDatum, newValue)).Out(out var zipped);
+                zipped.ForEach(pair => pair.itemDatum.Value = pair.newValue);
+                lb.Items.Filter = (o) => filter(o.As<WrappedValue<T>>().Value);
                 lb.Items.Refresh();
             }
 
-            return new FilteringSortingListBox<T>()
+            return new FilterSortListBox<T>()
             {
                 ListBox = lb,
                 RefreshItems = RefreshItems
             };
         }
-        public static UIElement NewAutoComplete<T>(this IEnumerable<T> items, Func<string, T, bool> filter, Func<string, IEnumerable<T>, IEnumerable<T>> sort, Action<AutoComplete<T>> loaded)
+        public static UIElement NewAutoComplete<T>(this IEnumerable<T> items, Func<string, T, bool> filter, Func<IEnumerable<T>,string, IEnumerable<T>> sort, Action<AutoComplete<T>> loaded)
         {
             new AutoComplete<T>().Out(out var context);
 
-            var parentPanel = new StackPanel();
-            var searchBox = new TextBox();
+            var container = New<StackPanel>();
+            var searchBox = New<TextBox>();
 
             bool Filter(T item) => filter(searchBox.Text, item);
-            IEnumerable<T> Sort(IEnumerable<T> foo) => sort(searchBox.Text, foo);
+            IEnumerable<T> Sort(IEnumerable<T> itemsToSort) => sort(itemsToSort, searchBox.Text);
 
-            var filteringListBox = items.NewListBox(Filter, Sort);
+            var filteringListBox = items.NewFilterSortListBox(Filter, Sort);
             var searchResults = filteringListBox.ListBox;
-            parentPanel.Width = 200;
-            parentPanel.Height = 500;
+            container.Width = 200;
+            container.Height = 500;
             searchBox.Dock(Dock.Top);
 
             searchBox.TextChanged += (sender, args) =>
             {
                 filteringListBox.RefreshItems();
             };
-
             
-            
-            parentPanel.PreviewKeyDown += (sender, args) =>
+            container.PreviewKeyDown += (sender, args) =>
             {
                 switch (args.Key)
                 {
@@ -138,15 +98,15 @@ namespace KriterisEngine
                         break;
                 }
             };
-            parentPanel.Children.Add(searchBox);
-            parentPanel.Children.Add(searchResults);
+            container.Children.Add(searchBox);
+            container.Children.Add(searchResults);
 
-            context.Control = parentPanel;
+            context.Container = container;
             context.SearchBox = searchBox;
             context.SearchResults = searchResults;
+            filteringListBox.RefreshItems();
             loaded(context);
-
-            return parentPanel;
+            return container;
         }
     }
 }

@@ -10,27 +10,27 @@ namespace KriterisEngine
     {
         public static void Run()
         {
-            var win = new Window
+            var window = new Window
             {
                 WindowStartupLocation = WindowStartupLocation.CenterScreen,
                 Width = 800,
                 Height = 600,
             };
 
-            var app = new Application().MakeDark(win);
+            var app = new Application().MakeDark(window);
             
-            ExampleApp.New(app, win).Out(out var exampleApp);
+            ExampleApp.New(app, window).Out(out var exampleApp);
             
             //wait til window loads and is ready to receive focus
             app.Dispatcher.InvokeAsync(() =>
             {
-                ReactDOM.Render(exampleApp, win);
+                ReactDOM.Render(exampleApp, window);
                 exampleApp.GetStore().Replay();
-                win.Activate();
-                win.Focus();
+                window.Activate();
+                window.Focus();
             }, DispatcherPriority.ContextIdle);
             
-            app.Run(win);
+            app.Run(window);
         }
     }
 

@@ -260,6 +260,17 @@ namespace KriterisEngine
             listBox.SelectedIndex = listBox.SelectedIndex.ClampedOffset(offset, 0, listBox.Items.Count - 1);
             return listBox;
         }
+        public static IEnumerable<string> SortLevenstein(this IEnumerable<string> items, string searchText)
+        {
+            items
+                .Select(item => (searchText.LevenshteinDistance(item), item))
+                .OrderBy(tuple => tuple.Item1)
+                .Select(tuple => tuple.item).ToList().Out(out var ret);
+            return ret;
+        }
+
+        public static IEnumerable<WrappedValue<T>> Wrap<T>(this IEnumerable<T> items) =>
+            items.Select(item => new WrappedValue<T>() {Value = item});
     }
 
     public delegate MyControl _AddChild(params MyControl[] children);
