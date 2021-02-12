@@ -7,6 +7,8 @@ import { createStore } from 'redux';
 import kb from 'keyboardjs';
 import cloneDeep from 'clone-deep';
 import om from 'object-merge';
+import { Autocomplete } from '@material-ui/lab';
+import TextField from '@material-ui/core/TextField';
 
 const fs = require('fs');
 
@@ -14,6 +16,7 @@ let id = 0;
 function getId() {
   return id++;
 }
+
 function getInitialState() {
   const rootId = getId();
   const cursorId = getId();
@@ -22,7 +25,6 @@ function getInitialState() {
     type: 'root',
     children: [cursorId],
   };
-
   const cursorEl = {
     id: cursorId,
     type: 'cursor',
@@ -46,7 +48,26 @@ function handleAction(state, action) {
   const mapped = children.map((ix: number) => nodes[ix]);
   const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
   const cursorId = mapped[cursorIndex].id;
-  if (type === 'key') {
+
+  function extracted(id) {
+    const pre = children.slice(0, cursorIndex);
+    const post = children.slice(cursorIndex + 1);
+
+    focusedNode.children = pre.concat([id, cursorId], post);
+  }
+  if (type === "menu.change") {
+    newState.menu = payload.title;
+  } else if (type === "menu.close") {
+    const letters = Array.from(newState.menu);
+    setTimeout(()=>{
+      send('cursor.delete', { key: "Backspace" });
+      letters.map(key=>{
+        send("key", { key, id: getId()})
+      });
+      kb.setContext('editing')
+    },0);
+    newState.menu = ""
+  } else if (type === 'key') {
     const { key, id } = payload;
     nodes.push({
       id,
@@ -54,10 +75,14 @@ function handleAction(state, action) {
       key,
     });
 
-    const pre = children.slice(0, cursorIndex);
-    const post = children.slice(cursorIndex + 1);
-
-    focusedNode.children = pre.concat([id, cursorId], post);
+    extracted(id);
+  } else if (type === 'menu') {
+    const id = payload;
+    nodes.push({
+      id,
+      type: 'menu',
+    });
+    extracted(id)
   } else if (type === 'cursor.move') {
     if (payload === -1 && cursorIndex > 0) {
       children[cursorIndex] = children[cursorIndex - 1];
@@ -76,18 +101,20 @@ function handleAction(state, action) {
   }
   return newState;
 }
+
 const store = createStore(handleAction, getInitialState());
 const { getState, dispatch } = store;
-
 function send(type, payload) {
   dispatch({ type, payload });
 }
 
-kb.bind('`', (e) => {
-  send('menu', getId());
-});
 const letters = 'abcdefghijklmnopqrstuvwxyz\'';
 const lettersArray = Array.from(letters);
+kb.setContext('editing');
+kb.bind('`', (e) => {
+  kb.setContext('intellisense')
+  send('menu', getId());
+});
 kb.bind([...lettersArray, 'space', 'enter'], (e) => {
   const { key } = e;
   const id = getId();
@@ -107,7 +134,9 @@ class X extends React.Component {
     super(props);
   }
 
-  componentDidMount() {     /* console.log("mount ", this.__id, this.props)*/   }
+  componentDidMount() {
+    this.firstTime=true;
+  }
   componentWillUnmount() {     /* callbacks.delete(this); */  }
 
   render() {
@@ -116,15 +145,15 @@ class X extends React.Component {
 
     const item = state.nodes[index];
     function mapChild(child) {
-      // console.log('mapChild', child);
       return <X key={child} index={child} />;
     }
 
     const children = (item.children || []).map(mapChild);
-    if (item.type === 'cursor') {
+    const {type} = item;
+    if (type === 'cursor') {
       return <El>█</El>;
     }
-    if (item.type === 'key') {
+    if (type === 'key') {
       const { key } = item;
       if (key === 'Enter') {
         return <br />;
@@ -134,17 +163,56 @@ class X extends React.Component {
       }
       return key;
     }
-    if (item.type === 'root') {
+    if (type === 'root') {
       return (
         <El w100 h100 dashedBorder key={index}>
-          <El>{item.type}</El>
+          <El>{type}</El>
           <El dashedBorder>{children}</El>
         </El>
       );
     }
+
+    if (type === 'menu') {
+      const top100Films = [
+        { title: 'foo', year: 1994 },
+        { title: 'bar', year: 1972 },
+        { title: 'derp', year: 1974 },
+        { title: 'skerp', year: 2008 },
+      ];
+
+      return <Autocomplete
+        id="combo-box-demo"
+        autoHighlight
+        openOnFocus
+        options={top100Films}
+        getOptionLabel={(option) => option.title}
+        style={{ width: 300 }}
+        ref={input => {
+          input && (input.style.display = "inline-block");
+        }}
+        onChange={(e, value)=> {
+          send("menu.change", value)
+          console.log(e, value)
+        }        }
+        onClose={(e)=> {
+          send("menu.close", null)
+        }}
+        renderInput={(params) =>
+          <TextField
+            inputRef={input => {
+              if (this.firstTime && input) {
+                this.firstTime = false;
+                setTimeout(() => input.focus(), 0);
+              }
+            }}
+
+            {...params} label="Actions" variant="outlined"
+          />}
+      />
+    }
     return (
       <El key={index}>
-        <El>{item.type}</El>
+        <El>{type}</El>
         <El>{children}</El>
       </El>
     );
