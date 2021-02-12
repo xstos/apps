@@ -30,29 +30,47 @@ function getInitialState() {
     children: [],
   };
   return {
-    focused: [0],
+    cursorId,
+    rootId,
+    focus: rootId,
     nodes: [rootEl, cursorEl],
   };
 }
 
+function mapNodes(nodes, children): [any] {
+  return children.map((nodeIndex) => nodes[nodeIndex]);
+}
 function handleAction(state, action) {
   const { type, payload } = action;
   const newState = cloneDeep(state);
-  const targetEl = newState.nodes[state.focused[0]];
-
-  if (type === 'add') {
-    const {key, id} = payload;
+  const focusIndex = state.focus;
+  const targetEl = newState.nodes[focusIndex];
+  const mapped = mapNodes(newState.nodes, targetEl.children);
+  const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
+  const cursorId = mapped[cursorIndex].id;
+  if (type === 'key') {
+    const { key, id } = payload;
     newState.nodes.push({
       id,
-      type: key,
-      children: [],
+      type: 'key',
+      key,
     });
-    targetEl.children.splice(-1, 0, id)
-    return newState;
-  } else if (type==="move.cursor") {
 
+    const pre = targetEl.children.slice(0, cursorIndex);
+    const post = targetEl.children.slice(cursorIndex + 1);
+
+    targetEl.children = pre.concat([id, cursorId], post);
+    console.log({ pre, post }, targetEl);
+  } else if (type === 'move.cursor') {
+    if (payload === -1 && cursorIndex > 0) {
+      targetEl.children[cursorIndex] = targetEl.children[cursorIndex - 1];
+      targetEl.children[cursorIndex - 1] = cursorId;
+    } else if (payload === 1 && cursorIndex < targetEl.children.length - 1) {
+      targetEl.children[cursorIndex] = targetEl.children[cursorIndex + 1];
+      targetEl.children[cursorIndex + 1] = cursorId;
+    }
   }
-  return state;
+  return newState;
 }
 const store = createStore(handleAction, getInitialState());
 const { getState, dispatch } = store;
@@ -63,25 +81,19 @@ function send(type, payload) {
 
 kb.bind('`', (e) => {
   send('menu', getId());
+});
+const letters = 'abcdefghijklmnopqrstuvwxyz';
+const lettersArray = Array.from(letters);
+kb.bind([...lettersArray, 'space', 'enter'], (e) => {
+  const { key } = e;
+  const id = getId();
+  send('key', { key, id });
+});
+kb.bind(['left', 'right'], (e) => {
+  const { key } = e;
+  send('move.cursor', key === 'ArrowLeft' ? -1 : 1);
+});
 
-});
-const letters = "abcdefghijklmnopqrstuvwxyz";
-kb.bind(Array.from(letters), (e) => {
-  //console.log(e)
-  const {key}=e;
-  const id = getId();
-  send('add', {key, id});
-});
-kb.bind("space", (e) => {
-  const id = getId();
-  send('add', {key: " ", id})
-})
-kb.bind("left", (e) => {
-  send("move.cursor", -1)
-})
-kb.bind("right", (e) => {
-  send("move.cursor", 1)
-})
 class X extends React.Component {
   constructor(props: any) {
     super(props);
@@ -101,15 +113,24 @@ class X extends React.Component {
 
     const item = state.nodes[index];
     function mapChild(child) {
-      //console.log('mapChild', child);
+      // console.log('mapChild', child);
       return <X key={child} index={child} />;
     }
 
-    const children = item.children.map(mapChild);
+    const children = (item.children || []).map(mapChild);
     if (item.type === 'cursor') {
       return <El>█</El>;
     }
-
+    if (item.type === 'key') {
+      const { key } = item;
+      if (key === 'Enter') {
+        return <br />;
+      }
+      if (key === ' ') {
+        return '\u00A0';
+      }
+      return key;
+    }
     if (item.type === 'root') {
       return (
         <El w100 h100 dashedBorder key={index}>
@@ -127,7 +148,16 @@ class X extends React.Component {
   }
 }
 function El(props) {
-  const { div, button, w100, h100, dashedBorder, children, style, ...rest } = props;
+  const {
+    div,
+    button,
+    w100,
+    h100,
+    dashedBorder,
+    children,
+    style,
+    ...rest
+  } = props;
   const elType = (button && 'button') || 'div';
   const display = 'inline-block';
   const moreStyle = {
@@ -135,11 +165,12 @@ function El(props) {
     ...s('height', '100%', h100),
     ...s('display', display, true),
     ...s('border', '1px dashed yellow', dashedBorder),
+    // ...s('verticalAlign', 'top', true),
   };
   const newProps = {
     ...rest,
-    ...{ style: om(style, moreStyle)},
-  }
+    ...{ style: om(style, moreStyle) },
+  };
   // console.log("createElement",{
   //   elType,
   //   newProps,
