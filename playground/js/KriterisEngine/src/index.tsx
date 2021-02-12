@@ -49,7 +49,7 @@ function handleAction(state, action) {
   const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
   const cursorId = mapped[cursorIndex].id;
 
-  function extracted(id) {
+  function insertAtCursor(id) {
     const pre = children.slice(0, cursorIndex);
     const post = children.slice(cursorIndex + 1);
 
@@ -75,14 +75,14 @@ function handleAction(state, action) {
       key,
     });
 
-    extracted(id);
+    insertAtCursor(id);
   } else if (type === 'menu') {
     const id = payload;
     nodes.push({
       id,
       type: 'menu',
     });
-    extracted(id)
+    insertAtCursor(id)
   } else if (type === 'cursor.move') {
     if (payload === -1 && cursorIndex > 0) {
       children[cursorIndex] = children[cursorIndex - 1];
@@ -108,13 +108,13 @@ function send(type, payload) {
   dispatch({ type, payload });
 }
 
-const letters = 'abcdefghijklmnopqrstuvwxyz\'';
-const lettersArray = Array.from(letters);
+
 kb.setContext('editing');
 kb.bind('`', (e) => {
   kb.setContext('intellisense')
   send('menu', getId());
 });
+const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,');
 kb.bind([...lettersArray, 'space', 'enter'], (e) => {
   const { key } = e;
   const id = getId();
@@ -144,12 +144,10 @@ class X extends React.Component {
     const state = getState();
 
     const item = state.nodes[index];
-    function mapChild(child) {
-      return <X key={child} index={child} />;
-    }
-
-    const children = (item.children || []).map(mapChild);
     const {type} = item;
+    const children = (item.children || [])
+      .map(child => <X key={child} index={child} />);
+
     if (type === 'cursor') {
       return <El>█</El>;
     }
@@ -173,7 +171,7 @@ class X extends React.Component {
     }
 
     if (type === 'menu') {
-      const top100Films = [
+      const demoMenu = [
         { title: 'foo', year: 1994 },
         { title: 'bar', year: 1972 },
         { title: 'derp', year: 1974 },
@@ -184,7 +182,7 @@ class X extends React.Component {
         id="combo-box-demo"
         autoHighlight
         openOnFocus
-        options={top100Films}
+        options={demoMenu}
         getOptionLabel={(option) => option.title}
         style={{ width: 300 }}
         ref={input => {
@@ -218,6 +216,7 @@ class X extends React.Component {
     );
   }
 }
+
 function El(props) {
   const {
     div,
