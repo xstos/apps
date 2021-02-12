@@ -60,14 +60,20 @@ function handleAction(state, action) {
     const post = targetEl.children.slice(cursorIndex + 1);
 
     targetEl.children = pre.concat([id, cursorId], post);
-    console.log({ pre, post }, targetEl);
-  } else if (type === 'move.cursor') {
+  } else if (type === 'cursor.move') {
     if (payload === -1 && cursorIndex > 0) {
       targetEl.children[cursorIndex] = targetEl.children[cursorIndex - 1];
       targetEl.children[cursorIndex - 1] = cursorId;
     } else if (payload === 1 && cursorIndex < targetEl.children.length - 1) {
       targetEl.children[cursorIndex] = targetEl.children[cursorIndex + 1];
       targetEl.children[cursorIndex + 1] = cursorId;
+    }
+  } else if (type === 'cursor.delete') {
+    const { key } = payload;
+    if (key==="Backspace" && cursorIndex>0) {
+      targetEl.children.splice(cursorIndex-1, 1);
+    } else if (key==="Delete" && cursorIndex<targetEl.children.length) {
+      targetEl.children.splice(cursorIndex+1, 1);
     }
   }
   return newState;
@@ -82,7 +88,7 @@ function send(type, payload) {
 kb.bind('`', (e) => {
   send('menu', getId());
 });
-const letters = 'abcdefghijklmnopqrstuvwxyz';
+const letters = 'abcdefghijklmnopqrstuvwxyz\'';
 const lettersArray = Array.from(letters);
 kb.bind([...lettersArray, 'space', 'enter'], (e) => {
   const { key } = e;
@@ -91,7 +97,11 @@ kb.bind([...lettersArray, 'space', 'enter'], (e) => {
 });
 kb.bind(['left', 'right'], (e) => {
   const { key } = e;
-  send('move.cursor', key === 'ArrowLeft' ? -1 : 1);
+  send('cursor.move', key === 'ArrowLeft' ? -1 : 1);
+});
+kb.bind(['delete', 'backspace'], (e) => {
+  const { key } = e;
+  send('cursor.delete', { key });
 });
 
 class X extends React.Component {
@@ -127,7 +137,7 @@ class X extends React.Component {
         return <br />;
       }
       if (key === ' ') {
-        return '\u00A0';
+        return '\u2000';
       }
       return key;
     }
