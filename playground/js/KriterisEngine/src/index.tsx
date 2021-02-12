@@ -2,12 +2,11 @@
 import './App.global.css';
 import React from 'react';
 import { render } from 'react-dom';
-import { Provider, connect as rrconnect } from 'react-redux';
+import { connect as rrconnect, Provider } from 'react-redux';
 import { createStore } from 'redux';
 import kb from 'keyboardjs';
 import cloneDeep from 'clone-deep';
 import om from 'object-merge';
-import { Autocomplete } from '@material-ui/lab';
 
 const fs = require('fs');
 
@@ -37,43 +36,42 @@ function getInitialState() {
   };
 }
 
-function mapNodes(nodes, children): [any] {
-  return children.map((nodeIndex) => nodes[nodeIndex]);
-}
 function handleAction(state, action) {
   const { type, payload } = action;
   const newState = cloneDeep(state);
   const focusIndex = state.focus;
-  const targetEl = newState.nodes[focusIndex];
-  const mapped = mapNodes(newState.nodes, targetEl.children);
+  let nodes = newState.nodes;
+  const focusedNode = nodes[focusIndex];
+  let children = focusedNode.children;
+  const mapped = children.map((ix: number) => nodes[ix]);
   const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
   const cursorId = mapped[cursorIndex].id;
   if (type === 'key') {
     const { key, id } = payload;
-    newState.nodes.push({
+    nodes.push({
       id,
       type: 'key',
       key,
     });
 
-    const pre = targetEl.children.slice(0, cursorIndex);
-    const post = targetEl.children.slice(cursorIndex + 1);
+    const pre = children.slice(0, cursorIndex);
+    const post = children.slice(cursorIndex + 1);
 
-    targetEl.children = pre.concat([id, cursorId], post);
+    focusedNode.children = pre.concat([id, cursorId], post);
   } else if (type === 'cursor.move') {
     if (payload === -1 && cursorIndex > 0) {
-      targetEl.children[cursorIndex] = targetEl.children[cursorIndex - 1];
-      targetEl.children[cursorIndex - 1] = cursorId;
-    } else if (payload === 1 && cursorIndex < targetEl.children.length - 1) {
-      targetEl.children[cursorIndex] = targetEl.children[cursorIndex + 1];
-      targetEl.children[cursorIndex + 1] = cursorId;
+      children[cursorIndex] = children[cursorIndex - 1];
+      children[cursorIndex - 1] = cursorId;
+    } else if (payload === 1 && cursorIndex < children.length - 1) {
+      children[cursorIndex] = children[cursorIndex + 1];
+      children[cursorIndex + 1] = cursorId;
     }
   } else if (type === 'cursor.delete') {
     const { key } = payload;
     if (key==="Backspace" && cursorIndex>0) {
-      targetEl.children.splice(cursorIndex-1, 1);
-    } else if (key==="Delete" && cursorIndex<targetEl.children.length) {
-      targetEl.children.splice(cursorIndex+1, 1);
+      children.splice(cursorIndex-1, 1);
+    } else if (key==="Delete" && cursorIndex<children.length) {
+      children.splice(cursorIndex+1, 1);
     }
   }
   return newState;
@@ -109,13 +107,8 @@ class X extends React.Component {
     super(props);
   }
 
-  componentDidMount() {
-    // console.log("mount ", this.__id, this.props)
-  }
-
-  componentWillUnmount() {
-    // callbacks.delete(this);
-  }
+  componentDidMount() {     /* console.log("mount ", this.__id, this.props)*/   }
+  componentWillUnmount() {     /* callbacks.delete(this); */  }
 
   render() {
     const { index } = this.props;
@@ -195,10 +188,8 @@ function s(name, value, enabled = false) {
 function App() {
   return <X key={0} index={0} />;
 }
-function connect(component) {
-  return rrconnect((state) => state, {})(component);
-}
-const ConnectedApp = connect(App);
+
+const ConnectedApp = rrconnect((state) => state, {})(App);
 render(
   <Provider store={store}>
     <ConnectedApp />
