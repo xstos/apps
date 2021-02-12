@@ -4,7 +4,7 @@ import React from 'react';
 import { render } from 'react-dom';
 import { connect as rrconnect, Provider } from 'react-redux';
 import { createStore } from 'redux';
-import kb from 'keyboardjs';
+import keyboard from 'keyboardjs';
 import cloneDeep from 'clone-deep';
 import om from 'object-merge';
 import { Autocomplete } from '@material-ui/lab';
@@ -38,35 +38,36 @@ function getInitialState() {
   };
 }
 
-function handleAction(state, action) {
+//<state+action=>new state>
+function Reducer(oldState, action) {
   const { type, payload } = action;
-  const newState = cloneDeep(state);
+  const state = cloneDeep(oldState);
   const focusIndex = state.focus;
-  let nodes = newState.nodes;
+  let nodes = state.nodes;
   const focusedNode = nodes[focusIndex];
   let children = focusedNode.children;
-  const mapped = children.map((ix: number) => nodes[ix]);
+  const mapped = children.map((id: number) => nodes[id]);
   const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
   const cursorId = mapped[cursorIndex].id;
 
   function insertAtCursor(id) {
     const pre = children.slice(0, cursorIndex);
     const post = children.slice(cursorIndex + 1);
-
     focusedNode.children = pre.concat([id, cursorId], post);
   }
+
   if (type === "menu.change") {
-    newState.menu = payload.title;
+    state.menu = payload.title;
   } else if (type === "menu.close") {
-    const letters = Array.from(newState.menu);
+    const letters = Array.from(state.menu);
     setTimeout(()=>{
-      send('cursor.delete', { key: "Backspace" });
+      dispatch('cursor.delete', { key: "Backspace" });
       letters.map(key=>{
-        send("key", { key, id: getId()})
+        dispatch("key", { key, id: getId()})
       });
-      kb.setContext('editing')
+      keyboard.setContext('editing')
     },0);
-    newState.menu = ""
+    state.menu = ""
   } else if (type === 'key') {
     const { key, id } = payload;
     nodes.push({
@@ -74,7 +75,6 @@ function handleAction(state, action) {
       type: 'key',
       key,
     });
-
     insertAtCursor(id);
   } else if (type === 'menu') {
     const id = payload;
@@ -99,36 +99,41 @@ function handleAction(state, action) {
       children.splice(cursorIndex+1, 1);
     }
   }
-  return newState;
+  return state;
 }
+//</state+action=>new state>
 
-const store = createStore(handleAction, getInitialState());
-const { getState, dispatch } = store;
-function send(type, payload) {
-  dispatch({ type, payload });
+//<redux init>
+const store = createStore(Reducer, getInitialState());
+const { getState } = store;
+function dispatch(type, payload) {
+  store.dispatch({ type, payload });
 }
+//</redux init>
 
-
-kb.setContext('editing');
-kb.bind('`', (e) => {
-  kb.setContext('intellisense')
-  send('menu', getId());
+//<keyboard bindings>
+keyboard.setContext('editing');
+keyboard.bind('`', (e) => {
+  keyboard.setContext('intellisense')
+  dispatch('menu', getId());
 });
 const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,');
-kb.bind([...lettersArray, 'space', 'enter'], (e) => {
+keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
   const { key } = e;
   const id = getId();
-  send('key', { key, id });
+  dispatch('key', { key, id });
 });
-kb.bind(['left', 'right'], (e) => {
+keyboard.bind(['left', 'right'], (e) => {
   const { key } = e;
-  send('cursor.move', key === 'ArrowLeft' ? -1 : 1);
+  dispatch('cursor.move', key === 'ArrowLeft' ? -1 : 1);
 });
-kb.bind(['delete', 'backspace'], (e) => {
+keyboard.bind(['delete', 'backspace'], (e) => {
   const { key } = e;
-  send('cursor.delete', { key });
+  dispatch('cursor.delete', { key });
 });
+//<keyboard bindings/>
 
+//<renderer>
 class X extends React.Component {
   constructor(props: any) {
     super(props);
@@ -185,26 +190,17 @@ class X extends React.Component {
         options={demoMenu}
         getOptionLabel={(option) => option.title}
         style={{ width: 300 }}
-        ref={input => {
-          input && (input.style.display = "inline-block");
-        }}
-        onChange={(e, value)=> {
-          send("menu.change", value)
-          console.log(e, value)
-        }        }
-        onClose={(e)=> {
-          send("menu.close", null)
-        }}
+        ref={input => input && (input.style.display = 'inline-block')}
+        onChange={(_, value)=> dispatch('menu.change', value)}
+        onClose={()=> dispatch('menu.close', null)}
         renderInput={(params) =>
-          <TextField
+          <TextField {...params} label="Actions" variant="outlined"
             inputRef={input => {
               if (this.firstTime && input) {
                 this.firstTime = false;
                 setTimeout(() => input.focus(), 0);
               }
             }}
-
-            {...params} label="Actions" variant="outlined"
           />}
       />
     }
@@ -216,7 +212,9 @@ class X extends React.Component {
     );
   }
 }
+//</renderer>
 
+//<element factory>
 function El(props) {
   const {
     div,
@@ -230,6 +228,9 @@ function El(props) {
   } = props;
   const elType = (button && 'button') || 'div';
   const display = 'inline-block';
+  function s(name, value, enabled = false) {
+    return (enabled && { [name]: value }) || {};
+  }
   const moreStyle = {
     ...s('width', '100%', w100),
     ...s('height', '100%', h100),
@@ -248,9 +249,7 @@ function El(props) {
   // })
   return React.createElement(elType, newProps, children);
 }
-function s(name, value, enabled = false) {
-  return (enabled && { [name]: value }) || {};
-}
+//</element factory>
 
 function App() {
   return <X key={0} index={0} />;
