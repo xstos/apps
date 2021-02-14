@@ -111,7 +111,15 @@ function Reducer(oldState, action) {
     },
     cursorMove() {
       const { key } = payload;
-
+      function navUp(callback) {
+        const focusedId = focusedNode.id;
+        const { parentId } = focusedNode;
+        const parentNode = nodes[parentId];
+        const parentIndex = parentNode.children.findIndex2(focusedId);
+        children.splice(cursorIndex, 1);
+        state.focus = parentId;
+        callback(parentNode, parentIndex);
+      }
       if (key === 'ArrowLeft' && cursorIndex > 0) {
         children[cursorIndex] = children[cursorIndex - 1];
         children[cursorIndex - 1] = cursorId;
@@ -123,7 +131,17 @@ function Reducer(oldState, action) {
         cursorIndex === 0 &&
         state.focus !== state.rootId
       ) {
-
+        navUp((parentNode, parentIndex) => {
+          parentNode.children.splice(parentIndex, 0, cursorId);
+        });
+      } else if (
+        key === 'ArrowRight' &&
+        cursorIndex === children.length - 1 &&
+        state.focus !== state.rootId
+      ) {
+        navUp((parentNode, parentIndex) => {
+          parentNode.children.splice(parentIndex + 1, 0, cursorId);
+        });
       }
     },
     cursorDelete() {
