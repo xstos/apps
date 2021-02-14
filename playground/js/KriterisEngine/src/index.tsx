@@ -9,12 +9,22 @@ import cloneDeep from 'clone-deep';
 import om from 'object-merge';
 import { Autocomplete } from '@material-ui/lab';
 import TextField from '@material-ui/core/TextField';
+import {
+  diff,
+  addedDiff,
+  deletedDiff,
+  updatedDiff,
+  detailedDiff,
+} from 'deep-object-diff';
+import { stringify } from 'javascript-stringify';
+import { Load } from './util';
 
+Load();
 const fs = require('fs');
 
-let id = 0;
+let _id = 0;
 function getId() {
-  return id++;
+  return _id++;
 }
 
 function getInitialState() {
@@ -38,84 +48,125 @@ function getInitialState() {
   };
 }
 
-//<state+action=>new state>
+// <state+action=>new state>
 function Reducer(oldState, action) {
   const { type, payload } = action;
   const state = cloneDeep(oldState);
   const focusIndex = state.focus;
-  let nodes = state.nodes;
+  const { nodes } = state;
   const focusedNode = nodes[focusIndex];
-  let children = focusedNode.children;
+  const { children } = focusedNode;
   const mapped = children.map((id: number) => nodes[id]);
   const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
   const cursorId = mapped[cursorIndex].id;
 
-  function insertAtCursor(id) {
-    const pre = children.slice(0, cursorIndex);
-    const post = children.slice(cursorIndex + 1);
-    focusedNode.children = pre.concat([id, cursorId], post);
+  function insertAtCursor(id, atIndex: any = cursorIndex) {
+    focusedNode.children = children.insertArray(atIndex, id, cursorId);
   }
-
-  if (type === "menu.change") {
-    state.menu = payload.title;
-  } else if (type === "menu.close") {
-    const letters = Array.from(state.menu);
-    setTimeout(()=>{
-      dispatch('cursor.delete', { key: "Backspace" });
-      letters.map(key=>{
-        dispatch("key", { key, id: getId()})
+  const commands = {
+    cellAdd() {
+      const id = getId();
+      nodes.push({
+        id,
+        parentId: focusedNode.id,
+        type: 'cell',
+        children: [cursorId],
       });
-      keyboard.setContext('editing')
-    },0);
-    state.menu = ""
-  } else if (type === 'key') {
-    const { key, id } = payload;
-    nodes.push({
-      id,
-      type: 'key',
-      key,
-    });
-    insertAtCursor(id);
-  } else if (type === 'menu') {
-    const id = payload;
-    nodes.push({
-      id,
-      type: 'menu',
-    });
-    insertAtCursor(id)
-  } else if (type === 'cursor.move') {
-    if (payload === -1 && cursorIndex > 0) {
-      children[cursorIndex] = children[cursorIndex - 1];
-      children[cursorIndex - 1] = cursorId;
-    } else if (payload === 1 && cursorIndex < children.length - 1) {
-      children[cursorIndex] = children[cursorIndex + 1];
-      children[cursorIndex + 1] = cursorId;
-    }
-  } else if (type === 'cursor.delete') {
-    const { key } = payload;
-    if (key==="Backspace" && cursorIndex>0) {
-      children.splice(cursorIndex-1, 1);
-    } else if (key==="Delete" && cursorIndex<children.length) {
-      children.splice(cursorIndex+1, 1);
-    }
-  }
+      console.log(children);
+      focusedNode.children = children.insertArray(cursorIndex, id);
+      state.focus = id;
+    },
+    menuClose() {
+      const { key, value } = payload;
+      const { title, command } = value;
+      const letters = Array.from(title);
+      setTimeout(() => {
+        dispatch('cursorDelete', { key: 'Backspace' });
+        if (key !== 'Escape') {
+          dispatch(...command);
+          // letters.map((key) => {
+          //   dispatch('key', { key, id: getId() });
+          // });
+        }
+
+        keyboard.setContext('editing');
+      }, 0);
+    },
+    key() {
+      const { key, id } = payload;
+      nodes.push({
+        id,
+        type: 'key',
+        key,
+      });
+      insertAtCursor(id);
+    },
+    menu() {
+      const { id } = payload;
+      nodes.push({
+        id,
+        type: 'menu',
+      });
+      insertAtCursor(id);
+    },
+    cursorMove() {
+      const { key } = payload;
+
+      if (key === 'ArrowLeft' && cursorIndex > 0) {
+        children[cursorIndex] = children[cursorIndex - 1];
+        children[cursorIndex - 1] = cursorId;
+      } else if (key === 'ArrowRight' && cursorIndex < children.length - 1) {
+        children[cursorIndex] = children[cursorIndex + 1];
+        children[cursorIndex + 1] = cursorId;
+      } else if (
+        key === 'ArrowLeft' &&
+        cursorIndex === 0 &&
+        state.focus !== state.rootId
+      ) {
+
+      }
+    },
+    cursorDelete() {
+      const { key } = payload;
+      if (key === 'Backspace' && cursorIndex > 0) {
+        children.splice(cursorIndex - 1, 1);
+      } else if (key === 'Delete' && cursorIndex < children.length) {
+        children.splice(cursorIndex + 1, 1);
+      }
+    },
+  };
+  const command = commands[type];
+  command && command();
+  // const mydiff = detailedDiff(oldState, state);
+  // console.log(stringify(mydiff, null, 2));
   return state;
 }
-//</state+action=>new state>
+// </state+action=>new state>
 
-//<redux init>
+// <redux init>
 const store = createStore(Reducer, getInitialState());
 const { getState } = store;
 function dispatch(type, payload) {
-  store.dispatch({ type, payload });
+  const msg = { type, payload };
+  console.log('dispatch', msg);
+  store.dispatch(msg);
 }
-//</redux init>
+// </redux init>
 
-//<keyboard bindings>
+// <keyboard bindings>
+keyboard.setContext('intellisense');
+keyboard.bind('`', (e) => {
+  keyboard.setContext('editing');
+  dispatch('menuClose', {
+    key: 'Escape',
+    value: { title: '', command: [''] },
+  });
+});
+
 keyboard.setContext('editing');
 keyboard.bind('`', (e) => {
-  keyboard.setContext('intellisense')
-  dispatch('menu', getId());
+  keyboard.setContext('intellisense');
+  dispatch('menu', { id: getId() });
 });
 const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,');
 keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
@@ -125,33 +176,37 @@ keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
 });
 keyboard.bind(['left', 'right'], (e) => {
   const { key } = e;
-  dispatch('cursor.move', key === 'ArrowLeft' ? -1 : 1);
+  dispatch('cursorMove', { key });
 });
 keyboard.bind(['delete', 'backspace'], (e) => {
   const { key } = e;
-  dispatch('cursor.delete', { key });
+  dispatch('cursorDelete', { key });
 });
-//<keyboard bindings/>
+// <keyboard bindings/>
 
-//<renderer>
+// <renderer>
 class X extends React.Component {
   constructor(props: any) {
     super(props);
   }
 
   componentDidMount() {
-    this.firstTime=true;
+    this.firstTime = true;
   }
-  componentWillUnmount() {     /* callbacks.delete(this); */  }
+
+  componentWillUnmount() {
+    /* callbacks.delete(this); */
+  }
 
   render() {
     const { index } = this.props;
     const state = getState();
 
     const item = state.nodes[index];
-    const {type} = item;
-    const children = (item.children || [])
-      .map(child => <X key={child} index={child} />);
+    const { type } = item;
+    const children = (item.children || []).map((child) => (
+      <X key={child} index={child} />
+    ));
 
     if (type === 'cursor') {
       return <El>█</El>;
@@ -169,40 +224,52 @@ class X extends React.Component {
     if (type === 'root') {
       return (
         <El w100 h100 dashedBorder key={index}>
-          <El>{type}</El>
-          <El dashedBorder>{children}</El>
+          {children}
         </El>
       );
     }
-
+    // if (type === 'cell') {
+    //   return <El>{"cell!"}</El>;
+    // }
     if (type === 'menu') {
       const demoMenu = [
-        { title: 'foo', year: 1994 },
-        { title: 'bar', year: 1972 },
-        { title: 'derp', year: 1974 },
-        { title: 'skerp', year: 2008 },
+        { title: 'add cell', command: ['cellAdd'] },
+        { title: 'aaa ccc', command: ['cellAdd'] },
+        { title: 'eee fff', command: ['cellAdd'] },
+        { title: 'ggg hhh', command: ['cellAdd'] },
       ];
-
-      return <Autocomplete
-        id="combo-box-demo"
-        autoHighlight
-        openOnFocus
-        options={demoMenu}
-        getOptionLabel={(option) => option.title}
-        style={{ width: 300 }}
-        ref={input => input && (input.style.display = 'inline-block')}
-        onChange={(_, value)=> dispatch('menu.change', value)}
-        onClose={()=> dispatch('menu.close', null)}
-        renderInput={(params) =>
-          <TextField {...params} label="Actions" variant="outlined"
-            inputRef={input => {
-              if (this.firstTime && input) {
-                this.firstTime = false;
-                setTimeout(() => input.focus(), 0);
-              }
-            }}
-          />}
-      />
+      let selectedValue = { title: '', year: 0 };
+      return (
+        <Autocomplete
+          id="combo-box-demo"
+          autoHighlight
+          openOnFocus
+          options={demoMenu}
+          getOptionLabel={(option) => option.title}
+          getOptionSelected={(option, value) => value}
+          style={{ width: 300 }}
+          ref={(input) => input && (input.style.display = 'inline-block')}
+          onChange={(_, value) => (selectedValue = value)}
+          onClose={(e, value) => {
+            const { nativeEvent } = e;
+            const { key } = nativeEvent;
+            dispatch('menuClose', { key, value: selectedValue });
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Actions"
+              variant="outlined"
+              inputRef={(input) => {
+                if (this.firstTime && input) {
+                  this.firstTime = false;
+                  setTimeout(() => input.focus(), 0);
+                }
+              }}
+            />
+          )}
+        />
+      );
     }
     return (
       <El key={index}>
@@ -212,9 +279,9 @@ class X extends React.Component {
     );
   }
 }
-//</renderer>
+// </renderer>
 
-//<element factory>
+// <element factory>
 function El(props) {
   const {
     div,
@@ -249,7 +316,7 @@ function El(props) {
   // })
   return React.createElement(elType, newProps, children);
 }
-//</element factory>
+// </element factory>
 
 function App() {
   return <X key={0} index={0} />;
