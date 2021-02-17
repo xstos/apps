@@ -9,71 +9,90 @@ import cloneDeep from 'clone-deep';
 import om from 'object-merge';
 import { Autocomplete } from '@material-ui/lab';
 import TextField from '@material-ui/core/TextField';
-import {
-  diff,
-  addedDiff,
-  deletedDiff,
-  updatedDiff,
-  detailedDiff,
-} from 'deep-object-diff';
-import { stringify } from 'javascript-stringify';
+// import {
+//   diff,
+//   addedDiff,
+//   deletedDiff,
+//   updatedDiff,
+//   detailedDiff,
+// } from 'deep-object-diff';
+// import { stringify } from 'javascript-stringify';
 import { Load } from './util';
 
 Load();
 const fs = require('fs');
 
-let _id = 0;
-function getId() {
+let _id: TNodeId = 0;
+function getId(): TNodeId {
   return _id++;
 }
 
-function getInitialState() {
-  const rootId = getId();
+type TNodeType = 'root' | 'cursor' | 'cell' | 'key' | 'menu';
+type TNodeId = number;
+type TNode = {
+  id: TNodeId;
+  parentId: TNodeId;
+  type: TNodeType;
+  children: TNodeId[];
+  key?: string;
+};
+type TState = {
+  cursorId: TNodeId;
+  rootId: TNodeId;
+  nodes: TNode[];
+  focus: TNodeId;
+};
+
+function getInitialState(): TState {
+  const rootId: TNodeId = getId();
   const cursorId = getId();
   const rootEl = {
     id: rootId,
-    type: 'root',
+    parentId: rootId,
+    type: 'root' as const,
     children: [cursorId],
   };
   const cursorEl = {
     id: cursorId,
-    type: 'cursor',
+    parentId: -1,
+    type: 'cursor' as const,
     children: [],
   };
   return {
     cursorId,
     rootId,
-    focus: rootId,
     nodes: [rootEl, cursorEl],
+    focus: rootId,
   };
 }
-
+function isContainer(node: TNode): boolean {
+  return node.type === 'cell';
+}
 // <state+action=>new state>
-function Reducer(oldState, action) {
+function Reducer(oldState: TState, action) {
   const { type, payload } = action;
-  const state = cloneDeep(oldState);
-  const focusIndex = state.focus;
-  const { nodes } = state;
-  const focusedNode = nodes[focusIndex];
+  const state: TState = cloneDeep(oldState);
+  const focusId = state.focus;
+  const { nodes, rootId, cursorId } = state;
+  const focusedNode = nodes[focusId];
   const { children } = focusedNode;
-  const mapped = children.map((id: number) => nodes[id]);
-  const cursorIndex = mapped.findIndex((node) => node.type === 'cursor');
-  const cursorId = mapped[cursorIndex].id;
-
-  function insertAtCursor(id, atIndex: any = cursorIndex) {
-    focusedNode.children = children.insertArray(atIndex, id, cursorId);
+  const mapped = children.map((id: TNodeId) => nodes[id]);
+  const cursorIndex = children.findIndex2(cursorId);
+  console.log('children', children);
+  function removeCursor() {
+    children.splice(cursorIndex, 1); // remove cursor from current node
   }
+
   const commands = {
     cellAdd() {
       const id = getId();
       nodes.push({
         id,
         parentId: focusedNode.id,
-        type: 'cell',
+        type: 'cell' as const,
         children: [cursorId],
       });
-      console.log(children);
-      focusedNode.children = children.insertArray(cursorIndex, id);
+      focusedNode.children.splice(cursorIndex, 1, id);
       state.focus = id;
     },
     menuClose() {
@@ -95,19 +114,23 @@ function Reducer(oldState, action) {
     key() {
       const { key, id } = payload;
       nodes.push({
+        children: [],
         id,
-        type: 'key',
+        parentId: focusId,
+        type: 'key' as const,
         key,
       });
-      insertAtCursor(id);
+      focusedNode.children.splice(cursorIndex, 0, id);
     },
     menu() {
       const { id } = payload;
       nodes.push({
+        children: [],
+        parentId: focusId,
         id,
         type: 'menu',
       });
-      insertAtCursor(id);
+      focusedNode.children.splice(cursorIndex, 0, id);
     },
     cursorMove() {
       const { key } = payload;
@@ -116,32 +139,43 @@ function Reducer(oldState, action) {
         const { parentId } = focusedNode;
         const parentNode = nodes[parentId];
         const parentIndex = parentNode.children.findIndex2(focusedId);
-        children.splice(cursorIndex, 1);
+        removeCursor();
         state.focus = parentId;
         callback(parentNode, parentIndex);
       }
-      if (key === 'ArrowLeft' && cursorIndex > 0) {
-        children[cursorIndex] = children[cursorIndex - 1];
-        children[cursorIndex - 1] = cursorId;
-      } else if (key === 'ArrowRight' && cursorIndex < children.length - 1) {
-        children[cursorIndex] = children[cursorIndex + 1];
-        children[cursorIndex + 1] = cursorId;
-      } else if (
-        key === 'ArrowLeft' &&
-        cursorIndex === 0 &&
-        state.focus !== state.rootId
-      ) {
-        navUp((parentNode, parentIndex) => {
-          parentNode.children.splice(parentIndex, 0, cursorId);
-        });
-      } else if (
-        key === 'ArrowRight' &&
-        cursorIndex === children.length - 1 &&
-        state.focus !== state.rootId
-      ) {
-        navUp((parentNode, parentIndex) => {
-          parentNode.children.splice(parentIndex + 1, 0, cursorId);
-        });
+      function navTo(nodeIndex: number, push: boolean) {
+        const node = mapped[nodeIndex];
+        if (isContainer(node)) {
+          removeCursor();
+          if (push) {
+            node.children.push(cursorId);
+          } else {
+            node.children.splice(0, 0, cursorId);
+          }
+          state.focus = node.id;
+        } else {
+          children[cursorIndex] = children[nodeIndex];
+          children[nodeIndex] = cursorId;
+        }
+      }
+      if (key === 'ArrowLeft') {
+        if (cursorIndex === 0) {
+          if (state.focus === rootId) return; // can't go up past root
+          navUp((parentNode: TNode, parentIndex: number) => {
+            parentNode.children.splice(parentIndex, 0, cursorId);
+          });
+        } else {
+          navTo(cursorIndex - 1, true);
+        }
+      } else if (key === 'ArrowRight') {
+        if (cursorIndex === children.length - 1) {
+          if (state.focus === rootId) return;
+          navUp((parentNode, parentIndex) => {
+            parentNode.children.splice(parentIndex + 1, 0, cursorId);
+          });
+        } else {
+          navTo(cursorIndex + 1, false);
+        }
       }
     },
     cursorDelete() {
@@ -218,7 +252,7 @@ class X extends React.Component {
 
   render() {
     const { index } = this.props;
-    const state = getState();
+    const state: TState = getState();
 
     const item = state.nodes[index];
     const { type } = item;
@@ -290,7 +324,7 @@ class X extends React.Component {
       );
     }
     return (
-      <El key={index}>
+      <El dashedBorder key={index}>
         <El>{type}</El>
         <El>{children}</El>
       </El>
@@ -321,6 +355,7 @@ function El(props) {
     ...s('height', '100%', h100),
     ...s('display', display, true),
     ...s('border', '1px dashed yellow', dashedBorder),
+    ...s('margin', '2px', true),
     // ...s('verticalAlign', 'top', true),
   };
   const newProps = {
