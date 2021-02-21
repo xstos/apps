@@ -17,7 +17,8 @@ import TextField from '@material-ui/core/TextField';
 //   detailedDiff,
 // } from 'deep-object-diff';
 // import { stringify } from 'javascript-stringify';
-import { Load } from './util';
+import { accessor, Load } from './util';
+import { TNode, TNodeId, TState } from './types';
 
 Load();
 const fs = require('fs');
@@ -26,22 +27,6 @@ let _id: TNodeId = 0;
 function getId(): TNodeId {
   return _id++;
 }
-
-type TNodeType = 'root' | 'cursor' | 'cell' | 'key' | 'menu';
-type TNodeId = number;
-type TNode = {
-  id: TNodeId;
-  parentId: TNodeId;
-  type: TNodeType;
-  children: TNodeId[];
-  key?: string;
-};
-type TState = {
-  cursorId: TNodeId;
-  rootId: TNodeId;
-  nodes: TNode[];
-  focus: TNodeId;
-};
 
 function getInitialState(): TState {
   const rootId: TNodeId = getId();
@@ -70,125 +55,132 @@ function isContainer(node: TNode): boolean {
 }
 // <state+action=>new state>
 function Reducer(oldState: TState, action) {
-  const { type, payload } = action;
   const state: TState = cloneDeep(oldState);
-  const focusId = state.focus;
-  const { nodes, rootId, cursorId } = state;
+  const { type, payload } = action;
+  const { nodes, rootId, cursorId, focus: focusId } = state;
+
   const focusedNode = nodes[focusId];
-  const { children } = focusedNode;
-  const mapped = children.map((id: TNodeId) => nodes[id]);
-  const cursorIndex = children.findIndex2(cursorId);
-  console.log('children', children);
-  function removeCursor() {
-    children.splice(cursorIndex, 1); // remove cursor from current node
+  const { children: focusedChildren } = focusedNode;
+  const mapped = focusedChildren.map((id: TNodeId) => nodes[id]);
+  const cursorIndex = focusedChildren.findIndex2(cursorId);
+
+  function cellAdd() {
+    const id = getId();
+    nodes.push({
+      id,
+      parentId: focusedNode.id,
+      type: 'cell' as const,
+      children: [cursorId],
+    });
+    focusedChildren[cursorIndex] = id;
+    state.focus = id;
   }
+  function menuClose() {
+    const { key, value } = payload;
+    const { title, command } = value;
+    cursorDeleteKey('Backspace');
+    setTimeout(() => {
+      if (key !== 'Escape') {
+        dispatch(...command);
+      }
 
-  const commands = {
-    cellAdd() {
-      const id = getId();
-      nodes.push({
-        id,
-        parentId: focusedNode.id,
-        type: 'cell' as const,
-        children: [cursorId],
-      });
-      focusedNode.children.splice(cursorIndex, 1, id);
-      state.focus = id;
-    },
-    menuClose() {
-      const { key, value } = payload;
-      const { title, command } = value;
-      const letters = Array.from(title);
-      setTimeout(() => {
-        dispatch('cursorDelete', { key: 'Backspace' });
-        if (key !== 'Escape') {
-          dispatch(...command);
-          // letters.map((key) => {
-          //   dispatch('key', { key, id: getId() });
-          // });
-        }
-
-        keyboard.setContext('editing');
-      }, 0);
-    },
-    key() {
-      const { key, id } = payload;
-      nodes.push({
-        children: [],
-        id,
-        parentId: focusId,
-        type: 'key' as const,
-        key,
-      });
-      focusedNode.children.splice(cursorIndex, 0, id);
-    },
-    menu() {
-      const { id } = payload;
-      nodes.push({
-        children: [],
-        parentId: focusId,
-        id,
-        type: 'menu',
-      });
-      focusedNode.children.splice(cursorIndex, 0, id);
-    },
-    cursorMove() {
-      const { key } = payload;
-      function navUp(callback) {
-        const focusedId = focusedNode.id;
-        const { parentId } = focusedNode;
-        const parentNode = nodes[parentId];
-        const parentIndex = parentNode.children.findIndex2(focusedId);
+      keyboard.setContext('editing');
+    }, 0);
+  }
+  function key() {
+    const { key, id } = payload;
+    nodes.push({
+      children: [],
+      id,
+      parentId: focusId,
+      type: 'key' as const,
+      key,
+    });
+    focusedNode.children.splice(cursorIndex, 0, id);
+  }
+  function menu() {
+    const { id } = payload;
+    nodes.push({
+      children: [],
+      parentId: focusId,
+      id,
+      type: 'menu',
+    });
+    focusedNode.children.splice(cursorIndex, 0, id);
+  }
+  function cursorMove() {
+    const { key } = payload;
+    function removeCursor() {
+      focusedChildren.splice(cursorIndex, 1); // remove cursor from current node
+    }
+    function navUp(callback) {
+      const focusedId = focusedNode.id;
+      const { parentId } = focusedNode;
+      const parentNode = nodes[parentId];
+      const parentIndex = parentNode.children.findIndex2(focusedId);
+      removeCursor();
+      state.focus = parentId;
+      callback(parentNode, parentIndex);
+    }
+    function navTo(nodeIndex: number, push: boolean) {
+      const node = mapped[nodeIndex];
+      if (isContainer(node)) {
         removeCursor();
-        state.focus = parentId;
-        callback(parentNode, parentIndex);
-      }
-      function navTo(nodeIndex: number, push: boolean) {
-        const node = mapped[nodeIndex];
-        if (isContainer(node)) {
-          removeCursor();
-          if (push) {
-            node.children.push(cursorId);
-          } else {
-            node.children.splice(0, 0, cursorId);
-          }
-          state.focus = node.id;
+        if (push) {
+          node.children.push(cursorId);
         } else {
-          children[cursorIndex] = children[nodeIndex];
-          children[nodeIndex] = cursorId;
+          node.children.splice(0, 0, cursorId);
         }
+        state.focus = node.id;
+      } else {
+        focusedChildren[cursorIndex] = focusedChildren[nodeIndex];
+        focusedChildren[nodeIndex] = cursorId;
       }
-      if (key === 'ArrowLeft') {
-        if (cursorIndex === 0) {
-          if (state.focus === rootId) return; // can't go up past root
-          navUp((parentNode: TNode, parentIndex: number) => {
-            parentNode.children.splice(parentIndex, 0, cursorId);
-          });
-        } else {
-          navTo(cursorIndex - 1, true);
-        }
-      } else if (key === 'ArrowRight') {
-        if (cursorIndex === children.length - 1) {
-          if (state.focus === rootId) return;
-          navUp((parentNode, parentIndex) => {
-            parentNode.children.splice(parentIndex + 1, 0, cursorId);
-          });
-        } else {
-          navTo(cursorIndex + 1, false);
-        }
+    }
+    if (key === 'ArrowLeft') {
+      if (cursorIndex === 0) {
+        if (state.focus === rootId) return; // can't go up past root
+        navUp((parentNode: TNode, parentIndex: number) => {
+          parentNode.children.splice(parentIndex, 0, cursorId);
+        });
+      } else {
+        navTo(cursorIndex - 1, true);
       }
-    },
-    cursorDelete() {
-      const { key } = payload;
-      if (key === 'Backspace' && cursorIndex > 0) {
-        children.splice(cursorIndex - 1, 1);
-      } else if (key === 'Delete' && cursorIndex < children.length) {
-        children.splice(cursorIndex + 1, 1);
+    } else if (key === 'ArrowRight') {
+      if (cursorIndex === focusedChildren.length - 1) {
+        if (state.focus === rootId) return;
+        navUp((parentNode, parentIndex) => {
+          parentNode.children.splice(parentIndex + 1, 0, cursorId);
+        });
+      } else {
+        navTo(cursorIndex + 1, false);
       }
-    },
+    }
+  }
+  function cursorDeleteKey(key) {
+    if (key === 'Backspace' && cursorIndex > 0) {
+      focusedChildren.splice(cursorIndex - 1, 1);
+    } else if (key === 'Delete' && cursorIndex < focusedChildren.length) {
+      focusedChildren.splice(cursorIndex + 1, 1);
+    }
+  }
+  function cursorDelete() {
+    const { key } = payload;
+    cursorDeleteKey(key);
+  }
+  const commands = {
+    cellAdd,
+    menuClose,
+    key,
+    menu,
+    cursorMove,
+    cursorDelete,
   };
-  const command = commands[type];
-  command && command();
+  function dispatchInner(type) {
+    const command = commands[type];
+    command && command();
+  }
+  dispatchInner(type);
   // const mydiff = detailedDiff(oldState, state);
   // console.log(stringify(mydiff, null, 2));
   return state;
@@ -252,6 +244,7 @@ class X extends React.Component {
 
   render() {
     const { index } = this.props;
+    const firstTime = accessor(this, "firstTime");
     const state: TState = getState();
 
     const item = state.nodes[index];
@@ -259,11 +252,10 @@ class X extends React.Component {
     const children = (item.children || []).map((child) => (
       <X key={child} index={child} />
     ));
-
-    if (type === 'cursor') {
+    function rendercursor() {
       return <El>█</El>;
     }
-    if (type === 'key') {
+    function renderkey() {
       const { key } = item;
       if (key === 'Enter') {
         return <br />;
@@ -273,17 +265,22 @@ class X extends React.Component {
       }
       return key;
     }
-    if (type === 'root') {
+    function renderroot() {
       return (
         <El w100 h100 dashedBorder key={index}>
           {children}
         </El>
       );
     }
-    // if (type === 'cell') {
-    //   return <El>{"cell!"}</El>;
-    // }
-    if (type === 'menu') {
+    function rendercell() {
+      return (
+        <El dashedBorder key={index}>
+          <El>{`${type} ${index}`}</El>
+          <El>{children}</El>
+        </El>
+      );
+    }
+    function rendermenu() {
       const demoMenu = [
         { title: 'add cell', command: ['cellAdd'] },
         { title: 'aaa ccc', command: ['cellAdd'] },
@@ -313,8 +310,8 @@ class X extends React.Component {
               label="Actions"
               variant="outlined"
               inputRef={(input) => {
-                if (this.firstTime && input) {
-                  this.firstTime = false;
+                if (firstTime.get() && input) {
+                  firstTime.set(false);
                   setTimeout(() => input.focus(), 0);
                 }
               }}
@@ -323,12 +320,15 @@ class X extends React.Component {
         />
       );
     }
-    return (
-      <El dashedBorder key={index}>
-        <El>{type}</El>
-        <El>{children}</El>
-      </El>
-    );
+    const renderMap = {
+      rendercursor,
+      renderkey,
+      renderroot,
+      rendermenu,
+    };
+    const renderfunc = renderMap[`render${type}`];
+    if (renderfunc) return renderfunc();
+    return rendercell();
   }
 }
 // </renderer>

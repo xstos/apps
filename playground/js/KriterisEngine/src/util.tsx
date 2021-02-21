@@ -7,3 +7,15 @@ Array.prototype.insertArray = function insertArray(index: number, ...items) {
 Array.prototype.findIndex2 = function (value) {
   return this.findIndex((v) => v === value);
 };
+export type TAccessor = { get: () => any; set: (value: any) => void };
+export function accessor(target: any, prop: string | number) : TAccessor {
+  return {
+    get() {
+      return target[prop];
+    },
+    set(value: any) {
+      target[prop] = value;
+      return value;
+    },
+  };
+}
