@@ -1,11 +1,23 @@
-export type TNodeType = 'root' | 'cursor' | 'cell' | 'key' | 'menu';
+export type TNodeType = 'root' | 'cursor' | 'cell' | 'key' | 'menu' | 'mirror';
 export type TNodeId = number;
 export type TNode = {
   id: TNodeId;
   parentId: TNodeId;
   type: TNodeType;
-  children: TNodeId[];
+  children?: TNodeId[];
   key?: string;
+  mirrorId?: TNodeId;
+};
+export type TActionType =
+  | 'cellAdd'
+  | 'menuClose'
+  | 'key'
+  | 'menu'
+  | 'cursorMove'
+  | 'cursorDelete';
+export type TAction = {
+  type: TActionType;
+  payload: any;
 };
 export type TState = {
   cursorId: TNodeId;

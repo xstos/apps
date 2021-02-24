@@ -9,6 +9,7 @@ import cloneDeep from 'clone-deep';
 import om from 'object-merge';
 import { Autocomplete } from '@material-ui/lab';
 import TextField from '@material-ui/core/TextField';
+import fs from 'fs';
 // import {
 //   diff,
 //   addedDiff,
@@ -17,11 +18,10 @@ import TextField from '@material-ui/core/TextField';
 //   detailedDiff,
 // } from 'deep-object-diff';
 // import { stringify } from 'javascript-stringify';
-import { accessor, Load } from './util';
-import { TNode, TNodeId, TState } from './types';
+import { accessor, Load, renderTracker } from './util';
+import { TAction, TNode, TNodeId, TState } from './types';
 
 Load();
-const fs = require('fs');
 
 let _id: TNodeId = 0;
 function getId(): TNodeId {
@@ -41,7 +41,6 @@ function getInitialState(): TState {
     id: cursorId,
     parentId: -1,
     type: 'cursor' as const,
-    children: [],
   };
   return {
     cursorId,
@@ -50,20 +49,30 @@ function getInitialState(): TState {
     focus: rootId,
   };
 }
-function isContainer(node: TNode): boolean {
-  return node.type === 'cell';
-}
+
 // <state+action=>new state>
-function Reducer(oldState: TState, action) {
+function Reducer(oldState: TState, action: TAction) {
   const state: TState = cloneDeep(oldState);
   const { type, payload } = action;
   const { nodes, rootId, cursorId, focus: focusId } = state;
 
   const focusedNode = nodes[focusId];
-  const { children: focusedChildren } = focusedNode;
+  let { children: focusedChildren } = focusedNode;
+  focusedChildren = focusedChildren || [];
   const mapped = focusedChildren.map((id: TNodeId) => nodes[id]);
   const cursorIndex = focusedChildren.findIndex2(cursorId);
-
+  function mirrorAdd() {
+    const { id: mirrorId } = payload;
+    const id = getId();
+    nodes.push({
+      id,
+      parentId: focusedNode.id,
+      type: 'mirror' as const,
+      mirrorId,
+    });
+    focusedChildren[cursorIndex] = mirrorId;
+    state.focus = id;
+  }
   function cellAdd() {
     const id = getId();
     nodes.push({
@@ -124,7 +133,7 @@ function Reducer(oldState: TState, action) {
     }
     function navTo(nodeIndex: number, push: boolean) {
       const node = mapped[nodeIndex];
-      if (isContainer(node)) {
+      if (node.type === 'cell') {
         removeCursor();
         if (push) {
           node.children.push(cursorId);
@@ -175,6 +184,7 @@ function Reducer(oldState: TState, action) {
     menu,
     cursorMove,
     cursorDelete,
+    mirrorAdd,
   };
   function dispatchInner(type) {
     const command = commands[type];
@@ -197,37 +207,37 @@ function dispatch(type, payload) {
 }
 // </redux init>
 
-// <keyboard bindings>
-keyboard.setContext('intellisense');
-keyboard.bind('`', (e) => {
-  keyboard.setContext('editing');
-  dispatch('menuClose', {
-    key: 'Escape',
-    value: { title: '', command: [''] },
-  });
-});
-
-keyboard.setContext('editing');
-keyboard.bind('`', (e) => {
+function keyboardBindings() {
   keyboard.setContext('intellisense');
-  dispatch('menu', { id: getId() });
-});
-const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,');
-keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
-  const { key } = e;
-  const id = getId();
-  dispatch('key', { key, id });
-});
-keyboard.bind(['left', 'right'], (e) => {
-  const { key } = e;
-  dispatch('cursorMove', { key });
-});
-keyboard.bind(['delete', 'backspace'], (e) => {
-  const { key } = e;
-  dispatch('cursorDelete', { key });
-});
-// <keyboard bindings/>
+  keyboard.bind('`', (e) => {
+    keyboard.setContext('editing');
+    dispatch('menuClose', {
+      key: 'Escape',
+      value: { title: '', command: [''] },
+    });
+  });
 
+  keyboard.setContext('editing');
+  keyboard.bind('`', (e) => {
+    keyboard.setContext('intellisense');
+    dispatch('menu', { id: getId() });
+  });
+  const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,');
+  keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
+    const { key } = e;
+    const id = getId();
+    dispatch('key', { key, id });
+  });
+  keyboard.bind(['left', 'right'], (e) => {
+    const { key } = e;
+    dispatch('cursorMove', { key });
+  });
+  keyboard.bind(['delete', 'backspace'], (e) => {
+    const { key } = e;
+    dispatch('cursorDelete', { key });
+  });
+}
+keyboardBindings();
 // <renderer>
 class X extends React.Component {
   constructor(props: any) {
@@ -243,49 +253,84 @@ class X extends React.Component {
   }
 
   render() {
-    const { index } = this.props;
-    const firstTime = accessor(this, "firstTime");
+    const { index, cycle } = this.props;
+    const firstTime = accessor(this, 'firstTime');
     const state: TState = getState();
 
-    const item = state.nodes[index];
-    const { type } = item;
-    const children = (item.children || []).map((child) => (
-      <X key={child} index={child} />
-    ));
+    const item2 = state.nodes[index];
+    // const { type, mirrorId } = item;
+    // const children = (item.children || []).map((child) => (
+    //   <X key={child} index={child} cycle={cycle} />
+    // ));
     function rendercursor() {
       return <El>█</El>;
     }
-    function renderkey() {
+    function renderkey({ index }) {
+      const item = state.nodes[index];
       const { key } = item;
       if (key === 'Enter') {
-        return <br />;
+        return (
+          <>
+            <span>↲</span>
+            <br />
+          </>
+        );
       }
       if (key === ' ') {
         return '\u2000';
       }
       return key;
     }
-    function renderroot() {
+    function renderroot({ index }) {
+      const item = state.nodes[index];
+      const children = (item.children || []).map((child) => (
+        <X key={child} index={child} cycle={cycle} />
+      ));
       return (
-        <El w100 h100 dashedBorder key={index}>
+        <El w100 h100 key={index}>
           {children}
         </El>
       );
     }
-    function rendercell() {
+    function rendercell({ index }) {
+      const item = state.nodes[index];
+      const { type } = item;
+      const children = (item.children || []).map((child) => (
+        <X key={child} index={child} cycle={cycle} />
+      ));
       return (
         <El dashedBorder key={index}>
           <El>{`${type} ${index}`}</El>
+          <br />
           <El>{children}</El>
         </El>
       );
     }
+    function rendermirror({ index }) {
+
+      if (cycle.has(index)) {
+        return <span>cycle detected</span>;
+      }
+      const item = state.nodes[index];
+      const { mirrorId } = item;
+
+      cycle.set(mirrorId);
+
+      return rendercell({ index: mirrorId });
+    }
     function rendermenu() {
+      const mirrorList = state.nodes
+        .filter((node: TNode): boolean => node.type === 'cell')
+        .map((node: TNode) => ({
+          title: `cell ${node.id}`,
+          command: ['mirrorAdd', { id: node.id }],
+        }));
       const demoMenu = [
         { title: 'add cell', command: ['cellAdd'] },
         { title: 'aaa ccc', command: ['cellAdd'] },
         { title: 'eee fff', command: ['cellAdd'] },
         { title: 'ggg hhh', command: ['cellAdd'] },
+        ...mirrorList,
       ];
       let selectedValue = { title: '', year: 0 };
       return (
@@ -325,10 +370,11 @@ class X extends React.Component {
       renderkey,
       renderroot,
       rendermenu,
+      rendermirror,
     };
-    const renderfunc = renderMap[`render${type}`];
-    if (renderfunc) return renderfunc();
-    return rendercell();
+    const renderfunc = renderMap[`render${item2.type}`];
+    const args = { index };
+    return (renderfunc && renderfunc(args)) || rendercell(args);
   }
 }
 // </renderer>
@@ -372,7 +418,7 @@ function El(props) {
 // </element factory>
 
 function App() {
-  return <X key={0} index={0} />;
+  return <X key={0} index={0} cycle={renderTracker()} />;
 }
 
 const ConnectedApp = rrconnect((state) => state, {})(App);
