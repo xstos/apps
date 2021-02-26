@@ -34,8 +34,9 @@ function getInitialState(): TState {
   const rootEl = {
     id: rootId,
     parentId: rootId,
-    type: 'root' as const,
+    type: 'cell' as const,
     children: [cursorId],
+    isRoot: true,
   };
   const cursorEl = {
     id: cursorId,
@@ -148,7 +149,7 @@ function Reducer(oldState: TState, action: TAction) {
     }
     if (key === 'ArrowLeft') {
       if (cursorIndex === 0) {
-        if (state.focus === rootId) return; // can't go up past root
+        if (focusedNode.isRoot) return; // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
           parentNode.children.splice(parentIndex, 0, cursorId);
         });
@@ -157,7 +158,7 @@ function Reducer(oldState: TState, action: TAction) {
       }
     } else if (key === 'ArrowRight') {
       if (cursorIndex === focusedChildren.length - 1) {
-        if (state.focus === rootId) return;
+        if (focusedNode.isRoot) return;
         navUp((parentNode, parentIndex) => {
           parentNode.children.splice(parentIndex + 1, 0, cursorId);
         });
@@ -256,8 +257,8 @@ class X extends React.Component {
     const { index, cycle } = this.props;
     const firstTime = accessor(this, 'firstTime');
     const state: TState = getState();
-
-    const item2 = state.nodes[index];
+    const { nodes, rootId, cursorId, focus: focusId } = state;
+    const item2 = nodes[index];
     // const { type, mirrorId } = item;
     // const children = (item.children || []).map((child) => (
     //   <X key={child} index={child} cycle={cycle} />
@@ -294,6 +295,9 @@ class X extends React.Component {
     }
     function rendercell({ index }) {
       const item = state.nodes[index];
+      if (item.isRoot) {
+        return renderroot({index});
+      }
       const { type } = item;
       const children = (item.children || []).map((child) => (
         <X key={child} index={child} cycle={cycle} />
@@ -307,7 +311,6 @@ class X extends React.Component {
       );
     }
     function rendermirror({ index }) {
-
       if (cycle.has(index)) {
         return <span>cycle detected</span>;
       }
