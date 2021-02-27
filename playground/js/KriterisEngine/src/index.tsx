@@ -46,7 +46,9 @@ function getInitialState(): TState {
     focus: rootId,
   }
 }
-
+function isRoot(node: TNode) {
+  return node.parentId === node.id
+}
 // <state+action=>new state>
 function Reducer(oldState: TState, action: TAction) {
   const state: TState = cloneDeep(oldState)
@@ -145,7 +147,7 @@ function Reducer(oldState: TState, action: TAction) {
     }
     if (key === 'ArrowLeft') {
       if (cursorIndex === 0) {
-        if (focusedNode.isRoot) return // can't go up past root
+        if (isRoot(focusedNode)) return // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
           parentNode.children.splice(parentIndex, 0, cursorId)
         })
@@ -154,7 +156,7 @@ function Reducer(oldState: TState, action: TAction) {
       }
     } else if (key === 'ArrowRight') {
       if (cursorIndex === focusedChildren.length - 1) {
-        if (focusedNode.isRoot) return
+        if (isRoot(focusedNode)) return
         navUp((parentNode, parentIndex) => {
           parentNode.children.splice(parentIndex + 1, 0, cursorId)
         })
@@ -291,7 +293,7 @@ class X extends React.Component {
     }
     function rendercell({ index }) {
       const item = state.nodes[index]
-      if (item.isRoot) {
+      if (isRoot(item)) {
         return renderroot({ index })
       }
       const { type } = item
