@@ -1,4 +1,4 @@
-export type TNodeType = 'cursor' | 'cell' | 'key' | 'menu' | 'mirror'
+export type TNodeType = 'cursor' | 'cell' | 'key' | 'menu' | 'ref'
 export type TNodeId = number
 export type TNode = {
   id: TNodeId
@@ -6,7 +6,7 @@ export type TNode = {
   type: TNodeType
   children?: TNodeId[]
   key?: string
-  mirrorId?: TNodeId
+  refId?: TNodeId
 }
 export type TActionType =
   | 'cellAdd'

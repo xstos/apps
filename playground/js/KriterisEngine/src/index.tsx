@@ -60,16 +60,16 @@ function Reducer(oldState: TState, action: TAction) {
   focusedChildren = focusedChildren || []
   const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
   const cursorIndex = focusedChildren.findIndex2(cursorId)
-  function mirrorAdd() {
-    const { id: mirrorId } = payload
+  function refAdd() {
+    const { id: refId } = payload
     const id = getId()
     nodes.push({
       id,
       parentId: focusedNode.id,
-      type: 'mirror' as const,
-      mirrorId,
+      type: 'ref' as const,
+      refId,
     })
-    focusedChildren[cursorIndex] = mirrorId
+    focusedChildren[cursorIndex] = refId
     state.focus = id
   }
   function cellAdd() {
@@ -183,7 +183,7 @@ function Reducer(oldState: TState, action: TAction) {
     menu,
     cursorMove,
     cursorDelete,
-    mirrorAdd,
+    refAdd,
   }
   function dispatchInner(type) {
     const command = commands[type]
@@ -257,7 +257,7 @@ class X extends React.Component {
     const state: TState = getState()
     const { nodes, rootId, cursorId, focus: focusId } = state
     const item2 = nodes[index]
-    // const { type, mirrorId } = item;
+    // const { type, refId } = item;
     // const children = (item.children || []).map((child) => (
     //   <X key={child} index={child} cycle={cycle} />
     // ));
@@ -308,30 +308,30 @@ class X extends React.Component {
         </El>
       )
     }
-    function rendermirror({ index }) {
+    function renderref({ index }) {
       if (cycle.has(index)) {
         return <span>cycle detected</span>
       }
       const item = state.nodes[index]
-      const { mirrorId } = item
+      const { refId } = item
 
-      cycle.set(mirrorId)
+      cycle.set(refId)
 
-      return rendercell({ index: mirrorId })
+      return rendercell({ index: refId })
     }
     function rendermenu() {
-      const mirrorList = state.nodes
+      const refList = state.nodes
         .filter((node: TNode): boolean => node.type === 'cell')
         .map((node: TNode) => ({
           title: `cell ${node.id}`,
-          command: ['mirrorAdd', { id: node.id }],
+          command: ['refAdd', { id: node.id }],
         }))
       const demoMenu = [
         { title: 'add cell', command: ['cellAdd'] },
         { title: 'aaa ccc', command: ['cellAdd'] },
         { title: 'eee fff', command: ['cellAdd'] },
         { title: 'ggg hhh', command: ['cellAdd'] },
-        ...mirrorList,
+        ...refList,
       ]
       let selectedValue = { title: '', year: 0 }
       return (
@@ -371,7 +371,7 @@ class X extends React.Component {
       renderkey,
       renderroot,
       rendermenu,
-      rendermirror,
+      renderref,
     }
     const renderfunc = renderMap[`render${item2.type}`]
     const args = { index }
