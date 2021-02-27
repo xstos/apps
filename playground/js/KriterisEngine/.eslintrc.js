@@ -5,6 +5,8 @@ module.exports = {
     'import/no-extraneous-dependencies': 'off',
     'no-unused-vars': 'off',
     'no-use-before-define': 'off',
+    semi: [2, 'never'],
+    'no-debugger': 'off',
   },
   parserOptions: {
     ecmaVersion: 2020,
