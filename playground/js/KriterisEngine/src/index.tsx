@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/no-use-before-define,no-plusplus */
 import './App.global.css'
 import React from 'react'
 import { render } from 'react-dom'
