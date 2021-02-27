@@ -20,7 +20,6 @@ import fs from 'fs'
 import { accessor, idGen, Load, renderTracker } from './util'
 import { TAction, TNode, TNodeId, TState } from './types'
 
-debugger
 Load()
 
 const getId = idGen()
@@ -60,6 +59,10 @@ function Reducer(oldState: TState, action: TAction) {
   focusedChildren = focusedChildren || []
   const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
   const cursorIndex = focusedChildren.findIndex2(cursorId)
+  function setFocus(id: TNodeId) {
+    state.focus = id
+  }
+
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
@@ -70,7 +73,7 @@ function Reducer(oldState: TState, action: TAction) {
       refId,
     })
     focusedChildren[cursorIndex] = refId
-    state.focus = id
+    setFocus(id)
   }
   function cellAdd() {
     const id = getId()
@@ -81,7 +84,8 @@ function Reducer(oldState: TState, action: TAction) {
       children: [cursorId],
     })
     focusedChildren[cursorIndex] = id
-    state.focus = id
+    setFocus(id)
+
   }
   function menuClose() {
     const { key, value } = payload
@@ -127,7 +131,7 @@ function Reducer(oldState: TState, action: TAction) {
       const parentNode = nodes[parentId]
       const parentIndex = parentNode.children.findIndex2(focusedId)
       removeCursor()
-      state.focus = parentId
+      setFocus(parentId)
       callback(parentNode, parentIndex)
     }
     function navTo(nodeIndex: number, push: boolean) {
@@ -139,7 +143,7 @@ function Reducer(oldState: TState, action: TAction) {
         } else {
           node.children.splice(0, 0, cursorId)
         }
-        state.focus = node.id
+        setFocus(node.id)
       } else {
         focusedChildren[cursorIndex] = focusedChildren[nodeIndex]
         focusedChildren[nodeIndex] = cursorId
