@@ -8,6 +8,8 @@ module.exports = {
     'no-extend-native': 'off',
     semi: [2, 'never'],
     'no-debugger': 'off',
+    'spaced-comment': 'off',
+    '@typescript-eslint/no-use-before-define': 'off',
   },
   parserOptions: {
     ecmaVersion: 2020,

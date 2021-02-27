@@ -54,11 +54,19 @@ function Reducer(oldState: TState, action: TAction) {
   const { type, payload } = action
   const { nodes, rootId, cursorId, focus: focusId } = state
 
-  const focusedNode = nodes[focusId]
-  let { children: focusedChildren } = focusedNode
-  focusedChildren = focusedChildren || []
-  const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
-  const cursorIndex = focusedChildren.findIndex2(cursorId)
+  //let { children: focusedChildren } = focusedNode
+  //focusedChildren = focusedChildren || []
+  //const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
+  //const cursorIndex = focusedChildren.findIndex2(cursorId)
+  function getCursorId() {
+    return state.cursorId
+  }
+  function getCursorIndex() {
+    return findChildById(getFocusedNode(), getCursorId())
+  }
+  function getFocusedNode() {
+    return nodes[state.focus]
+  }
   function setFocus(id: TNodeId) {
     state.focus = id
   }
@@ -71,8 +79,11 @@ function Reducer(oldState: TState, action: TAction) {
   function insertChildren(node: TNode, index: number, ...items: TNodeId[]) {
     node.children.splice(index, 0, ...items)
   }
-  function getChild(node: TNode, index: number) {
+  function getChild(node: TNode, index: number): TNodeId {
     return node.children[index]
+  }
+  function getChildNode(node: TNode, index: number): TNode {
+    return nodes[getChild(node, index)]
   }
   function setChild(node: TNode, index: number, id: TNodeId) {
     const old = getChild(node, index)
@@ -80,6 +91,7 @@ function Reducer(oldState: TState, action: TAction) {
     return old
   }
   function swapChild(node: TNode, index1: number, index2: number) {
+    const focusedNode = getFocusedNode();
     const childAtIndex = getChild(focusedNode, index1)
     const replaced = setChild(focusedNode, index2, childAtIndex)
     setChild(focusedNode, index1, replaced)
@@ -90,27 +102,34 @@ function Reducer(oldState: TState, action: TAction) {
   function deleteChildren(node: TNode, index: number, count: number) {
     node.children.splice(index, count)
   }
+  function getParentNode(node: TNode) {
+    return nodes[node.parentId]
+  }
+  function findChildById(node: TNode, id: TNodeId):TNodeId {
+    return node.children.findIndex2(id)
+  }
+
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
     nodes.push({
       id,
-      parentId: focusedNode.id,
+      parentId: getFocusedNode().id,
       type: 'ref' as const,
       refId,
     })
-    setChild(focusedNode, cursorIndex, refId)
+    setChild(getFocusedNode(), getCursorIndex(), refId)
     setFocus(id)
   }
   function cellAdd() {
     const id = getId()
     nodes.push({
       id,
-      parentId: focusedNode.id,
+      parentId: getFocusedNode().id,
       type: 'cell' as const,
       children: [cursorId],
     })
-    setChild(focusedNode, cursorIndex, id)
+    setChild(getFocusedNode(), getCursorIndex(), id)
     setFocus(id)
   }
   function menuClose() {
@@ -133,7 +152,7 @@ function Reducer(oldState: TState, action: TAction) {
       type: 'key' as const,
       key,
     })
-    insertChildren(focusedNode, cursorIndex, id)
+    insertChildren(getFocusedNode(), getCursorIndex(), id)
   }
   function menu() {
     const { id } = payload
@@ -142,24 +161,22 @@ function Reducer(oldState: TState, action: TAction) {
       id,
       type: 'menu',
     })
-    insertChildren(focusedNode, cursorIndex, id)
+    insertChildren(getFocusedNode(), getCursorIndex(), id)
   }
   function cursorMove() {
     const { key } = payload
     function removeCursor() {
-      deleteChildren(focusedNode, cursorIndex, 1)
+      deleteChildren(getFocusedNode(), getCursorIndex(), 1)
     }
     function navUp(callback) {
-      const focusedId = focusedNode.id
-      const { parentId } = focusedNode
-      const parentNode = nodes[parentId]
-      const parentIndex = parentNode.children.findIndex2(focusedId)
+      const parentNode = getParentNode(getFocusedNode())
+      const parentIndex = findChildById(parentNode, getFocusedNode().id)
       removeCursor()
-      setFocus(parentId)
+      setFocus(parentNode.id)
       callback(parentNode, parentIndex)
     }
     function navTo(nodeIndex: number, push: boolean) {
-      const node = mapped[nodeIndex]
+      const node = getChildNode(getFocusedNode(), nodeIndex)
       if (node.type === 'cell') {
         removeCursor()
         if (push) {
@@ -169,34 +186,34 @@ function Reducer(oldState: TState, action: TAction) {
         }
         setFocus(node.id)
       } else {
-        swapChild(focusedNode, nodeIndex, cursorIndex)
+        swapChild(getFocusedNode(), nodeIndex, getCursorIndex())
       }
     }
     if (key === 'ArrowLeft') {
-      if (cursorIndex === 0) {
-        if (isRoot(focusedNode)) return // can't go up past root
+      if (getCursorIndex() === 0) {
+        if (isRoot(getFocusedNode())) return // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
           insertChildren(parentNode, parentIndex, cursorId)
         })
       } else {
-        navTo(cursorIndex - 1, true)
+        navTo(getCursorIndex() - 1, true)
       }
     } else if (key === 'ArrowRight') {
-      if (cursorIndex === getNumChildren(focusedNode) - 1) {
-        if (isRoot(focusedNode)) return
+      if (getCursorIndex() === getNumChildren(getFocusedNode()) - 1) {
+        if (isRoot(getFocusedNode())) return
         navUp((parentNode: TNode, parentIndex: number) => {
           insertChildren(parentNode, parentIndex + 1, cursorId)
         })
       } else {
-        navTo(cursorIndex + 1, false)
+        navTo(getCursorIndex() + 1, false)
       }
     }
   }
   function cursorDeleteKey(key) {
-    if (key === 'Backspace' && cursorIndex > 0) {
-      deleteChildren(focusedNode, cursorIndex - 1, 1)
-    } else if (key === 'Delete' && cursorIndex < getNumChildren(focusedNode)) {
-      deleteChildren(focusedNode, cursorIndex + 1, 1)
+    if (key === 'Backspace' && getCursorIndex() > 0) {
+      deleteChildren(getFocusedNode(), getCursorIndex() - 1, 1)
+    } else if (key === 'Delete' && getCursorIndex() < getNumChildren(getFocusedNode())) {
+      deleteChildren(getFocusedNode(), getCursorIndex() + 1, 1)
     }
   }
   function cursorDelete() {
@@ -314,6 +331,7 @@ class X extends React.Component {
       ))
       return (
         <El w100 h100 key={index}>
+          cell: {index} focus: {state.focus} <br />
           {children}
         </El>
       )
@@ -329,7 +347,7 @@ class X extends React.Component {
       ))
       return (
         <El dashedBorder key={index}>
-          <El>{`${type} ${index}`}</El>
+          <El>{`${type} ${index} parentId: ${item.parentId}`}</El>
           <br />
           <El>{children}</El>
         </El>
