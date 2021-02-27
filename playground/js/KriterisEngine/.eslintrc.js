@@ -5,6 +5,7 @@ module.exports = {
     'import/no-extraneous-dependencies': 'off',
     'no-unused-vars': 'off',
     'no-use-before-define': 'off',
+    'no-extend-native': 'off',
     semi: [2, 'never'],
     'no-debugger': 'off',
   },
@@ -27,4 +28,4 @@ module.exports = {
       '@typescript-eslint/parser': ['.ts', '.tsx'],
     },
   },
-};
+}

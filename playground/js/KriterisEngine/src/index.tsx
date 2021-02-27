@@ -1,15 +1,15 @@
-/* eslint-disable @typescript-eslint/no-unused-vars,no-debugger,@typescript-eslint/no-use-before-define */
-import './App.global.css';
-import React from 'react';
-import { render } from 'react-dom';
-import { connect as rrconnect, Provider } from 'react-redux';
-import { createStore } from 'redux';
-import keyboard from 'keyboardjs';
-import cloneDeep from 'clone-deep';
-import om from 'object-merge';
-import { Autocomplete } from '@material-ui/lab';
-import TextField from '@material-ui/core/TextField';
-import fs from 'fs';
+/* eslint-disable @typescript-eslint/no-unused-vars,@typescript-eslint/no-use-before-define,no-plusplus */
+import './App.global.css'
+import React from 'react'
+import { render } from 'react-dom'
+import { connect as rrconnect, Provider } from 'react-redux'
+import { createStore } from 'redux'
+import keyboard from 'keyboardjs'
+import cloneDeep from 'clone-deep'
+import om from 'object-merge'
+import { Autocomplete } from '@material-ui/lab'
+import TextField from '@material-ui/core/TextField'
+import fs from 'fs'
 // import {
 //   diff,
 //   addedDiff,
@@ -18,165 +18,162 @@ import fs from 'fs';
 //   detailedDiff,
 // } from 'deep-object-diff';
 // import { stringify } from 'javascript-stringify';
-import { accessor, Load, renderTracker } from './util';
-import { TAction, TNode, TNodeId, TState } from './types';
+import { accessor, idGen, Load, renderTracker } from './util'
+import { TAction, TNode, TNodeId, TState } from './types'
 
-Load();
+debugger
+Load()
 
-let _id: TNodeId = 0;
-function getId(): TNodeId {
-  return _id++;
-}
+const getId = idGen()
 
 function getInitialState(): TState {
-  const rootId: TNodeId = getId();
-  const cursorId = getId();
+  const rootId: TNodeId = getId()
+  const cursorId = getId()
   const rootEl = {
     id: rootId,
     parentId: rootId,
     type: 'cell' as const,
     children: [cursorId],
-    isRoot: true,
-  };
+  }
   const cursorEl = {
     id: cursorId,
     parentId: -1,
     type: 'cursor' as const,
-  };
+  }
   return {
     cursorId,
     rootId,
     nodes: [rootEl, cursorEl],
     focus: rootId,
-  };
+  }
 }
 
 // <state+action=>new state>
 function Reducer(oldState: TState, action: TAction) {
-  const state: TState = cloneDeep(oldState);
-  const { type, payload } = action;
-  const { nodes, rootId, cursorId, focus: focusId } = state;
+  const state: TState = cloneDeep(oldState)
+  const { type, payload } = action
+  const { nodes, rootId, cursorId, focus: focusId } = state
 
-  const focusedNode = nodes[focusId];
-  let { children: focusedChildren } = focusedNode;
-  focusedChildren = focusedChildren || [];
-  const mapped = focusedChildren.map((id: TNodeId) => nodes[id]);
-  const cursorIndex = focusedChildren.findIndex2(cursorId);
+  const focusedNode = nodes[focusId]
+  let { children: focusedChildren } = focusedNode
+  focusedChildren = focusedChildren || []
+  const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
+  const cursorIndex = focusedChildren.findIndex2(cursorId)
   function mirrorAdd() {
-    const { id: mirrorId } = payload;
-    const id = getId();
+    const { id: mirrorId } = payload
+    const id = getId()
     nodes.push({
       id,
       parentId: focusedNode.id,
       type: 'mirror' as const,
       mirrorId,
-    });
-    focusedChildren[cursorIndex] = mirrorId;
-    state.focus = id;
+    })
+    focusedChildren[cursorIndex] = mirrorId
+    state.focus = id
   }
   function cellAdd() {
-    const id = getId();
+    const id = getId()
     nodes.push({
       id,
       parentId: focusedNode.id,
       type: 'cell' as const,
       children: [cursorId],
-    });
-    focusedChildren[cursorIndex] = id;
-    state.focus = id;
+    })
+    focusedChildren[cursorIndex] = id
+    state.focus = id
   }
   function menuClose() {
-    const { key, value } = payload;
-    const { title, command } = value;
-    cursorDeleteKey('Backspace');
+    const { key, value } = payload
+    const { title, command } = value
+    cursorDeleteKey('Backspace')
     setTimeout(() => {
       if (key !== 'Escape') {
-        dispatch(...command);
+        dispatch(...command)
       }
 
-      keyboard.setContext('editing');
-    }, 0);
+      keyboard.setContext('editing')
+    }, 0)
   }
   function key() {
-    const { key, id } = payload;
+    const { key, id } = payload
     nodes.push({
       children: [],
       id,
       parentId: focusId,
       type: 'key' as const,
       key,
-    });
-    focusedNode.children.splice(cursorIndex, 0, id);
+    })
+    focusedNode.children.splice(cursorIndex, 0, id)
   }
   function menu() {
-    const { id } = payload;
+    const { id } = payload
     nodes.push({
       children: [],
       parentId: focusId,
       id,
       type: 'menu',
-    });
-    focusedNode.children.splice(cursorIndex, 0, id);
+    })
+    focusedNode.children.splice(cursorIndex, 0, id)
   }
   function cursorMove() {
-    const { key } = payload;
+    const { key } = payload
     function removeCursor() {
-      focusedChildren.splice(cursorIndex, 1); // remove cursor from current node
+      focusedChildren.splice(cursorIndex, 1) // remove cursor from current node
     }
     function navUp(callback) {
-      const focusedId = focusedNode.id;
-      const { parentId } = focusedNode;
-      const parentNode = nodes[parentId];
-      const parentIndex = parentNode.children.findIndex2(focusedId);
-      removeCursor();
-      state.focus = parentId;
-      callback(parentNode, parentIndex);
+      const focusedId = focusedNode.id
+      const { parentId } = focusedNode
+      const parentNode = nodes[parentId]
+      const parentIndex = parentNode.children.findIndex2(focusedId)
+      removeCursor()
+      state.focus = parentId
+      callback(parentNode, parentIndex)
     }
     function navTo(nodeIndex: number, push: boolean) {
-      const node = mapped[nodeIndex];
+      const node = mapped[nodeIndex]
       if (node.type === 'cell') {
-        removeCursor();
+        removeCursor()
         if (push) {
-          node.children.push(cursorId);
+          node.children.push(cursorId)
         } else {
-          node.children.splice(0, 0, cursorId);
+          node.children.splice(0, 0, cursorId)
         }
-        state.focus = node.id;
+        state.focus = node.id
       } else {
-        focusedChildren[cursorIndex] = focusedChildren[nodeIndex];
-        focusedChildren[nodeIndex] = cursorId;
+        focusedChildren[cursorIndex] = focusedChildren[nodeIndex]
+        focusedChildren[nodeIndex] = cursorId
       }
     }
     if (key === 'ArrowLeft') {
       if (cursorIndex === 0) {
-        if (focusedNode.isRoot) return; // can't go up past root
+        if (focusedNode.isRoot) return // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
-          parentNode.children.splice(parentIndex, 0, cursorId);
-        });
+          parentNode.children.splice(parentIndex, 0, cursorId)
+        })
       } else {
-        navTo(cursorIndex - 1, true);
+        navTo(cursorIndex - 1, true)
       }
     } else if (key === 'ArrowRight') {
       if (cursorIndex === focusedChildren.length - 1) {
-        if (focusedNode.isRoot) return;
+        if (focusedNode.isRoot) return
         navUp((parentNode, parentIndex) => {
-          parentNode.children.splice(parentIndex + 1, 0, cursorId);
-        });
+          parentNode.children.splice(parentIndex + 1, 0, cursorId)
+        })
       } else {
-        navTo(cursorIndex + 1, false);
+        navTo(cursorIndex + 1, false)
       }
     }
   }
   function cursorDeleteKey(key) {
     if (key === 'Backspace' && cursorIndex > 0) {
-      focusedChildren.splice(cursorIndex - 1, 1);
+      focusedChildren.splice(cursorIndex - 1, 1)
     } else if (key === 'Delete' && cursorIndex < focusedChildren.length) {
-      focusedChildren.splice(cursorIndex + 1, 1);
+      focusedChildren.splice(cursorIndex + 1, 1)
     }
   }
   function cursorDelete() {
-    const { key } = payload;
-    cursorDeleteKey(key);
+    const { key } = payload
+    cursorDeleteKey(key)
   }
   const commands = {
     cellAdd,
@@ -186,67 +183,67 @@ function Reducer(oldState: TState, action: TAction) {
     cursorMove,
     cursorDelete,
     mirrorAdd,
-  };
-  function dispatchInner(type) {
-    const command = commands[type];
-    command && command();
   }
-  dispatchInner(type);
+  function dispatchInner(type) {
+    const command = commands[type]
+    command && command()
+  }
+  dispatchInner(type)
   // const mydiff = detailedDiff(oldState, state);
   // console.log(stringify(mydiff, null, 2));
-  return state;
+  return state
 }
 // </state+action=>new state>
 
 // <redux init>
-const store = createStore(Reducer, getInitialState());
-const { getState } = store;
+const store = createStore(Reducer, getInitialState())
+const { getState } = store
 function dispatch(type, payload) {
-  const msg = { type, payload };
-  console.log('dispatch', msg);
-  store.dispatch(msg);
+  const msg = { type, payload }
+  console.log('dispatch', msg)
+  store.dispatch(msg)
 }
 // </redux init>
 
 function keyboardBindings() {
-  keyboard.setContext('intellisense');
+  keyboard.setContext('intellisense')
   keyboard.bind('`', (e) => {
-    keyboard.setContext('editing');
+    keyboard.setContext('editing')
     dispatch('menuClose', {
       key: 'Escape',
       value: { title: '', command: [''] },
-    });
-  });
+    })
+  })
 
-  keyboard.setContext('editing');
+  keyboard.setContext('editing')
   keyboard.bind('`', (e) => {
-    keyboard.setContext('intellisense');
-    dispatch('menu', { id: getId() });
-  });
-  const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,');
+    keyboard.setContext('intellisense')
+    dispatch('menu', { id: getId() })
+  })
+  const lettersArray = Array.from('abcdefghijklmnopqrstuvwxyz0123456789.,')
   keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
-    const { key } = e;
-    const id = getId();
-    dispatch('key', { key, id });
-  });
+    const { key } = e
+    const id = getId()
+    dispatch('key', { key, id })
+  })
   keyboard.bind(['left', 'right'], (e) => {
-    const { key } = e;
-    dispatch('cursorMove', { key });
-  });
+    const { key } = e
+    dispatch('cursorMove', { key })
+  })
   keyboard.bind(['delete', 'backspace'], (e) => {
-    const { key } = e;
-    dispatch('cursorDelete', { key });
-  });
+    const { key } = e
+    dispatch('cursorDelete', { key })
+  })
 }
-keyboardBindings();
+keyboardBindings()
 // <renderer>
 class X extends React.Component {
   constructor(props: any) {
-    super(props);
+    super(props)
   }
 
   componentDidMount() {
-    this.firstTime = true;
+    this.firstTime = true
   }
 
   componentWillUnmount() {
@@ -254,72 +251,72 @@ class X extends React.Component {
   }
 
   render() {
-    const { index, cycle } = this.props;
-    const firstTime = accessor(this, 'firstTime');
-    const state: TState = getState();
-    const { nodes, rootId, cursorId, focus: focusId } = state;
-    const item2 = nodes[index];
+    const { index, cycle } = this.props
+    const firstTime = accessor(this, 'firstTime')
+    const state: TState = getState()
+    const { nodes, rootId, cursorId, focus: focusId } = state
+    const item2 = nodes[index]
     // const { type, mirrorId } = item;
     // const children = (item.children || []).map((child) => (
     //   <X key={child} index={child} cycle={cycle} />
     // ));
     function rendercursor() {
-      return <El>█</El>;
+      return <El>█</El>
     }
     function renderkey({ index }) {
-      const item = state.nodes[index];
-      const { key } = item;
+      const item = state.nodes[index]
+      const { key } = item
       if (key === 'Enter') {
         return (
           <>
             <span>↲</span>
             <br />
           </>
-        );
+        )
       }
       if (key === ' ') {
-        return '\u2000';
+        return '\u2000'
       }
-      return key;
+      return key
     }
     function renderroot({ index }) {
-      const item = state.nodes[index];
+      const item = state.nodes[index]
       const children = (item.children || []).map((child) => (
         <X key={child} index={child} cycle={cycle} />
-      ));
+      ))
       return (
         <El w100 h100 key={index}>
           {children}
         </El>
-      );
+      )
     }
     function rendercell({ index }) {
-      const item = state.nodes[index];
+      const item = state.nodes[index]
       if (item.isRoot) {
-        return renderroot({index});
+        return renderroot({ index })
       }
-      const { type } = item;
+      const { type } = item
       const children = (item.children || []).map((child) => (
         <X key={child} index={child} cycle={cycle} />
-      ));
+      ))
       return (
         <El dashedBorder key={index}>
           <El>{`${type} ${index}`}</El>
           <br />
           <El>{children}</El>
         </El>
-      );
+      )
     }
     function rendermirror({ index }) {
       if (cycle.has(index)) {
-        return <span>cycle detected</span>;
+        return <span>cycle detected</span>
       }
-      const item = state.nodes[index];
-      const { mirrorId } = item;
+      const item = state.nodes[index]
+      const { mirrorId } = item
 
-      cycle.set(mirrorId);
+      cycle.set(mirrorId)
 
-      return rendercell({ index: mirrorId });
+      return rendercell({ index: mirrorId })
     }
     function rendermenu() {
       const mirrorList = state.nodes
@@ -327,15 +324,15 @@ class X extends React.Component {
         .map((node: TNode) => ({
           title: `cell ${node.id}`,
           command: ['mirrorAdd', { id: node.id }],
-        }));
+        }))
       const demoMenu = [
         { title: 'add cell', command: ['cellAdd'] },
         { title: 'aaa ccc', command: ['cellAdd'] },
         { title: 'eee fff', command: ['cellAdd'] },
         { title: 'ggg hhh', command: ['cellAdd'] },
         ...mirrorList,
-      ];
-      let selectedValue = { title: '', year: 0 };
+      ]
+      let selectedValue = { title: '', year: 0 }
       return (
         <Autocomplete
           id="combo-box-demo"
@@ -348,9 +345,9 @@ class X extends React.Component {
           ref={(input) => input && (input.style.display = 'inline-block')}
           onChange={(_, value) => (selectedValue = value)}
           onClose={(e, value) => {
-            const { nativeEvent } = e;
-            const { key } = nativeEvent;
-            dispatch('menuClose', { key, value: selectedValue });
+            const { nativeEvent } = e
+            const { key } = nativeEvent
+            dispatch('menuClose', { key, value: selectedValue })
           }}
           renderInput={(params) => (
             <TextField
@@ -359,14 +356,14 @@ class X extends React.Component {
               variant="outlined"
               inputRef={(input) => {
                 if (firstTime.get() && input) {
-                  firstTime.set(false);
-                  setTimeout(() => input.focus(), 0);
+                  firstTime.set(false)
+                  setTimeout(() => input.focus(), 0)
                 }
               }}
             />
           )}
         />
-      );
+      )
     }
     const renderMap = {
       rendercursor,
@@ -374,10 +371,10 @@ class X extends React.Component {
       renderroot,
       rendermenu,
       rendermirror,
-    };
-    const renderfunc = renderMap[`render${item2.type}`];
-    const args = { index };
-    return (renderfunc && renderfunc(args)) || rendercell(args);
+    }
+    const renderfunc = renderMap[`render${item2.type}`]
+    const args = { index }
+    return (renderfunc && renderfunc(args)) || rendercell(args)
   }
 }
 // </renderer>
@@ -393,11 +390,11 @@ function El(props) {
     children,
     style,
     ...rest
-  } = props;
-  const elType = (button && 'button') || 'div';
-  const display = 'inline-block';
+  } = props
+  const elType = (button && 'button') || 'div'
+  const display = 'inline-block'
   function s(name, value, enabled = false) {
-    return (enabled && { [name]: value }) || {};
+    return (enabled && { [name]: value }) || {}
   }
   const moreStyle = {
     ...s('width', '100%', w100),
@@ -406,36 +403,36 @@ function El(props) {
     ...s('border', '1px dashed yellow', dashedBorder),
     ...s('margin', '2px', true),
     // ...s('verticalAlign', 'top', true),
-  };
+  }
   const newProps = {
     ...rest,
     ...{ style: om(style, moreStyle) },
-  };
+  }
   // console.log("createElement",{
   //   elType,
   //   newProps,
   //   children,
   // })
-  return React.createElement(elType, newProps, children);
+  return React.createElement(elType, newProps, children)
 }
 // </element factory>
 
 function App() {
-  return <X key={0} index={0} cycle={renderTracker()} />;
+  return <X key={0} index={0} cycle={renderTracker()} />
 }
 
-const ConnectedApp = rrconnect((state) => state, {})(App);
+const ConnectedApp = rrconnect((state) => state, {})(App)
 render(
   <Provider store={store}>
     <ConnectedApp />
   </Provider>,
   document.getElementById('root')
-);
+)
 
 function Save() {
   try {
-    fs.writeFileSync('myfile.txt', 'the text to write in the file', 'utf-8');
+    fs.writeFileSync('myfile.txt', 'the text to write in the file', 'utf-8')
   } catch (e) {
-    alert('Failed to save the file !');
+    alert('Failed to save the file !')
   }
 }
