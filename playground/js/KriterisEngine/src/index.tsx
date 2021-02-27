@@ -62,7 +62,34 @@ function Reducer(oldState: TState, action: TAction) {
   function setFocus(id: TNodeId) {
     state.focus = id
   }
-
+  function pushChild(node: TNode, id: TNodeId) {
+    node.children.push(id)
+  }
+  function enqueueChild(node: TNode, id: TNodeId) {
+    node.children.splice(0, 0, id)
+  }
+  function insertChildren(node: TNode, index: number, ...items: TNodeId[]) {
+    node.children.splice(index, 0, ...items)
+  }
+  function getChild(node: TNode, index: number) {
+    return node.children[index]
+  }
+  function setChild(node: TNode, index: number, id: TNodeId) {
+    const old = getChild(node, index)
+    node.children[index] = id
+    return old
+  }
+  function swapChild(node: TNode, index1: number, index2: number) {
+    const childAtIndex = getChild(focusedNode, index1)
+    const replaced = setChild(focusedNode, index2, childAtIndex)
+    setChild(focusedNode, index1, replaced)
+  }
+  function getNumChildren(node: TNode) {
+    return node.children.length
+  }
+  function deleteChildren(node: TNode, index: number, count: number) {
+    node.children.splice(index, count)
+  }
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
@@ -72,7 +99,7 @@ function Reducer(oldState: TState, action: TAction) {
       type: 'ref' as const,
       refId,
     })
-    focusedChildren[cursorIndex] = refId
+    setChild(focusedNode, cursorIndex, refId)
     setFocus(id)
   }
   function cellAdd() {
@@ -83,9 +110,8 @@ function Reducer(oldState: TState, action: TAction) {
       type: 'cell' as const,
       children: [cursorId],
     })
-    focusedChildren[cursorIndex] = id
+    setChild(focusedNode, cursorIndex, id)
     setFocus(id)
-
   }
   function menuClose() {
     const { key, value } = payload
@@ -102,28 +128,26 @@ function Reducer(oldState: TState, action: TAction) {
   function key() {
     const { key, id } = payload
     nodes.push({
-      children: [],
       id,
       parentId: focusId,
       type: 'key' as const,
       key,
     })
-    focusedNode.children.splice(cursorIndex, 0, id)
+    insertChildren(focusedNode, cursorIndex, id)
   }
   function menu() {
     const { id } = payload
     nodes.push({
-      children: [],
       parentId: focusId,
       id,
       type: 'menu',
     })
-    focusedNode.children.splice(cursorIndex, 0, id)
+    insertChildren(focusedNode, cursorIndex, id)
   }
   function cursorMove() {
     const { key } = payload
     function removeCursor() {
-      focusedChildren.splice(cursorIndex, 1) // remove cursor from current node
+      deleteChildren(focusedNode, cursorIndex, 1)
     }
     function navUp(callback) {
       const focusedId = focusedNode.id
@@ -139,30 +163,29 @@ function Reducer(oldState: TState, action: TAction) {
       if (node.type === 'cell') {
         removeCursor()
         if (push) {
-          node.children.push(cursorId)
+          pushChild(node, cursorId)
         } else {
-          node.children.splice(0, 0, cursorId)
+          enqueueChild(node, cursorId)
         }
         setFocus(node.id)
       } else {
-        focusedChildren[cursorIndex] = focusedChildren[nodeIndex]
-        focusedChildren[nodeIndex] = cursorId
+        swapChild(focusedNode, nodeIndex, cursorIndex)
       }
     }
     if (key === 'ArrowLeft') {
       if (cursorIndex === 0) {
         if (isRoot(focusedNode)) return // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
-          parentNode.children.splice(parentIndex, 0, cursorId)
+          insertChildren(parentNode, parentIndex, cursorId)
         })
       } else {
         navTo(cursorIndex - 1, true)
       }
     } else if (key === 'ArrowRight') {
-      if (cursorIndex === focusedChildren.length - 1) {
+      if (cursorIndex === getNumChildren(focusedNode) - 1) {
         if (isRoot(focusedNode)) return
-        navUp((parentNode, parentIndex) => {
-          parentNode.children.splice(parentIndex + 1, 0, cursorId)
+        navUp((parentNode: TNode, parentIndex: number) => {
+          insertChildren(parentNode, parentIndex + 1, cursorId)
         })
       } else {
         navTo(cursorIndex + 1, false)
@@ -171,9 +194,9 @@ function Reducer(oldState: TState, action: TAction) {
   }
   function cursorDeleteKey(key) {
     if (key === 'Backspace' && cursorIndex > 0) {
-      focusedChildren.splice(cursorIndex - 1, 1)
-    } else if (key === 'Delete' && cursorIndex < focusedChildren.length) {
-      focusedChildren.splice(cursorIndex + 1, 1)
+      deleteChildren(focusedNode, cursorIndex - 1, 1)
+    } else if (key === 'Delete' && cursorIndex < getNumChildren(focusedNode)) {
+      deleteChildren(focusedNode, cursorIndex + 1, 1)
     }
   }
   function cursorDelete() {
