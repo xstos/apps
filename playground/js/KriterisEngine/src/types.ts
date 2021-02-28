@@ -2,7 +2,7 @@ export type TNodeType = 'cursor' | 'cell' | 'key' | 'menu' | 'ref'
 export type TNodeId = number
 export type TNode = {
   id: TNodeId
-  parentId: TNodeId
+  parentId?: TNodeId
   type: TNodeType
   children?: TNodeId[]
   key?: string

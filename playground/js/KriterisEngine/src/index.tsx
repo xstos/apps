@@ -26,43 +26,55 @@ const getId = idGen()
 
 function getInitialState(): TState {
   const rootId: TNodeId = getId()
+  const rootPosId = getId()
   const cursorId = getId()
   const rootEl = {
     id: rootId,
-    parentId: rootId,
     type: 'cell' as const,
     children: [cursorId],
   }
+  const rootPos = {
+    id: rootPosId,
+    type: 'ref' as const,
+    parentId: rootPosId,
+    refId: rootId,
+  }
   const cursorEl = {
     id: cursorId,
-    parentId: -1,
     type: 'cursor' as const,
+    parentId: rootPosId,
   }
   return {
     cursorId,
-    rootId,
-    nodes: [rootEl, cursorEl],
-    focus: rootId,
+    rootId: rootPosId,
+    nodes: [rootEl, rootPos, cursorEl],
+    focus: rootPosId,
   }
 }
 function isRoot(node: TNode) {
   return node.parentId === node.id
 }
-// <state+action=>new state>
-function Reducer(oldState: TState, action: TAction) {
-  const state: TState = cloneDeep(oldState)
-  const { type, payload } = action
+function stateLens(state: TState) {
   const { nodes, rootId, cursorId, focus: focusId } = state
 
   //let { children: focusedChildren } = focusedNode
   //focusedChildren = focusedChildren || []
   //const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
   //const cursorIndex = focusedChildren.findIndex2(cursorId)
+  function pushNode(node: TNode) {
+    nodes.push(node)
+  }
   function getCursorId() {
     return state.cursorId
   }
   function getCursorIndex() {
     return findChildById(getFocusedNode(), getCursorId())
+  }
+  function getChildren(node: TNode) {
+    if (node.type === 'ref') {
+      return nodes[node.refId].children
+    }
+    return node.children
   }
   function getFocusedNode() {
     return nodes[state.focus]
@@ -71,66 +83,117 @@ function Reducer(oldState: TState, action: TAction) {
     state.focus = id
   }
   function pushChild(node: TNode, id: TNodeId) {
-    node.children.push(id)
+    getChildren(node).push(id)
   }
   function enqueueChild(node: TNode, id: TNodeId) {
-    node.children.splice(0, 0, id)
+    getChildren(node).splice(0, 0, id)
   }
   function insertChildren(node: TNode, index: number, ...items: TNodeId[]) {
-    node.children.splice(index, 0, ...items)
+    getChildren(node).splice(index, 0, ...items)
   }
   function getChild(node: TNode, index: number): TNodeId {
-    return node.children[index]
+    return getChildren(node)[index]
   }
   function getChildNode(node: TNode, index: number): TNode {
     return nodes[getChild(node, index)]
   }
   function setChild(node: TNode, index: number, id: TNodeId) {
     const old = getChild(node, index)
-    node.children[index] = id
+    getChildren(node)[index] = id
     return old
   }
   function swapChild(node: TNode, index1: number, index2: number) {
-    const focusedNode = getFocusedNode();
+    const focusedNode = getFocusedNode()
     const childAtIndex = getChild(focusedNode, index1)
     const replaced = setChild(focusedNode, index2, childAtIndex)
     setChild(focusedNode, index1, replaced)
   }
   function getNumChildren(node: TNode) {
-    return node.children.length
+    return getChildren(node).length
   }
   function deleteChildren(node: TNode, index: number, count: number) {
-    node.children.splice(index, count)
+    getChildren(node).splice(index, count)
   }
   function getParentNode(node: TNode) {
     return nodes[node.parentId]
   }
-  function findChildById(node: TNode, id: TNodeId):TNodeId {
-    return node.children.findIndex2(id)
+  function findChildById(node: TNode, id: TNodeId): TNodeId {
+    return getChildren(node).findIndex2(id)
   }
-
+  return {
+    getCursorId,
+    getCursorIndex,
+    getChildren,
+    getFocusedNode,
+    setFocus,
+    pushChild,
+    enqueueChild,
+    insertChildren,
+    getChild,
+    getChildNode,
+    setChild,
+    swapChild,
+    getNumChildren,
+    deleteChildren,
+    getParentNode,
+    findChildById,
+    pushNode,
+  }
+}
+// <state+action=>new state>
+function Reducer(oldState: TState, action: TAction) {
+  const state: TState = cloneDeep(oldState)
+  const { type, payload } = action
+  const {
+    getCursorId,
+    getCursorIndex,
+    getChildren,
+    getFocusedNode,
+    setFocus,
+    pushChild,
+    enqueueChild,
+    insertChildren,
+    getChild,
+    getChildNode,
+    setChild,
+    swapChild,
+    getNumChildren,
+    deleteChildren,
+    getParentNode,
+    findChildById,
+    pushNode,
+  } = stateLens(state)
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
-    nodes.push({
+    const focusedNode = getFocusedNode()
+    pushNode({
       id,
-      parentId: getFocusedNode().id,
       type: 'ref' as const,
+      parentId: focusedNode.id,
       refId,
     })
-    setChild(getFocusedNode(), getCursorIndex(), refId)
+    const cursorIndex = getCursorIndex()
+    setChild(focusedNode, cursorIndex, id)
     setFocus(id)
+    insertChildren(getFocusedNode(), 0, getCursorId())
   }
   function cellAdd() {
     const id = getId()
-    nodes.push({
+    pushNode({
       id,
-      parentId: getFocusedNode().id,
       type: 'cell' as const,
-      children: [cursorId],
+      children: [getCursorId()],
     })
-    setChild(getFocusedNode(), getCursorIndex(), id)
-    setFocus(id)
+    const refId = getId()
+    pushNode({
+      id: refId,
+      type: 'ref' as const,
+      parentId: getFocusedNode().id,
+      refId: id,
+    })
+    setChild(getFocusedNode(), getCursorIndex(), refId)
+    setFocus(refId)
   }
   function menuClose() {
     const { key, value } = payload
@@ -146,9 +209,9 @@ function Reducer(oldState: TState, action: TAction) {
   }
   function key() {
     const { key, id } = payload
-    nodes.push({
+    pushNode({
       id,
-      parentId: focusId,
+      parentId: getFocusedNode().id,
       type: 'key' as const,
       key,
     })
@@ -156,8 +219,8 @@ function Reducer(oldState: TState, action: TAction) {
   }
   function menu() {
     const { id } = payload
-    nodes.push({
-      parentId: focusId,
+    pushNode({
+      parentId: getFocusedNode().id,
       id,
       type: 'menu',
     })
@@ -177,12 +240,12 @@ function Reducer(oldState: TState, action: TAction) {
     }
     function navTo(nodeIndex: number, push: boolean) {
       const node = getChildNode(getFocusedNode(), nodeIndex)
-      if (node.type === 'cell') {
+      if (node.type === 'ref') {
         removeCursor()
         if (push) {
-          pushChild(node, cursorId)
+          pushChild(node, getCursorId())
         } else {
-          enqueueChild(node, cursorId)
+          enqueueChild(node, getCursorId())
         }
         setFocus(node.id)
       } else {
@@ -193,7 +256,7 @@ function Reducer(oldState: TState, action: TAction) {
       if (getCursorIndex() === 0) {
         if (isRoot(getFocusedNode())) return // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
-          insertChildren(parentNode, parentIndex, cursorId)
+          insertChildren(parentNode, parentIndex, getCursorId())
         })
       } else {
         navTo(getCursorIndex() - 1, true)
@@ -202,7 +265,7 @@ function Reducer(oldState: TState, action: TAction) {
       if (getCursorIndex() === getNumChildren(getFocusedNode()) - 1) {
         if (isRoot(getFocusedNode())) return
         navUp((parentNode: TNode, parentIndex: number) => {
-          insertChildren(parentNode, parentIndex + 1, cursorId)
+          insertChildren(parentNode, parentIndex + 1, getCursorId())
         })
       } else {
         navTo(getCursorIndex() + 1, false)
@@ -212,7 +275,10 @@ function Reducer(oldState: TState, action: TAction) {
   function cursorDeleteKey(key) {
     if (key === 'Backspace' && getCursorIndex() > 0) {
       deleteChildren(getFocusedNode(), getCursorIndex() - 1, 1)
-    } else if (key === 'Delete' && getCursorIndex() < getNumChildren(getFocusedNode())) {
+    } else if (
+      key === 'Delete' &&
+      getCursorIndex() < getNumChildren(getFocusedNode())
+    ) {
       deleteChildren(getFocusedNode(), getCursorIndex() + 1, 1)
     }
   }
@@ -296,9 +362,10 @@ class X extends React.Component {
   }
 
   render() {
-    const { index, cycle } = this.props
+    const { cycle, index, hideCursor } = this.props
     const firstTime = accessor(this, 'firstTime')
     const state: TState = getState()
+    //const { getChildren } = stateLens(state)
     const { nodes, rootId, cursorId, focus: focusId } = state
     const item2 = nodes[index]
     // const { type, refId } = item;
@@ -306,6 +373,7 @@ class X extends React.Component {
     //   <X key={child} index={child} cycle={cycle} />
     // ));
     function rendercursor() {
+      if (hideCursor) return <El></El>
       return <El>█</El>
     }
     function renderkey({ index }) {
@@ -325,10 +393,10 @@ class X extends React.Component {
       return key
     }
     function renderroot({ index }) {
-      const item = state.nodes[index]
-      const children = (item.children || []).map((child) => (
-        <X key={child} index={child} cycle={cycle} />
-      ))
+      const item = squash(state.nodes[index])
+      const children = (item.children || []).map((child) => {
+        return <X key={child} index={child} cycle={cycle} />
+      })
       return (
         <El w100 h100 key={index}>
           cell: {index} focus: {state.focus} <br />
@@ -336,48 +404,52 @@ class X extends React.Component {
         </El>
       )
     }
-    function rendercell({ index }) {
-      const item = state.nodes[index]
-      if (isRoot(item)) {
-        return renderroot({ index })
+    function squash(node: TNode) {
+      if (node.type === 'ref') {
+        const deref = state.nodes[node.refId]
+        return {
+          id: node.id,
+          parentId: node.parentId,
+          type: deref.type,
+          children: deref.children,
+          refId: node.refId,
+        }
       }
-      const { type } = item
-      const children = (item.children || []).map((child) => (
-        <X key={child} index={child} cycle={cycle} />
-      ))
-      return (
-        <El dashedBorder key={index}>
-          <El>{`${type} ${index} parentId: ${item.parentId}`}</El>
-          <br />
-          <El>{children}</El>
-        </El>
-      )
+      return node
     }
     function renderref({ index }) {
       if (cycle.has(index)) {
         return <span>cycle detected</span>
       }
-      const item = state.nodes[index]
+      const item = squash(state.nodes[index])
       const { refId } = item
-
       cycle.set(refId)
-
-      return rendercell({ index: refId })
+      if (isRoot(item)) {
+        return renderroot({ index })
+      }
+      const { type } = item
+      const hideCursor2 = item.id !== state.focus || hideCursor
+      const children = (item.children || []).map((child) => {
+        return (
+          <X key={child} index={child} hideCursor={hideCursor2} cycle={cycle} />
+        )
+      })
+      return (
+        <El dashedBorder key={index}>
+          <El>{`${type} ${index} ref: ${item.refId} parentId: ${item.parentId}`}</El>
+          <br />
+          <El>{children}</El>
+        </El>
+      )
     }
     function rendermenu() {
       const refList = state.nodes
-        .filter((node: TNode): boolean => node.type === 'cell')
+        .filter((node: TNode): boolean => node.type === 'cell' && !isRoot(node))
         .map((node: TNode) => ({
           title: `cell ${node.id}`,
           command: ['refAdd', { id: node.id }],
         }))
-      const demoMenu = [
-        { title: 'add cell', command: ['cellAdd'] },
-        { title: 'aaa ccc', command: ['cellAdd'] },
-        { title: 'eee fff', command: ['cellAdd'] },
-        { title: 'ggg hhh', command: ['cellAdd'] },
-        ...refList,
-      ]
+      const demoMenu = [{ title: 'add cell', command: ['cellAdd'] }, ...refList]
       let selectedValue = { title: '', year: 0 }
       return (
         <Autocomplete
@@ -420,7 +492,7 @@ class X extends React.Component {
     }
     const renderfunc = renderMap[`render${item2.type}`]
     const args = { index }
-    return (renderfunc && renderfunc(args)) || rendercell(args)
+    return (renderfunc && renderfunc(args)) || renderref(args)
   }
 }
 // </renderer>
@@ -464,7 +536,7 @@ function El(props) {
 // </element factory>
 
 function App() {
-  return <X key={0} index={0} cycle={renderTracker()} />
+  return <X key={1} index={1} cycle={renderTracker()} />
 }
 
 const ConnectedApp = rrconnect((state) => state, {})(App)
