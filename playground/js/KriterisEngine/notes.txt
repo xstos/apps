@@ -1,0 +1,21 @@
+<email template example>
+  <email cell>
+  Dear <username cell />
+
+  I am writing to inform you that ...
+
+  Sincerely,
+
+  Your account manager, <manager cell/>]
+  </email cell>
+  step1 = (email * users) equiv to users.map(user => email.replace(username, user)
+  step2 = step1 * managers
+
+  then write code
+  javascript * step2
+
+</email template example>
+
+<html test example>
+colors cell * button elements * onClick => hi i'm <color text>
+</html test example>
