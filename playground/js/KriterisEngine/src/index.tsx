@@ -27,7 +27,6 @@ const getId = idGen()
 
 function getInitialState(): TState {
   const rootId: TNodeId = getId()
-  //const rootPosId = getId()
   const cursorId = getId()
   const rootEl = {
     id: rootId,
@@ -35,16 +34,11 @@ function getInitialState(): TState {
     type: 'cell' as const,
     children: [cursorId],
   }
-  // const rootPos = {
-  //   id: rootPosId,
-  //   type: 'ref' as const,
-  //   parentId: rootPosId,
-  //   refId: rootId,
-  // }
   const cursorEl = {
     id: cursorId,
     type: 'cursor' as const,
     parentId: rootId,
+    children: [],
   }
   return {
     cursorId,
@@ -59,10 +53,6 @@ function isRoot(node: TNode) {
 function stateLens(state: TState) {
   const { nodes, rootId, cursorId, focus: focusId } = state
 
-  //let { children: focusedChildren } = focusedNode
-  //focusedChildren = focusedChildren || []
-  //const mapped = focusedChildren.map((id: TNodeId) => nodes[id])
-  //const cursorIndex = focusedChildren.findIndex2(cursorId)
   function pushNode(node: TNode) {
     nodes.push(node)
   }
@@ -79,7 +69,7 @@ function stateLens(state: TState) {
     return node.children
   }
   function getFocusedNode() {
-    return nodes[state.focus]
+    return getNodeById(state.focus)
   }
   function setFocus(id: TNodeId) {
     state.focus = id
@@ -97,7 +87,7 @@ function stateLens(state: TState) {
     return getChildren(node)[index]
   }
   function getChildNode(node: TNode, index: number): TNode {
-    return nodes[getChild(node, index)]
+    return getNodeById(getChild(node, index))
   }
   function setChild(node: TNode, index: number, id: TNodeId) {
     const old = getChild(node, index)
@@ -117,13 +107,13 @@ function stateLens(state: TState) {
     getChildren(node).splice(index, count)
   }
   function getParentNode(node: TNode) {
-    return nodes[node.parentId]
+    return getNodeById(node.parentId)
   }
   function findChildById(node: TNode, id: TNodeId): TNodeId {
     return getChildren(node).findIndex2(id)
   }
   function getNodeById(id: TNodeId): TNode {
-    return state.nodes[id]
+    return nodes[id]
   }
   return {
     getCursorId,
@@ -171,6 +161,9 @@ function Reducer(oldState: TState, action: TAction) {
     pushNode,
     getNodeById,
   } = stateLens(state)
+  function getCursor() {
+    return getNodeById(getCursorId())
+  }
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
@@ -181,10 +174,10 @@ function Reducer(oldState: TState, action: TAction) {
       parentId: focusedNode.id,
       refId,
     })
-    const cursorIndex = getCursorIndex()
-    setChild(focusedNode, cursorIndex, id)
-    setFocus(id)
-    insertChildren(getFocusedNode(), 0, getCursorId())
+    // const cursorIndex = getCursorIndex()
+    // const cursorNode = getNodeById(getCursorId())
+    // pushChild(cursorNode, id) //remember the place we jumped in to
+    insertChildren(getFocusedNode(), getCursorIndex(), id)
   }
   function cellAdd() {
     const id = getId()
@@ -195,6 +188,7 @@ function Reducer(oldState: TState, action: TAction) {
       children: [getCursorId()],
     })
 
+    pushChild(getCursor(), id)
     setChild(getFocusedNode(), getCursorIndex(), id)
     setFocus(id)
   }
@@ -235,15 +229,24 @@ function Reducer(oldState: TState, action: TAction) {
       deleteChildren(getFocusedNode(), getCursorIndex(), 1)
     }
     function navUp(callback) {
-      const parentNode = getParentNode(getFocusedNode())
-      const parentIndex = findChildById(parentNode, getFocusedNode().id)
-      removeCursor()
-      setFocus(parentNode.id)
-      callback(parentNode, parentIndex)
+      const lastId = getCursor().children.slice(-1)[0]
+
+      const lastNode = getNodeById(lastId)
+      extracted(lastNode)
+      function extracted(node) {
+        const parentNode = getParentNode(node)
+        const parentIndex = findChildById(parentNode, node.id)
+        removeCursor()
+        setFocus(parentNode.id)
+        callback(parentNode, parentIndex)
+      }
+
+      //extracted(getFocusedNode())
     }
     function navTo(nodeIndex: number, push: boolean) {
       const node = getChildNode(getFocusedNode(), nodeIndex)
-      if (node.type === 'ref') {
+
+      function enter(node) {
         removeCursor()
         if (push) {
           pushChild(node, getCursorId())
@@ -251,11 +254,23 @@ function Reducer(oldState: TState, action: TAction) {
           enqueueChild(node, getCursorId())
         }
         setFocus(node.id)
+      }
+
+      if (node.type === 'cell') {
+        enter(node)
+        pushChild(getCursor(), node.id)
+      } else if (node.type === 'ref') {
+        pushChild(getCursor(), node.id)
+        const targetCell = getNodeById(node.refId)
+        enter(targetCell)
       } else {
         swapChild(getFocusedNode(), nodeIndex, getCursorIndex())
       }
     }
-    if (key === 'ArrowLeft') {
+
+    const goLeft = key === 'ArrowLeft'
+    const goRight = key === 'ArrowRight'
+    if (goLeft) {
       if (getCursorIndex() === 0) {
         if (isRoot(getFocusedNode())) return // can't go up past root
         navUp((parentNode: TNode, parentIndex: number) => {
@@ -264,7 +279,7 @@ function Reducer(oldState: TState, action: TAction) {
       } else {
         navTo(getCursorIndex() - 1, true)
       }
-    } else if (key === 'ArrowRight') {
+    } else if (goRight) {
       if (getCursorIndex() === getNumChildren(getFocusedNode()) - 1) {
         if (isRoot(getFocusedNode())) return
         navUp((parentNode: TNode, parentIndex: number) => {
@@ -374,9 +389,7 @@ class X extends React.Component {
     const { nodes, rootId, cursorId, focus: focusId } = state
     function renderNode(id) {
       const item2 = nodes[id]
-      if (item2.type === 'ref') {
-        debugger
-      }
+
       function rendercursor() {
         return <El>█</El>
       }
@@ -419,7 +432,7 @@ class X extends React.Component {
         function renderCellContainer(children) {
           return (
             <El dashedBorder key={id}>
-              <El>{`${type} ${id} ref: ${item.refId} parentId: ${item.parentId}`}</El>
+              <El>{`${type} ${id}`}</El>
               <br />
               <El>{children}</El>
             </El>
@@ -435,7 +448,7 @@ class X extends React.Component {
           return (
             <El w100 h100 key={id}>
               <El small>
-                root cell helo: {id} focus: {state.focus}
+                root cell: {id} focus: {state.focus}
                 {JSON.stringify(item.children.map((i) => lens.getNodeById(i)))}
               </El>
               <br />

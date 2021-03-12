@@ -1,4 +1,11 @@
 <email template example>
+
+
+ <username cell >
+ hello
+ <>
+
+
   <email cell>
   Dear <username cell />
 
@@ -6,8 +13,60 @@
 
   Sincerely,
 
-  Your account manager, <manager cell/>]
+  Your account manager, <manager cell/>
   </email cell>
+
+  <cell usernames>
+    <cell>tim<cell>
+    <cell>bob<cell>
+  </cell
+
+  [[MM][DD][YYYY]]
+
+  object user = <>
+
+  user.setName
+
+  function write(username) {
+  var emailstring = `Dear ${username}
+
+                   I am writing to inform you that ...
+
+                   Sincerely,`;`
+  }
+
+  contacts.map(contact=> write(contact))
+  }
+
+
+  <javascript>
+  <my emails>
+  <js>
+
+  <email cell>
+    Dear <cell>tim<cell>
+
+    I am writing to inform you that ...
+
+    Sincerely,
+
+    Your account manager, <manager cell/>
+    </email cell>
+
+
+
+  <email cell>
+    Dear <username cell />
+
+    I am writing to inform you that ...
+
+    Sincerely,
+
+    Your account manager, <manager cell/>
+    </email cell>
+
+
+
   step1 = (email * users) equiv to users.map(user => email.replace(username, user)
   step2 = step1 * managers
 
