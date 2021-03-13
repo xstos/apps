@@ -10,6 +10,9 @@ Array.prototype.insertArray = function insertArray(index: number, ...items) {
 Array.prototype.findIndex2 = function (value) {
   return this.findIndex((v) => v === value)
 }
+Array.prototype.last = function last() {
+  return this.slice(-1)[0]
+}
 export type TAccessor = { get: () => any; set: (value: any) => void }
 export function accessor(target: any, prop: string | number): TAccessor {
   return {

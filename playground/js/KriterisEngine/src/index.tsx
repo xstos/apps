@@ -19,7 +19,7 @@ import fs from 'fs'
 // import { stringify } from 'javascript-stringify';
 import { accessor, idGen, Load, renderTracker } from './util'
 import { TAction, TNode, TNodeId, TState } from './types'
-import { DockPanel, DockType } from './dockpanel'
+//import { DockPanel, DockType } from './dockpanel'
 
 Load()
 
@@ -38,7 +38,7 @@ function getInitialState(): TState {
     id: cursorId,
     type: 'cursor' as const,
     parentId: rootId,
-    children: [],
+    children: [rootId],
   }
   return {
     cursorId,
@@ -115,6 +115,9 @@ function stateLens(state: TState) {
   function getNodeById(id: TNodeId): TNode {
     return nodes[id]
   }
+  function getCursor() {
+    return getNodeById(getCursorId())
+  }
   return {
     getCursorId,
     getCursorIndex,
@@ -134,6 +137,7 @@ function stateLens(state: TState) {
     findChildById,
     pushNode,
     getNodeById,
+    getCursor,
   }
 }
 // <state+action=>new state>
@@ -160,10 +164,9 @@ function Reducer(oldState: TState, action: TAction) {
     findChildById,
     pushNode,
     getNodeById,
+    getCursor,
   } = stateLens(state)
-  function getCursor() {
-    return getNodeById(getCursorId())
-  }
+
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
@@ -191,6 +194,7 @@ function Reducer(oldState: TState, action: TAction) {
     pushChild(getCursor(), id)
     setChild(getFocusedNode(), getCursorIndex(), id)
     setFocus(id)
+    getCursor().parentId = id
   }
   function menuClose() {
     const { key, value } = payload
@@ -229,19 +233,18 @@ function Reducer(oldState: TState, action: TAction) {
       deleteChildren(getFocusedNode(), getCursorIndex(), 1)
     }
     function navUp(callback) {
-      const lastId = getCursor().children.slice(-1)[0]
+      const lastId = getCursor().children.pop()
 
       const lastNode = getNodeById(lastId)
       extracted(lastNode)
-      function extracted(node) {
+      function extracted(node: TNode) {
         const parentNode = getParentNode(node)
         const parentIndex = findChildById(parentNode, node.id)
         removeCursor()
         setFocus(parentNode.id)
         callback(parentNode, parentIndex)
+        getCursor().parentId = parentNode.id
       }
-
-      //extracted(getFocusedNode())
     }
     function navTo(nodeIndex: number, push: boolean) {
       const node = getChildNode(getFocusedNode(), nodeIndex)
@@ -259,10 +262,12 @@ function Reducer(oldState: TState, action: TAction) {
       if (node.type === 'cell') {
         enter(node)
         pushChild(getCursor(), node.id)
+        getCursor().parentId = node.id
       } else if (node.type === 'ref') {
         pushChild(getCursor(), node.id)
         const targetCell = getNodeById(node.refId)
         enter(targetCell)
+        getCursor().parentId = node.id
       } else {
         swapChild(getFocusedNode(), nodeIndex, getCursorIndex())
       }
@@ -368,162 +373,149 @@ function keyboardBindings() {
 }
 keyboardBindings()
 // <renderer>
-class X extends React.Component {
-  constructor(props: any) {
-    super(props)
-  }
 
-  componentDidMount() {
-    this.firstTime = true
-  }
+function X(props) {
+  const { cycle, id } = props
+  //const firstTime = accessor(this, 'firstTime')
+  const state: TState = getState()
+  const lens = stateLens(state)
+  const { nodes, rootId, cursorId, focus: focusId } = state
+  const cursor = lens.getCursor()
+  //const lastId = cursor.children.last()
+  //const lastNode = lens.getNodeById(lastId) //todo menu duplication
+  const renderStack = []
+  function renderNode(id, pnode) {
+    const item2 = lens.getNodeById(id)
 
-  componentWillUnmount() {
-    /* callbacks.delete(this); */
-  }
-
-  render() {
-    const { cycle, id } = this.props
-    //const firstTime = accessor(this, 'firstTime')
-    const state: TState = getState()
-    const lens = stateLens(state)
-    const { nodes, rootId, cursorId, focus: focusId } = state
-    function renderNode(id) {
-      const item2 = nodes[id]
-
-      function rendercursor() {
-        return <El>█</El>
+    function rendercursor() {
+      //console.log(pnode, item2)
+      if (pnode.id !== item2.parentId) {
+        return null
       }
-      function renderkey({ id }) {
-        const item = state.nodes[id]
-        const { key } = item
-        if (key === 'Enter') {
-          return (
-            <>
-              <span>↲</span>
-              <br />
-            </>
-          )
-        }
-        if (key === ' ') {
-          return '\u2000'
-        }
-        return key
-      }
-
-      function squash(node: TNode) {
-        if (node.type === 'ref') {
-          const deref = state.nodes[node.refId]
-          return {
-            id: node.id,
-            parentId: node.parentId,
-            type: deref.type,
-            children: deref.children,
-            refId: node.refId,
-          }
-        }
-        return node
-      }
-      function renderref({ id }) {
-        return rendercell({ id })
-      }
-      function rendercell({ id }) {
-        const item = squash(lens.getNodeById(id))
-        const { type, refId } = item
-        function renderCellContainer(children) {
-          return (
-            <El dashedBorder key={id}>
-              <El>{`${type} ${id}`}</El>
-              <br />
-              <El>{children}</El>
-            </El>
-          )
-        }
-        const children = (item.children || []).map((child) => {
-          return renderNode(child)
-          // return (
-          //   <X key={child} id={child} cycle={cycle} />
-          // );
-        })
-        if (isRoot(item)) {
-          return (
-            <El w100 h100 key={id}>
-              <El small>
-                root cell: {id} focus: {state.focus}
-                {JSON.stringify(item.children.map((i) => lens.getNodeById(i)))}
-              </El>
-              <br />
-              {children}
-            </El>
-          )
-        }
-        if (item.type === 'ref') {
-          debugger
-        }
-        //const test = <pre>{JSON.stringify(state, null, 2)}</pre>
-        return renderCellContainer(children)
-      }
-      function rendermenu() {
-        const refList = state.nodes
-          .filter((node: TNode): boolean => node.type === 'cell')
-          .map((node: TNode) => ({
-            title: `cell reference ${node.id}`,
-            command: ['refAdd', { id: node.id }],
-          }))
-        const demoMenu = [
-          { title: 'add cell', command: ['cellAdd'] },
-          ...refList,
-        ]
-        let selectedValue = { title: '', year: 0 }
+      return <El reff={(el) => el && el.scrollIntoView()}>█</El>
+    }
+    function renderkey({ id }) {
+      const item = lens.getNodeById(id)
+      const { key } = item
+      if (key === 'Enter') {
         return (
-          <Autocomplete
-            id="combo-box-demo"
-            autoHighlight
-            openOnFocus
-            options={demoMenu}
-            getOptionLabel={(option) => option.title}
-            getOptionSelected={(option, value) => value}
-            style={{ width: 300 }}
-            ref={(input) => input && (input.style.display = 'inline-block')}
-            onChange={(_, value) => (selectedValue = value)}
-            onClose={(e, value) => {
-              const { nativeEvent } = e
-              const { key } = nativeEvent
-              dispatch('menuClose', { key, value: selectedValue })
-            }}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Actions"
-                variant="outlined"
-                inputRef={(input) => {
-                  if (!input) return
-                  if (input.myfirstTime) return
-                  input.myfirstTime = true
-                  setTimeout(() => input.focus(), 0)
-                  // if (firstTime.get() && input) {
-                  //   firstTime.set(false)
-                  //   setTimeout(() => input.focus(), 0)
-                  // }
-                }}
-              />
-            )}
-          />
+          <>
+            <span>↲</span>
+            <br />
+          </>
         )
       }
-      const renderMap = {
-        rendercursor,
-        renderkey,
-        rendermenu,
-        rendercell,
-        renderref,
+      if (key === ' ') {
+        return '\u2000'
       }
-      const renderfunc = renderMap[`render${item2.type}`]
-      const args = { id }
-      return (renderfunc && renderfunc(args)) || <div>bad renderer</div>
+      return key
     }
-    return renderNode(id)
+
+    function squash(node: TNode) {
+      if (node.type === 'ref') {
+        const deref = lens.getNodeById(node.refId)
+        return {
+          id: node.id,
+          parentId: node.parentId,
+          type: deref.type,
+          children: deref.children,
+          refId: node.refId,
+        }
+      }
+      return node
+    }
+    function rendercell({ id }) {
+      const node = lens.getNodeById(id)
+      const item = squash(node)
+      const { type, refId } = item
+      function renderCellContainer(children) {
+        const getStr = () => {
+          return refId ? `${id} (${refId})` : `${refId || id}`
+        }
+        return (
+          <El dashedBorder key={id}>
+            <El>{`${type} ${getStr()}`}</El>
+            <br />
+            <El>{children}</El>
+          </El>
+        )
+      }
+      const children = (item.children || []).map((i) => renderNode(i, node))
+      if (isRoot(item)) {
+        //const s = JSON.stringify(item.children.map(lens.getNodeById))
+        const cursor2 = JSON.stringify(lens.getCursor())
+        return (
+          <El w100 h100 scrollV key={id}>
+            <El small>
+              root cell: {id} focus: {state.focus}
+              <pre>{cursor2}</pre>
+            </El>
+            <br />
+            {children}
+          </El>
+        )
+      }
+      if (item.type === 'ref') {
+        debugger
+      }
+      //const test = <pre>{JSON.stringify(state, null, 2)}</pre>
+      return renderCellContainer(children)
+    }
+    function rendermenu() {
+      const refList = state.nodes
+        .filter((node: TNode): boolean => node.type === 'cell')
+        .map((node: TNode) => ({
+          title: `cell reference ${node.id}`,
+          command: ['refAdd', { id: node.id }],
+        }))
+      const demoMenu = [{ title: 'add cell', command: ['cellAdd'] }, ...refList]
+      let selectedValue = { title: '', year: 0 }
+      return (
+        <Autocomplete
+          id="combo-box-demo"
+          autoHighlight
+          openOnFocus
+          options={demoMenu}
+          getOptionLabel={(option) => option.title}
+          getOptionSelected={(option, value) => value}
+          style={{ width: 300 }}
+          ref={(input) => input && (input.style.display = 'inline-block')}
+          onChange={(_, value) => (selectedValue = value)}
+          onClose={(e, value) => {
+            const { nativeEvent } = e
+            const { key } = nativeEvent
+            dispatch('menuClose', { key, value: selectedValue })
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Actions"
+              variant="outlined"
+              inputRef={(input) => {
+                if (!input) return
+                if (input.myfirstTime) return
+                input.myfirstTime = true
+                setTimeout(() => input.focus(), 0)
+              }}
+            />
+          )}
+        />
+      )
+    }
+    const renderMap = {
+      rendercursor,
+      renderkey,
+      rendermenu,
+      rendercell,
+      renderref: rendercell,
+    }
+    const renderfunc = renderMap[`render${item2.type}`]
+    const args = { id }
+    return renderfunc && renderfunc(args)
   }
+  return renderNode(id)
 }
+
 // </renderer>
 
 // <element factory>
@@ -537,6 +529,8 @@ function El(props) {
     children,
     small,
     style,
+    scrollV,
+    reff,
     ...rest
   } = props
   const elType = (button && 'button') || 'div'
@@ -553,10 +547,12 @@ function El(props) {
     ...s('fontSize', '10px', small),
     ...s('padding', '0px', small),
     ...s('margin', '0px', small),
+    ...s('overflowY', 'scroll', scrollV),
     // ...s('verticalAlign', 'top', true),
   }
   const newProps = {
     ...rest,
+    ref: reff,
     ...{ style: om(style, moreStyle) },
   }
   // console.log("createElement",{

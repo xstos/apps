@@ -6,20 +6,24 @@ body {
   position: relative;
   color: white;
   height: 100vh;
+  width: 100vw;
   background: linear-gradient(
-    200.96deg,
-    #b7a4a4 -29.09%,
-    #97bc6f 51.77%,
-    #c177e9 129.35%
+    210deg,
+    #85790f -29.09%,
+    #561108 51.77%,
+    #172a77 129.35%
   );
-  font-family: sans-serif;
+  font-family: Consolas,monaco,monospace;
   overflow-y: hidden;
   display: flex;
   justify-content: left;
   margin: 0px;
   padding: 0px;
 }
-
+#root {
+  height: 100vh;
+  width: 100vw;
+}
 button {
   background-color: white;
   padding: 10px 20px;
@@ -56,4 +60,11 @@ a:hover {
   justify-content: center;
   align-items: center;
   margin: 20px 0;
+}
+
+.MuiAutocomplete-option[data-focus="true"] {
+  background-color: dodgerblue !important;
+}
+.MuiAutocomplete-option[aria-selected="true"] {
+  background-color: dodgerblue !important;
 }
