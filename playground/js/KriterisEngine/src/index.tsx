@@ -18,7 +18,9 @@ import fs from 'fs'
 // } from 'deep-object-diff';
 // import { stringify } from 'javascript-stringify';
 import { accessor, idGen, Load, renderTracker } from './util'
-import { TAction, TNode, TNodeId, TState } from './types'
+import { TAction, TActionType, TNode, TNodeId, TState } from './types'
+import { stateLens } from './state'
+import { JumpMenu } from './components.tsx';
 //import { DockPanel, DockType } from './dockpanel'
 
 Load()
@@ -50,96 +52,7 @@ function getInitialState(): TState {
 function isRoot(node: TNode) {
   return node.parentId === node.id
 }
-function stateLens(state: TState) {
-  const { nodes, rootId, cursorId, focus: focusId } = state
 
-  function pushNode(node: TNode) {
-    nodes.push(node)
-  }
-  function getCursorId() {
-    return state.cursorId
-  }
-  function getCursorIndex() {
-    return findChildById(getFocusedNode(), getCursorId())
-  }
-  function getChildren(node: TNode) {
-    if (node.type === 'ref') {
-      return nodes[node.refId].children
-    }
-    return node.children
-  }
-  function getFocusedNode() {
-    return getNodeById(state.focus)
-  }
-  function setFocus(id: TNodeId) {
-    state.focus = id
-  }
-  function pushChild(node: TNode, id: TNodeId) {
-    getChildren(node).push(id)
-  }
-  function enqueueChild(node: TNode, id: TNodeId) {
-    getChildren(node).splice(0, 0, id)
-  }
-  function insertChildren(node: TNode, index: number, ...items: TNodeId[]) {
-    getChildren(node).splice(index, 0, ...items)
-  }
-  function getChild(node: TNode, index: number): TNodeId {
-    return getChildren(node)[index]
-  }
-  function getChildNode(node: TNode, index: number): TNode {
-    return getNodeById(getChild(node, index))
-  }
-  function setChild(node: TNode, index: number, id: TNodeId) {
-    const old = getChild(node, index)
-    getChildren(node)[index] = id
-    return old
-  }
-  function swapChild(node: TNode, index1: number, index2: number) {
-    const focusedNode = getFocusedNode()
-    const childAtIndex = getChild(focusedNode, index1)
-    const replaced = setChild(focusedNode, index2, childAtIndex)
-    setChild(focusedNode, index1, replaced)
-  }
-  function getNumChildren(node: TNode) {
-    return getChildren(node).length
-  }
-  function deleteChildren(node: TNode, index: number, count: number) {
-    getChildren(node).splice(index, count)
-  }
-  function getParentNode(node: TNode) {
-    return getNodeById(node.parentId)
-  }
-  function findChildById(node: TNode, id: TNodeId): TNodeId {
-    return getChildren(node).findIndex2(id)
-  }
-  function getNodeById(id: TNodeId): TNode {
-    return nodes[id]
-  }
-  function getCursor() {
-    return getNodeById(getCursorId())
-  }
-  return {
-    getCursorId,
-    getCursorIndex,
-    getChildren,
-    getFocusedNode,
-    setFocus,
-    pushChild,
-    enqueueChild,
-    insertChildren,
-    getChild,
-    getChildNode,
-    setChild,
-    swapChild,
-    getNumChildren,
-    deleteChildren,
-    getParentNode,
-    findChildById,
-    pushNode,
-    getNodeById,
-    getCursor,
-  }
-}
 // <state+action=>new state>
 function Reducer(oldState: TState, action: TAction) {
   const state: TState = cloneDeep(oldState)
@@ -166,7 +79,20 @@ function Reducer(oldState: TState, action: TAction) {
     getNodeById,
     getCursor,
   } = stateLens(state)
+  function tableAdd() {
+    const id = getId()
+    pushNode({
+      id,
+      parentId: getFocusedNode().id,
+      type: 'table' as const,
+      children: [getCursorId()],
+    })
 
+    pushChild(getCursor(), id)
+    setChild(getFocusedNode(), getCursorIndex(), id)
+    setFocus(id)
+    getCursor().parentId = id
+  }
   function refAdd() {
     const { id: refId } = payload
     const id = getId()
@@ -339,42 +265,8 @@ function dispatch(type, payload) {
 }
 // </redux init>
 
-function keyboardBindings() {
-  keyboard.setContext('intellisense')
-  keyboard.bind('`', (e) => {
-    keyboard.setContext('editing')
-    dispatch('menuClose', {
-      key: 'Escape',
-      value: { title: '', command: [''] },
-    })
-  })
-
-  keyboard.setContext('editing')
-  keyboard.bind('`', (e) => {
-    keyboard.setContext('intellisense')
-    dispatch('menu', { id: getId() })
-  })
-  const lettersArray = Array.from(
-    'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
-  )
-  keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
-    const { key } = e
-    const id = getId()
-    dispatch('key', { key, id })
-  })
-  keyboard.bind(['left', 'right'], (e) => {
-    const { key } = e
-    dispatch('cursorMove', { key })
-  })
-  keyboard.bind(['delete', 'backspace'], (e) => {
-    const { key } = e
-    dispatch('cursorDelete', { key })
-  })
-}
-keyboardBindings()
 // <renderer>
-
-function X(props) {
+function Render(props) {
   const { cycle, id } = props
   //const firstTime = accessor(this, 'firstTime')
   const state: TState = getState()
@@ -384,12 +276,12 @@ function X(props) {
   //const lastId = cursor.children.last()
   //const lastNode = lens.getNodeById(lastId) //todo menu duplication
   const renderStack = []
-  function renderNode(id, pnode) {
+  function renderNode(id: TNodeId, pnode?: TNode): React.Component {
     const item2 = lens.getNodeById(id)
 
     function rendercursor() {
       //console.log(pnode, item2)
-      if (pnode.id !== item2.parentId) {
+      if (pnode?.id !== item2.parentId) {
         return null
       }
       return <El reff={(el) => el && el.scrollIntoView()}>█</El>
@@ -412,7 +304,7 @@ function X(props) {
     }
 
     function squash(node: TNode) {
-      if (node.type === 'ref') {
+      if (node.type === 'ref' && node.refId) {
         const deref = lens.getNodeById(node.refId)
         return {
           id: node.id,
@@ -463,44 +355,18 @@ function X(props) {
     }
     function rendermenu() {
       const refList = state.nodes
-        .filter((node: TNode): boolean => node.type === 'cell')
+        .filter((node: TNode): boolean => node.type === 'cell' && !isRoot(node))
         .map((node: TNode) => ({
           title: `cell reference ${node.id}`,
           command: ['refAdd', { id: node.id }],
         }))
-      const demoMenu = [{ title: 'add cell', command: ['cellAdd'] }, ...refList]
-      let selectedValue = { title: '', year: 0 }
-      return (
-        <Autocomplete
-          id="combo-box-demo"
-          autoHighlight
-          openOnFocus
-          options={demoMenu}
-          getOptionLabel={(option) => option.title}
-          getOptionSelected={(option, value) => value}
-          style={{ width: 300 }}
-          ref={(input) => input && (input.style.display = 'inline-block')}
-          onChange={(_, value) => (selectedValue = value)}
-          onClose={(e, value) => {
-            const { nativeEvent } = e
-            const { key } = nativeEvent
-            dispatch('menuClose', { key, value: selectedValue })
-          }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Actions"
-              variant="outlined"
-              inputRef={(input) => {
-                if (!input) return
-                if (input.myfirstTime) return
-                input.myfirstTime = true
-                setTimeout(() => input.focus(), 0)
-              }}
-            />
-          )}
-        />
-      )
+
+      const demoMenu = [
+        { title: 'add cell', command: ['cellAdd'] },
+        { title: 'add table', command: ['tableAdd'] },
+        ...refList,
+      ]
+      return JumpMenu(demoMenu, dispatch)
     }
     const renderMap = {
       rendercursor,
@@ -517,7 +383,9 @@ function X(props) {
 }
 
 // </renderer>
-
+function makeDispatch(type: TActionType, payload: any): TAction {
+  return { type, payload }
+}
 // <element factory>
 function El(props) {
   const {
@@ -565,10 +433,11 @@ function El(props) {
 // </element factory>
 
 function App() {
-  return <X key={0} id={0} cycle={renderTracker()} />
+  return <Render key={0} id={0} cycle={renderTracker()} />
 }
 
 const ConnectedApp = rrconnect((state) => state, {})(App)
+keyboardBindings()
 render(
   <Provider store={store}>
     <ConnectedApp />
@@ -582,4 +451,37 @@ function Save() {
   } catch (e) {
     alert('Failed to save the file !')
   }
+}
+
+function keyboardBindings() {
+  keyboard.setContext('intellisense')
+  keyboard.bind('`', (e) => {
+    keyboard.setContext('editing')
+    dispatch('menuClose', {
+      key: 'Escape',
+      value: { title: '', command: [''] },
+    })
+  })
+
+  keyboard.setContext('editing')
+  keyboard.bind('`', (e) => {
+    keyboard.setContext('intellisense')
+    dispatch('menu', { id: getId() })
+  })
+  const lettersArray = Array.from(
+    'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
+  )
+  keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
+    const { key } = e
+    const id = getId()
+    dispatch('key', { key, id })
+  })
+  keyboard.bind(['left', 'right'], (e) => {
+    const { key } = e
+    dispatch('cursorMove', { key })
+  })
+  keyboard.bind(['delete', 'backspace'], (e) => {
+    const { key } = e
+    dispatch('cursorDelete', { key })
+  })
 }

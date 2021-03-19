@@ -10,6 +10,8 @@ module.exports = {
     'no-debugger': 'off',
     'spaced-comment': 'off',
     '@typescript-eslint/no-use-before-define': 'off',
+    '@typescript-eslint/no-shadow': 'off',
+    'no-return-assign': 'off',
     'no-plusplus': 'off',
   },
   parserOptions: {

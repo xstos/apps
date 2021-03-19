@@ -1,4 +1,4 @@
-export type TNodeType = 'cursor' | 'cell' | 'key' | 'menu' | 'ref'
+export type TNodeType = 'cursor' | 'cell' | 'key' | 'menu' | 'ref' | 'table'
 export type TNodeId = number
 export type TNode = {
   id: TNodeId
