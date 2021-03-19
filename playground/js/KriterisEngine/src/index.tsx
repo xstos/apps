@@ -20,7 +20,8 @@ import fs from 'fs'
 import { accessor, idGen, Load, renderTracker } from './util'
 import { TAction, TActionType, TNode, TNodeId, TState } from './types'
 import { stateLens } from './state'
-import { JumpMenu } from './components.tsx';
+import { JumpMenu } from './components.tsx'
+import { keyboardBindings } from './keyboard'
 //import { DockPanel, DockType } from './dockpanel'
 
 Load()
@@ -273,15 +274,22 @@ function Render(props) {
   const lens = stateLens(state)
   const { nodes, rootId, cursorId, focus: focusId } = state
   const cursor = lens.getCursor()
+  const cursorPath = lens.getChildren(cursor)
   //const lastId = cursor.children.last()
   //const lastNode = lens.getNodeById(lastId) //todo menu duplication
-  const renderStack = []
-  function renderNode(id: TNodeId, pnode?: TNode): React.Component {
+
+  const renderContext: { renderStack: TNodeId[] } = {
+    renderStack: [],
+  }
+  function renderNode(id: TNodeId): React.Component {
     const item2 = lens.getNodeById(id)
+    const isSelected = renderContext.renderStack.equals(cursorPath)
+    if (id !== cursorId) {
+      renderContext.renderStack.push(id)
+    }
 
     function rendercursor() {
-      //console.log(pnode, item2)
-      if (pnode?.id !== item2.parentId) {
+      if (!isSelected) {
         return null
       }
       return <El reff={(el) => el && el.scrollIntoView()}>█</El>
@@ -318,8 +326,9 @@ function Render(props) {
     }
     function rendercell({ id }) {
       const node = lens.getNodeById(id)
+      const { type, refId } = node
       const item = squash(node)
-      const { type, refId } = item
+
       function renderCellContainer(children) {
         const getStr = () => {
           return refId ? `${id} (${refId})` : `${refId || id}`
@@ -332,14 +341,15 @@ function Render(props) {
           </El>
         )
       }
-      const children = (item.children || []).map((i) => renderNode(i, node))
+      const children = (item.children || []).map((i) => renderNode(i))
       if (isRoot(item)) {
         //const s = JSON.stringify(item.children.map(lens.getNodeById))
-        const cursor2 = JSON.stringify(lens.getCursor())
+        const cursor2 = JSON.stringify(cursor)
+
         return (
           <El w100 h100 scrollV key={id}>
             <El small>
-              root cell: {id} focus: {state.focus}
+              root: {id} focus: {state.focus}
               <pre>{cursor2}</pre>
             </El>
             <br />
@@ -347,13 +357,13 @@ function Render(props) {
           </El>
         )
       }
-      if (item.type === 'ref') {
-        debugger
-      }
       //const test = <pre>{JSON.stringify(state, null, 2)}</pre>
       return renderCellContainer(children)
     }
     function rendermenu() {
+      if (!isSelected) {
+        return null
+      }
       const refList = state.nodes
         .filter((node: TNode): boolean => node.type === 'cell' && !isRoot(node))
         .map((node: TNode) => ({
@@ -377,7 +387,11 @@ function Render(props) {
     }
     const renderfunc = renderMap[`render${item2.type}`]
     const args = { id }
-    return renderfunc && renderfunc(args)
+    const ret = renderfunc && renderfunc(args)
+    if (id !== cursorId) {
+      renderContext.renderStack.pop()
+    }
+    return ret
   }
   return renderNode(id)
 }
@@ -437,7 +451,7 @@ function App() {
 }
 
 const ConnectedApp = rrconnect((state) => state, {})(App)
-keyboardBindings()
+keyboardBindings(dispatch, getId)
 render(
   <Provider store={store}>
     <ConnectedApp />
@@ -451,37 +465,4 @@ function Save() {
   } catch (e) {
     alert('Failed to save the file !')
   }
-}
-
-function keyboardBindings() {
-  keyboard.setContext('intellisense')
-  keyboard.bind('`', (e) => {
-    keyboard.setContext('editing')
-    dispatch('menuClose', {
-      key: 'Escape',
-      value: { title: '', command: [''] },
-    })
-  })
-
-  keyboard.setContext('editing')
-  keyboard.bind('`', (e) => {
-    keyboard.setContext('intellisense')
-    dispatch('menu', { id: getId() })
-  })
-  const lettersArray = Array.from(
-    'abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
-  )
-  keyboard.bind([...lettersArray, 'space', 'enter'], (e) => {
-    const { key } = e
-    const id = getId()
-    dispatch('key', { key, id })
-  })
-  keyboard.bind(['left', 'right'], (e) => {
-    const { key } = e
-    dispatch('cursorMove', { key })
-  })
-  keyboard.bind(['delete', 'backspace'], (e) => {
-    const { key } = e
-    dispatch('cursorDelete', { key })
-  })
 }

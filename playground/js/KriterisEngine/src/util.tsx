@@ -13,6 +13,13 @@ Array.prototype.findIndex2 = function (value) {
 Array.prototype.last = function last() {
   return this.slice(-1)[0]
 }
+Array.prototype.equals = function equals(other: []) {
+  return arrayEqual(this, other)
+}
+function arrayEqual(a: any[], b: any[]) {
+  return a.every((value, i) => value === b[i])
+}
+
 export type TAccessor = { get: () => any; set: (value: any) => void }
 export function accessor(target: any, prop: string | number): TAccessor {
   return {
