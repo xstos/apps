@@ -20,7 +20,7 @@ import fs from 'fs'
 import { accessor, idGen, Load, renderTracker } from './util'
 import { TAction, TActionType, TNode, TNodeId, TState } from './types'
 import { stateLens } from './state'
-import { JumpMenu } from './components.tsx'
+import { JumpMenu } from './components'
 import { keyboardBindings } from './keyboard'
 //import { DockPanel, DockType } from './dockpanel'
 
@@ -104,9 +104,6 @@ function Reducer(oldState: TState, action: TAction) {
       parentId: focusedNode.id,
       refId,
     })
-    // const cursorIndex = getCursorIndex()
-    // const cursorNode = getNodeById(getCursorId())
-    // pushChild(cursorNode, id) //remember the place we jumped in to
     insertChildren(getFocusedNode(), getCursorIndex(), id)
   }
   function cellAdd() {
@@ -364,8 +361,14 @@ function Render(props) {
       if (!isSelected) {
         return null
       }
+      const cursorStack = lens.getChildren(lens.getCursor())
+
+      //logj({ cursorStack })
       const refList = state.nodes
-        .filter((node: TNode): boolean => node.type === 'cell' && !isRoot(node))
+        .filter((node: TNode): boolean => {
+          const isCell = node.type === 'cell'
+          return isCell && !isRoot(node) && !cursorStack.includes(node.id)
+        })
         .map((node: TNode) => ({
           title: `cell reference ${node.id}`,
           command: ['refAdd', { id: node.id }],
@@ -395,7 +398,9 @@ function Render(props) {
   }
   return renderNode(id)
 }
-
+function logj(item) {
+  console.log(JSON.stringify(item))
+}
 // </renderer>
 function makeDispatch(type: TActionType, payload: any): TAction {
   return { type, payload }
