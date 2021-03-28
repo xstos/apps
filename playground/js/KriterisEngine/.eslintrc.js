@@ -13,6 +13,7 @@ module.exports = {
     '@typescript-eslint/no-shadow': 'off',
     'no-return-assign': 'off',
     'no-plusplus': 'off',
+    'no-eval': 'off',
   },
   parserOptions: {
     ecmaVersion: 2020,
