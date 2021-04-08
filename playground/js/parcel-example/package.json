@@ -1,0 +1,21 @@
+{
+  "name": "parcel-example",
+  "version": "1.0.0",
+  "description": "",
+  "source": "src/index.js",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "parcel src/index.html --open"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "axios": "^0.21.1",
+    "parcel-bundler": "^1.12.5",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "react-redux": "^7.2.3",
+    "redux": "^4.0.5",
+    "redux-devtools-extension": "^2.13.9"
+  }
+}
