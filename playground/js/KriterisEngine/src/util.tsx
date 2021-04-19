@@ -53,3 +53,22 @@ export function idGen() {
   }
   return getId
 }
+
+export function isFunction(thing: any) {
+  return typeof thing === 'function' && thing?.call
+}
+
+const tostr = {}.toString
+
+export function toType(obj) {
+  return tostr
+    .call(obj)
+    .match(/\s([a-zA-Z]+)/)[1]
+    .toLowerCase()
+}
+
+export function last(array, valueIfNotFound = undefined) {
+  const len = array.length
+  if (len === 0) return valueIfNotFound
+  return array[len - 1]
+}

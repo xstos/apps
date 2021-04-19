@@ -1,5 +1,5 @@
 import fs from 'fs'
-
+//defs made from lib.es5.d.ts using https://astexplorer.net/
 const path = `./src/experimental/defs.txt`
 const outPath = './src/experimental/funcdefs.ts'
 const source = fs.readFileSync(path, 'utf8') // sourceText
@@ -32,10 +32,9 @@ const modules = interfaces.map((node) => {
 const lines = []
 modules.map((mod) => {
   const { name, methods } = mod
+  if (name!=="String") return null
   methods.map((method) => {
-    //console.log(JSON.stringify(method))
     const { params } = method
-    //lines.push(`// ${name} ${method.methodName}`)
     const str = 'name === undefined'
     if (name.endsWith('Constructor')) return null
     switch (name) {
@@ -54,7 +53,7 @@ modules.map((mod) => {
     }
     const proto = `${name}.prototype!==undefined`
     const hasProto = eval(proto)
-    if (params.length === 0) {
+    if (true || params.length === 1) {
       const line = `${name.toLowerCase()}_${method.methodName}: ${name}${
         hasProto ? '.prototype' : ''
       }.${method.methodName},`
@@ -68,8 +67,8 @@ modules.map((mod) => {
 const ffObj = `({
 ${lines.join('\r\n')}
 })`
-const foo = [`export const ff = (`, ffObj].join('\r\n')
-console.log(foo)
+const foo = [`export const ff = `, ffObj].join('\r\n')
+//console.log(foo)
 fs.writeFileSync(outPath, foo)
 function getCircularReplacer() {
   const seen = new WeakSet()
@@ -84,10 +83,5 @@ function getCircularReplacer() {
   }
 }
 
-const ff = eval(ffObj)
-const o = ff.string_trim.call('   yo    ')
-console.log(o)
-//
 //const json = JSON.stringify(modules, getCircularReplacer(), 2)
 
-//console.log(json)

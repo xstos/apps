@@ -1,4 +1,4 @@
-import keyboard from 'keyboardjs';
+import keyboard from 'keyboardjs'
 
 export function keyboardBindings(dispatch, getId) {
   keyboard.setContext('intellisense')
