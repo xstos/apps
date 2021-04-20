@@ -351,3 +351,4 @@ MigrationBackup/
 /playground/rust/helloworld/target/
 
 .idea/
+/playground/js/tinycrud/client/dist/

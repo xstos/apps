@@ -14,6 +14,8 @@ module.exports = {
     'no-return-assign': 'off',
     'no-plusplus': 'off',
     'no-eval': 'off',
+    'import/prefer-default-export': 'off',
+    'no-param-reassign': 'off',
   },
   parserOptions: {
     ecmaVersion: 2020,
