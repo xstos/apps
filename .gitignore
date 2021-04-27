@@ -352,3 +352,4 @@ MigrationBackup/
 
 .idea/
 /playground/js/tinycrud/client/dist/
+/playground/js/tinycrud-ts/client/dist/
