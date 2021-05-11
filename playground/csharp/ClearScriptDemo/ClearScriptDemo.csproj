@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>   
+    <AssemblyName>ClearScriptDemo</AssemblyName>
+	<UseWPF>true</UseWPF>
+  </PropertyGroup>
+  
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' " />
+ 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ClearScript" Version="7.1.2" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-28515-01" />
+  </ItemGroup>
+</Project>
