@@ -18,6 +18,9 @@
     <ClCompile Include="KasseriEngine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="shader_utils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ReadMe.txt" />
@@ -26,5 +29,12 @@
     <CopyFileToFolders Include="..\consola.ttf" />
     <CopyFileToFolders Include="..\fontfrag.glsl" />
     <CopyFileToFolders Include="..\fontvert.glsl" />
+    <CopyFileToFolders Include="text.f.glsl" />
+    <CopyFileToFolders Include="text.v.glsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="shader_utils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

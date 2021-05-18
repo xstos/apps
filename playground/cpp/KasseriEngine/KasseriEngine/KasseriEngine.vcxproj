@@ -150,6 +150,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="KasseriEngine.cpp" />
+    <ClCompile Include="shader_utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\ReadMe.txt" />
@@ -168,6 +169,21 @@
     <CopyFileToFolders Include="..\fontvert.glsl">
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
+    </CopyFileToFolders>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="shader_utils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <CopyFileToFolders Include="text.f.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="text.v.glsl">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <FileType>Document</FileType>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </CopyFileToFolders>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
