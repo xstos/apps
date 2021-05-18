@@ -1,4 +1,6 @@
-﻿#include <cstdio>
+﻿//from https://github.com/CAMOBAP/opengl-modern-tutorials/blob/master/text02_atlas/text.cpp
+
+#include <cstdio>
 #include <cstdlib>
 #include <cmath>
 #include <algorithm>
