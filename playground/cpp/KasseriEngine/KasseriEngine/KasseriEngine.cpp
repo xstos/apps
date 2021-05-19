@@ -7,7 +7,7 @@
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
-
+#include <GLFW/glfw3.h>
 #define GLM_FORCE_RADIANS
 #include <filesystem>
 #include <glm/glm.hpp>
@@ -24,7 +24,7 @@ GLuint program;
 GLint attribute_coord;
 GLint uniform_tex;
 GLint uniform_color;
-
+GLFWwindow* window;
 struct point {
 	GLfloat x;
 	GLfloat y;
@@ -251,17 +251,40 @@ void render_text(const char* text, atlas* a, float x, float y, float sx, float s
 
 	glDisableVertexAttribArray(attribute_coord);
 }
+void paintPixels()
+{
+	
+	
+	const int nx = 100;
+	const int ny = 100;
+
+	// One time during setup.
+	unsigned int data[ny][nx][3];
+	for (size_t y = 0; y < ny; ++y)
+	{
+		for (size_t x = 0; x < nx; ++x)
+		{
+			data[y][x][0] = (rand() % 256) * 256 * 256 * 256;
+			data[y][x][1] = 0;
+			data[y][x][2] = 0;
+		}
+	}
+	
+	glDrawPixels(nx, ny, GL_RGB, GL_UNSIGNED_INT, data);
+}
 
 void display() {
-	float sx = 2.0 / glutGet(GLUT_WINDOW_WIDTH);
-	float sy = 2.0 / glutGet(GLUT_WINDOW_HEIGHT);
-
+	float sx = 2.0 / 640;
+	float sy = 2.0 / 480;
+	
 	glUseProgram(program);
 
 	/* White background */
 	glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
 
+	paintPixels();
+	
 	/* Enable blending, necessary for our alpha texture */
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -269,61 +292,125 @@ void display() {
 	GLfloat black[4] = { 0, 0, 0, 1 };
 	GLfloat red[4] = { 1, 0, 0, 1 };
 	GLfloat transparent_green[4] = { 0, 1, 0, 0.5 };
+	
+	
+	if (true) {
+		/* Set color to black */
+		glUniform4fv(uniform_color, 1, black);
 
-	/* Set color to black */
-	glUniform4fv(uniform_color, 1, black);
+		/* Effects of alignment */
+		render_text("The Quick Brown Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 50 * sy, sx, sy);
+		render_text("The Misaligned Fox Jumps Over The Lazy Dog", a48, -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
 
-	/* Effects of alignment */
-	render_text("The Quick Brown Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 50 * sy, sx, sy);
-	render_text("The Misaligned Fox Jumps Over The Lazy Dog", a48, -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
+		/* Scaling the texture versus changing the font size */
+		render_text("The Small Texture Scaled Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 175 * sy, sx * 0.5, sy * 0.5);
+		render_text("The Small Font Sized Fox Jumps Over The Lazy Dog", a24, -1 + 8 * sx, 1 - 200 * sy, sx, sy);
+		render_text("The Tiny Texture Scaled Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 235 * sy, sx * 0.25, sy * 0.25);
+		render_text("The Tiny Font Sized Fox Jumps Over The Lazy Dog", a12, -1 + 8 * sx, 1 - 250 * sy, sx, sy);
 
-	/* Scaling the texture versus changing the font size */
-	render_text("The Small Texture Scaled Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 175 * sy, sx * 0.5, sy * 0.5);
-	render_text("The Small Font Sized Fox Jumps Over The Lazy Dog", a24, -1 + 8 * sx, 1 - 200 * sy, sx, sy);
-	render_text("The Tiny Texture Scaled Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 235 * sy, sx * 0.25, sy * 0.25);
-	render_text("The Tiny Font Sized Fox Jumps Over The Lazy Dog", a12, -1 + 8 * sx, 1 - 250 * sy, sx, sy);
+		/* Colors and transparency */
+		render_text("The Solid Black Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 430 * sy, sx, sy);
 
-	/* Colors and transparency */
-	render_text("The Solid Black Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 430 * sy, sx, sy);
+		glUniform4fv(uniform_color, 1, red);
+		render_text("The Solid Red Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 330 * sy, sx, sy);
+		render_text("The Solid Red Fox Jumps Over The Lazy Dog", a48, -1 + 28 * sx, 1 - 450 * sy, sx, sy);
 
-	glUniform4fv(uniform_color, 1, red);
-	render_text("The Solid Red Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 330 * sy, sx, sy);
-	render_text("The Solid Red Fox Jumps Over The Lazy Dog", a48, -1 + 28 * sx, 1 - 450 * sy, sx, sy);
-
-	glUniform4fv(uniform_color, 1, transparent_green);
-	render_text("The Transparent Green Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 380 * sy, sx, sy);
-	render_text("The Transparent Green Fox Jumps Over The Lazy Dog", a48, -1 + 18 * sx, 1 - 440 * sy, sx, sy);
-
-	glutSwapBuffers();
+		glUniform4fv(uniform_color, 1, transparent_green);
+		render_text("The Transparent Green Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 380 * sy, sx, sy);
+		render_text("The Transparent Green Fox Jumps Over The Lazy Dog", a48, -1 + 18 * sx, 1 - 440 * sy, sx, sy);
+	}
+	
+	
+	
+	glfwSwapBuffers(window);
+	//glutSwapBuffers();
 }
 
 void free_resources() {
 	glDeleteProgram(program);
 }
 
+
+
+static void mouse_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	double x;
+	double y;
+	glfwGetCursorPos(window, &x, &y);
+	if (button == GLFW_MOUSE_BUTTON_LEFT) {
+		
+
+		
+	}
+}
+
 int main(int argc, char* argv[]) {
-	glutInit(&argc, argv);
-	glutInitContextVersion(2, 0);
-	glutInitDisplayMode(GLUT_RGB);
-	glutInitWindowSize(640, 480);
-	glutCreateWindow("Texture atlas text");
+	
 
 	const filesystem::path exePath = argv[0];
 
 	auto fontPath = exePath.parent_path().append("consola.ttf").string();
-	
-	
+
+
 	if (argc > 1)
 		fontfilename = argv[1];
 	else
 		fontfilename = fontPath.data();
+	
 
+	/* Initialize the library */
+	if (!glfwInit())
+		return -1;
+
+	/* Create a windowed mode window and its OpenGL context */
+	window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+	if (!window)
+	{
+		glfwTerminate();
+		return -1;
+	}
+	
+	glfwMakeContextCurrent(window);
+
+	glfwSetMouseButtonCallback(window, mouse_callback);
+	
 	GLenum glew_status = glewInit();
 
 	if (GLEW_OK != glew_status) {
 		fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
 		return 1;
 	}
+
+	int width, height;
+	glfwGetFramebufferSize(window, &width, &height);
+	glViewport(0, 0, width, height);
+	
+	if (!init_resources())
+	{
+		free_resources();
+		return -1;
+	}
+	
+	while (!glfwWindowShouldClose(window))
+	{
+		display();
+		glfwPollEvents();
+	}
+
+	glfwTerminate();
+	
+	return 0;
+	
+	glutInit(&argc, argv);
+	glutInitContextVersion(2, 0);
+	glutInitDisplayMode(GLUT_RGB);
+	glutInitWindowSize(640, 480);
+	glutCreateWindow("Texture atlas text");
+	
+	
+	
+
+	
 
 	// if (!GLEW_VERSION_2_0) {
 	// 	fprintf(stderr, "No support for OpenGL 2.0 found\n");
