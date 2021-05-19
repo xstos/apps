@@ -20,11 +20,14 @@
 #include "shader_utils.h"
 
 using namespace std;
+
 GLuint program;
 GLint attribute_coord;
 GLint uniform_tex;
 GLint uniform_color;
 GLFWwindow* window;
+double mouseX;
+double mouseY;
 struct point {
 	GLfloat x;
 	GLfloat y;
@@ -283,7 +286,7 @@ void display() {
 	glClearColor(1, 1, 1, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
 
-	paintPixels();
+	//paintPixels();
 	
 	/* Enable blending, necessary for our alpha texture */
 	glEnable(GL_BLEND);
@@ -299,8 +302,8 @@ void display() {
 		glUniform4fv(uniform_color, 1, black);
 
 		/* Effects of alignment */
-		render_text("The Quick Brown Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 50 * sy, sx, sy);
-		render_text("The Misaligned Fox Jumps Over The Lazy Dog", a48, -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
+		render_text(std::to_string(mouseX).data(), a48, -1 + 8 * sx, 1 - 50 * sy, sx, sy);
+		render_text(std::to_string(mouseY).data(), a48, -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
 
 		/* Scaling the texture versus changing the font size */
 		render_text("The Small Texture Scaled Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 175 * sy, sx * 0.5, sy * 0.5);
@@ -330,13 +333,15 @@ void free_resources() {
 	glDeleteProgram(program);
 }
 
-
-
+static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+	mouseX = xpos;
+	mouseY = ypos;
+}
 static void mouse_callback(GLFWwindow* window, int button, int action, int mods)
 {
-	double x;
-	double y;
-	glfwGetCursorPos(window, &x, &y);
+
+	glfwGetCursorPos(window, &mouseX, &mouseY);
 	if (button == GLFW_MOUSE_BUTTON_LEFT) {
 		
 
@@ -373,7 +378,7 @@ int main(int argc, char* argv[]) {
 	glfwMakeContextCurrent(window);
 
 	glfwSetMouseButtonCallback(window, mouse_callback);
-	
+	glfwSetCursorPosCallback(window, cursor_position_callback);
 	GLenum glew_status = glewInit();
 
 	if (GLEW_OK != glew_status) {
