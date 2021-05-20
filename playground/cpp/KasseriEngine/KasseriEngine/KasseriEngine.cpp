@@ -31,6 +31,7 @@ GLint attribute_coord;
 GLint uniform_tex;
 GLint uniform_color;
 GLFWwindow* window;
+GLuint mytex;
 double mouseX;
 double mouseY;
 struct point {
@@ -179,7 +180,37 @@ atlas* a48_box;
 atlas* a48;
 atlas* a24;
 atlas* a12;
+GLuint makeChar(int height, wchar_t c)
+{
+	FT_Set_Pixel_Sizes(face, 0, height);
+	FT_GlyphSlot g = face->glyph;
+	GLuint tex;		// texture object
+	if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+		fprintf(stderr, "Loading character %c failed!\n", c);
+		return -1;
+	}
+	glActiveTexture(GL_TEXTURE0);
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glUniform1i(uniform_tex, 0);
 
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, g->bitmap.width, height, 0, GL_ALPHA, GL_UNSIGNED_BYTE, 0);
+
+	/* We require 1 byte alignment when uploading texture data */
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	/* Clamping to edges is important to prevent artifacts when scaling */
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	/* Linear filtering usually looks best for text */
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, g->bitmap.width, g->bitmap.rows, GL_ALPHA, GL_UNSIGNED_BYTE, g->bitmap.buffer);
+
+	return tex;
+}
 int init_resources() {
 	/* Initialize the FreeType2 library */
 	if (FT_Init_FreeType(&ft)) {
@@ -238,26 +269,37 @@ void render_text(const wchar_t* text, atlas* a, float x, float y, float sx, floa
 
 	/* Loop through all characters */
 	for (const wchar_t* p = text; *p; p++) {
+		auto ch = a->c[*p];
 		/* Calculate the vertex and texture coordinates */
-		float x2 = x + a->c[*p].bl * sx;
-		float y2 = -y - a->c[*p].bt * sy;
-		float w = a->c[*p].bw * sx;
-		float h = a->c[*p].bh * sy;
+		float xa = x + ch.bl * sx;
+		float ya = -(-y - ch.bt * sy);
+		float bw = ch.bw;
+		float bh = ch.bh;
+		float w = bw * sx;
+		float h = bh * sy;
 
 		/* Advance the cursor to the start of the next character */
-		x += a->c[*p].ax * sx;
-		y += a->c[*p].ay * sy;
+		x += ch.ax * sx;
+		y += ch.ay * sy;
 
 		/* Skip glyphs that have no pixels */
 		if (!w || !h)
 			continue;
 
-		coords[c++] = {	x2    , -y2, a->c[*p].tx, a->c[*p].ty };
-		coords[c++] = {	x2 + w, -y2, a->c[*p].tx + a->c[*p].bw / a->w, a->c[*p].ty };
-		coords[c++] = {	x2    , -y2 - h, a->c[*p].tx, a->c[*p].ty + a->c[*p].bh / a->h };
-		coords[c++] = {	x2 + w, -y2, a->c[*p].tx + a->c[*p].bw / a->w, a->c[*p].ty };
-		coords[c++] = {	x2    , -y2 - h, a->c[*p].tx, a->c[*p].ty + a->c[*p].bh / a->h };
-		coords[c++] = {	x2 + w, -y2 - h, a->c[*p].tx + a->c[*p].bw / a->w, a->c[*p].ty + a->c[*p].bh / a->h };
+		int aw = a->w;
+		int ah = a->h;
+		float yb = ya - h;
+		float xb = xa + w;
+		float tx = ch.tx;
+		float ty = ch.ty;
+		float ta = tx + bw / aw;
+		float tb = ty + bh / ah;
+		coords[c++] = { xa, ya, tx, ty };
+		coords[c++] = { xb, ya, ta, ty };
+		coords[c++] = { xa, yb, tx, tb };
+		coords[c++] = { xb, ya, ta, ty };
+		coords[c++] = { xa, yb, tx, tb };
+		coords[c++] = { xb, yb, ta, tb };
 	}
 
 	/* Draw all the character on the screen in one go */
@@ -265,6 +307,27 @@ void render_text(const wchar_t* text, atlas* a, float x, float y, float sx, floa
 	glDrawArrays(GL_TRIANGLES, 0, c);
 
 	glDisableVertexAttribArray(attribute_coord);
+}
+
+
+void renderchar(const wchar_t* text)
+{
+	glBindTexture(GL_TEXTURE_2D, mytex);
+	glUniform1i(uniform_tex, 0);
+
+	/* Set up the VBO for our vertex data */
+	glEnableVertexAttribArray(attribute_coord);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glVertexAttribPointer(attribute_coord, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+	point coords[1];
+
+
+	
+	glBufferData(GL_ARRAY_BUFFER, sizeof coords, coords, GL_DYNAMIC_DRAW);
+	//glDrawArrays(GL_TRIANGLES, 0, c);
+
+	//glDisableVertexAttribArray(attribute_coord);
 }
 void paintPixels()
 {
@@ -331,10 +394,10 @@ void display() {
 		auto wy = to_wstring(ystr);
 		/* Effects of alignment */
 	    render_text(wx.c_str(), a48, -1 + 8 * sx, 1 - 50 * sy, sx, sy);
-		render_text(wy.c_str(), a48, -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
+		//render_text(wy.c_str(), a48, -1 + 8.5 * sx, 1 - 100.5 * sy, sx, sy);
 		
 		/* Scaling the texture versus changing the font size */
-		render_text(L"█", a48_box, -1, 0.9, sx * 0.5, sy * 0.5);
+		//render_text(L"█", a48_box, -0.9, 0.9, sx * 0.5, sy * 0.5);
 		//render_text("The Small Font Sized Fox Jumps Over The Lazy Dog", a24, -1 + 8 * sx, 1 - 200 * sy, sx, sy);
 		//render_text("The Tiny Texture Scaled Fox Jumps Over The Lazy Dog", a48, -1 + 8 * sx, 1 - 235 * sy, sx * 0.25, sy * 0.25);
 		//render_text("The Tiny Font Sized Fox Jumps Over The Lazy Dog", a12, -1 + 8 * sx, 1 - 250 * sy, sx, sy);
@@ -423,7 +486,7 @@ int main(int argc, char* argv[]) {
 		free_resources();
 		return -1;
 	}
-	
+	mytex = makeChar(48, L'█');
 	while (!glfwWindowShouldClose(window))
 	{
 		display();
