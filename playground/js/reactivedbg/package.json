@@ -11,6 +11,7 @@
   "author": "chris c",
   "license": "ISC",
   "dependencies": {
+    "@babel/core": "^7.14.3",
     "@babel/generator": "^7.13.16",
     "@babel/parser": "^7.13.16",
     "@babel/traverse": "^7.13.17"
