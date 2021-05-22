@@ -1,0 +1,22 @@
+{
+  "name": "solid-js-demo",
+  "version": "0.1.0",
+  "private": true,
+  "devDependencies": {
+    "solid-js": "^0.26.5",
+    "solid-scripts": "0.0.55"
+  },
+  "dependencies": {},
+  "scripts": {
+    "start": "solid-scripts start",
+    "build": "solid-scripts build",
+    "test": "solid-scripts test"
+  },
+  "browserslist": [
+    "Chrome 74",
+    "Firefox 63",
+    "Safari 11",
+    "Edge 17",
+    "Node 10"
+  ]
+}
