@@ -149,6 +149,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="experimental.cpp" />
     <ClCompile Include="KasseriEngine.cpp" />
     <ClCompile Include="shader_utils.cpp" />
   </ItemGroup>

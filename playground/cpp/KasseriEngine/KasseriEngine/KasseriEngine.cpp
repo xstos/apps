@@ -440,7 +440,7 @@ static void mouse_callback(GLFWwindow* window, int button, int action, int mods)
 	}
 }
 
-int main(int argc, char* argv[]) {
+int main2(int argc, char* argv[]) {
 	_setmode(_fileno(stdout), _O_U8TEXT);
 
 	const filesystem::path exePath = argv[0];
