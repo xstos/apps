@@ -68,3 +68,12 @@ const ret = babel.transformSync(code, {
 })
 
 console.log(ret.code)
+
+/*
+prints
+
+function test() {
+  return JSX.createElement("div", null, JSX.createElement("p", null, "Hello World"))
+;
+
+ */

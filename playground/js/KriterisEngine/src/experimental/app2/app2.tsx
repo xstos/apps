@@ -1,212 +1,149 @@
 import '../../App.global.css'
-import React from 'react'
-import ReactDOM from 'react-dom'
-import { connect as rrconnect, Provider } from 'react-redux'
-import { createStore } from 'redux'
-import cloneDeep from 'clone-deep'
-import { stringify } from 'javascript-stringify'
-import * as R from 'ramda'
+import { forEach } from 'ramda'
+import * as _ from 'lodash'
+import { v4 as uuidv4 } from 'uuid'
 import { bindkeys } from './keybindings'
-import { last, toType } from '../../util'
 
+const { log } = console
 const json = JSON.stringify
-const store = createStore(Reducer, getInitialState())
-function dispatch(type, payload) {
-  const d = { type, payload }
-  console.log('dispatch', JSON.stringify(d))
-  store.dispatch(d)
+const state = p({
+  jumpMenuOpen: false,
+  children: ['/cursor'],
+})
+
+const onKey = {
+  '`': () => {
+    return (state.jumpMenuOpen = !state.jumpMenuOpen)
+  },
+  abcdefghijklmnopqrstuvwxyz: () => {},
 }
-
-function getInitialState() {
-  //our initial redux state store
-  return {
-    number: 0,
-  }
-}
-
-function stateTransitionReducer(oldState, action) {
-  const { current, input, next } = action
-  const state = cloneDeep(oldState)
-}
-
-function Reducer(state, action) {
-  const { type } = action
-  if (type === 'state_transition') {
-    return stateTransitionReducer(state, action)
-  }
-  return state
-}
-
-function App(props) {
-  return <div>hi</div>
-}
-
-const transitions = [
-  ['start', { key: '`' }, 'menu'],
-  ['menu', { key: 'escape' }, 'start'],
-]
-
-function makeMachine(initialState, transitions, dispatch) {
-  const machine = {
-    currentState: initialState,
-  }
-  transitions.forEach(([currentState, input, nextState]) => {
-    const key = `${currentState}.${JSON.stringify(input)}`
-    machine[key] = nextState
-  })
-  function sendKey(o) {
-    const input = JSON.stringify(o)
-    const next = machine[`${machine.currentState}.${input}`]
-    if (!next) {
-      //console.log(`no transition from ${machine.currentState} by ${input}`)
-      return
-    }
-    dispatch('state_transition', {
-      current: machine.currentState,
-      input: o,
-      next,
-    })
-    machine.currentState = next
-  }
-  return {
-    sendKey,
-  }
-}
-
-const ConnectedApp = rrconnect((state) => state, {})(App)
 
 export function App2() {
-  const stateMachine = makeMachine('start', transitions, dispatch)
-  bindkeys(stateMachine)
-  ReactDOM.render(
-    <Provider store={store}>
-      <ConnectedApp />
-    </Provider>,
-    document.getElementById('root')
-  )
-}
-const immutable = {
-  array: {
-    push(...args) {
-      const clone = [...this]
-      clone.push(...args)
-      return clone
-    },
-  },
-  number: {
-    divide(...args) {
-      return this / args.reduce((acc, item) => acc * item)
-    },
-  },
-}
-
-function getImmutable(type, prop) {
-  const proto = immutable[type]
-  if (!proto) return false
-  const method = proto[prop]
-  return method
-}
-
-function getMember(o, prop) {
-  return o[prop] || R.path([toType(o), prop], immutable)
-}
-const handler = {
-  get(target, name, proxy) {
-    const { value, stack, mode } = target
-    if (!value) return proxy
-    const valueType = toType(value)
-    stack.push({ name })
-
-    const apply =
-      value[name] || (mode === 'each' && getMember(last(value), name))
-
-    if (!apply) {
-      switch (name) {
-        case 'each':
-          target.mode = 'each'
-          return proxy
-      }
+  bindkeys(({ key }) => {
+    if (onKey[key]) {
+      return onKey[key]()
     }
-
-    const memberType = toType(apply)
-    if (memberType === 'function') {
-      const immut = getImmutable(valueType, name)
-      target.method = { name, apply, immut }
+    const c = Object.keys(onKey).filter((onkey) => onkey.contains(key))
+    if (c.length > 0) {
+      c[0]()
     }
-    return proxy
-  },
-  set(target, prop, value, proxy) {
-    return true
-  },
-  apply(target, proxy, argumentsList) {
-    const { value, method, mode, stack } = target
-    //console.log({ value, method, mode, stack })
-    const lastProp = last(stack)
-    if (lastProp.name === 'each') {
-      return proxy //nothing to apply
-    }
-    const valueType = toType(value)
-    if (method) {
-      const { name, apply, immut } = method
-      const arity = apply.length
-      const stringifiedArgs = argumentsList
-        .map((arg) => stringify(arg))
-        .join(',')
-      const code = `${stringify(value)}.${name}(${stringifiedArgs})`
-      if (!mode) {
-        const ret = (immut || apply).call(value, ...argumentsList)
-        console.log(code, stringify(ret))
-        target.method = undefined
-        target.value = ret
-      }
-
-      if (mode === 'each') {
-        if (valueType === 'array') {
-          const ret = value.map((item) =>
-            (immut || apply).call(item, ...argumentsList)
-          )
-          console.log(code, stringify(ret))
-          target.method = undefined
+  })
+  // state.jumpMenuOpen.changed(() => {
+  //   if (state.jumpMenuOpen) {
+  //   }
+  // })
+  const root = document.getElementById('root')
+}
+function tail(array) {
+  return [_.initial(array), _.last(array)]
+}
+function traverse(obj) {
+  _.forIn(obj, function (val, key) {
+    log(key, val)
+    if (_.isArray(val)) {
+      val.forEach(function (el) {
+        if (_.isObject(el)) {
+          traverse(el)
         }
+      })
+    }
+    if (_.isObject(key)) {
+      traverse(obj[key])
+    }
+  })
+}
+function proxyCtor(target, args) {
+  return {}
+}
+
+function proxySet(obj, prop, value) {
+  log('set', { obj, prop, value })
+  return true
+}
+//traverse({ foo: 'hi' })
+
+const data = {}
+
+function getCreateCell(path: string) {
+  let cell = data[path]
+  if (!cell) {
+    cell = {
+      valueType: undefined,
+      value: undefined,
+      dependents: {},
+    }
+    data[path] = cell
+  }
+  return cell
+}
+function p() {
+  let pathStack = []
+  const opStack = []
+  function proxyGet(target, prop, receiver) {
+    pathStack.push(prop)
+    log('get', { target, prop, receiver })
+    return receiver
+  }
+  function proxyApply(target, thisArg, argumentsList) {
+    log('apply', { target, thisArg, argumentsList })
+    log('')
+    const [rest, last] = tail(pathStack)
+    const path = rest.join('/')
+    const [arg] = argumentsList
+    function handleSet() {
+      const cell = getCreateCell(path)
+      if (!_.isObject(arg)) {
+        cell.valueType = 'primitive'
+        cell.value = arg
+      } else if (arg.isProxy()) {
+        const value = arg.getValue()
+        cell.valueType = 'formula'
+        cell.value = value
+
+        value.forEach((f) => {
+          const { lhsType, lhs, op, rhsType, rhs } = f
+        })
       }
     }
-    return proxy
-  },
+    function handleConcat() {
+      //const cell = getCreateCell(path, '')
+      if (_.isString(arg)) {
+        opStack.push({
+          lhsType: 'cell',
+          lhs: path,
+          op: 'concat',
+          rhsType: 'primitive',
+          rhs: arg,
+        })
+        pathStack = []
+      }
+    }
+    if (last === 'set') {
+      handleSet()
+    } else if (last === 'concat') {
+      handleConcat()
+    } else if (last === 'isProxy') {
+      pathStack = []
+      return true
+    } else if (last === 'getValue') {
+      pathStack = []
+      return opStack
+    }
+    return thisArg
+  }
+  const handler = {
+    construct: proxyCtor,
+    get: proxyGet,
+    set: proxySet,
+    apply: proxyApply,
+  }
+  function ProxyFunction() {
+    return null
+  }
+  return new Proxy(ProxyFunction, handler)
 }
 
-function p(value = undefined) {
-  const target = () => {}
-  target.stack = []
-  target.value = value
-  console.log(json(value))
-  const ret = new Proxy(target, handler)
-  return ret
-}
+console.clear()
 
-p([1, 2, 3]).push(4).each().divide(2)
-
-function next() {
-  p(`
- hello (1)
-  goodbye (2)
- derp (3)
-
-`)
-    .trim()
-    .split('\r\n')
-    .each()
-    .trim()
-    .replace()
-    .do((i) => `(${i + 1})`)
-    .spread(p().get('fruits'))
-
-  p(`
-apple
-banana
-pear
-`)
-    .trim()
-    .split('\r\n')
-    .trim()
-    .set('fruits')
-}
+p().foo.bar.set('hello ')
+p().foo.baz.set(p().foo.bar.concat('world'))

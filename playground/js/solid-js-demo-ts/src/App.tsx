@@ -4,15 +4,15 @@ import { createSignal } from "solid-js";
 const BasicComponent = props => {
     const value = () => props.value || "default";
 
-    return <div>{value()}</div>;
+    return <div>{props.value}</div>;
 };
 
 export default function Form() {
-  const [value, setValue] = createSignal("");
+  const [getValue, setValue] = createSignal("");
 
   return (
       <div>
-        <BasicComponent value={value()} />
+        <BasicComponent value={getValue()} />
         <input type="text" oninput={e => setValue(e.currentTarget.value)} />
       </div>
   );
