@@ -1,7 +1,6 @@
 import * as R from 'ramda'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
-import { BOOK } from './three_demo'
 
 function measureText(fontFamily, fontSize, text) {
   const el = document.createElement('span')
