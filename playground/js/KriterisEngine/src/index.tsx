@@ -3,9 +3,10 @@ import { App2 } from './experimental/app2/app2'
 import { App3 } from './experimental/app2/app3'
 import { App4 } from './experimental/app2/app4'
 import { App5 } from './experimental/app2/app5'
+import { App6 } from './experimental/app2/app6'
 
 document.addEventListener('DOMContentLoaded', OnLoad)
 
 function OnLoad() {
-  App5()
+  App6()
 }
