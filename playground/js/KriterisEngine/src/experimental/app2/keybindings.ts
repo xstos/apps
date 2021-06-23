@@ -4,7 +4,7 @@ export function bindkeys(onkey) {
   const lettersArray = Array.from(
     '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
   )
-  keyboard.bind([...lettersArray, 'space', 'enter', 'escape'], pressed)
+  keyboard.bind([...lettersArray, 'space', 'enter', 'escape', 'backspace'], pressed)
 
   function pressed(e) {
     const o = { key: e.key.toLowerCase() }

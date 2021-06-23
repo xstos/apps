@@ -12,7 +12,11 @@ import { bindkeys } from './keybindings'
 const ev = {
   kb: '',
 }
-Object.keys(ev).map(key=>ev[key]=key)
+const keys = {
+  tilde: '`',
+}
+const _ = ''
+Object.keys(ev).map((key) => (ev[key] = key))
 
 const bus = new Subject()
 bus.subscribe((evt) => {
@@ -31,34 +35,60 @@ function dispatch(type, payload) {
 
 function getInitialState() {
   return {
-    children: [],
+    cmd: false,
+    root: {
+      id: 0,
+      type: 'div',
+      props: {
+        children: [],
+      },
+    },
   }
 }
 
-function handle(map, action) {
-  const f = map[action.type]
-  f && f()
+function match(on, map) {
+  let f = map[on]
+  if (f) {
+    f()
+  } else {
+    f = map[_]
+    f && f()
+  }
 }
 
 function Reducer(oldState, action) {
   const { type, payload } = action
   const state = cloneDeep(oldState)
-  handle(
-    {
-      [ev.kb]() {
-        state.children.push(payload.key)
-      },
+  match(action.type, {
+    [ev.kb]() {
+      const { key } = payload
+      match(key, {
+        ['`']() {
+          state.cmd = !state.cmd
+        },
+        [_]() {
+          if (state.cmd) {
+            match(key, {
+              ['backspace']() {
+                state.root.props.children.pop()
+              },
+              [_]() {
+                state.root.props.children.push(key)
+              },
+            })
+          }
+        },
+      })
     },
-    action
-  )
+  })
   return state
 }
 
 function App(props) {
-  const { children } = getState()
+  const state = getState()
   return (
     <div>
-      {children.map((c) => (
+      {state.root.props.children.map((c) => (
         <span>{c}</span>
       ))}
     </div>
