@@ -11,6 +11,7 @@ module.exports = {
     'spaced-comment': 'off',
     '@typescript-eslint/no-use-before-define': 'off',
     '@typescript-eslint/no-shadow': 'off',
+    '@typescript-eslint/no-this-alias': 'off',
     'no-return-assign': 'off',
     'no-plusplus': 'off',
     'no-eval': 'off',

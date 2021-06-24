@@ -37,6 +37,8 @@ export function App2() {
 function tail(array) {
   return [_.initial(array), _.last(array)]
 }
+
+//https://gist.github.com/tushariscoolster/567c1d22ca8d5498cbc0
 function traverse(obj) {
   _.forIn(obj, function (val, key) {
     log(key, val)
