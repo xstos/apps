@@ -13,43 +13,68 @@ import { bindkeys } from './keybindings'
 const objects = new WeakMap()
 
 const state = {
-  values: []
+  values: {},
 }
+function makeProxy() {
+  let ret = null
+  const currentGet = get
+  const currentApply = apply
+  function get(target, lhs, proxy) {
+    currentGet = (target, oper, proxy) => {
+      currentGet = (target, prop, proxy) => {
 
-let idseed = 0
-Object.defineProperty(Array.prototype, '$', {
-  get() {
-    const that = this
-    console.log(this)
-    let ret = null
-    const stack = []
-    let f = null
-
-    if (!that.$id) {
-      that.$id = ++idseed
-    }
-    function get(target, prop, receiver) {
-      log('get', { target, prop, receiver })
-      switch (prop) {
-        case 'push':
-          f=prop
-          break
       }
-      return receiver
+      currentApply = (target, thisArg, argumentsList) => {
+        const lhsValue = state.values[lhs].value
+        lhsValue[oper](...argumentsList)
+      }
     }
-    function apply(target, thisArg, argumentsList) {
-
-    }
-    ret = new Proxy(() => {}, {
-      get,
-      apply,
-    })
     return ret
-  },
-})
+  }
+  function apply(target, thisArg, argumentsList) {}
+  ret = new Proxy(() => {}, {
+    get: (...args) => currentGet(...args),
+    apply: (...args) => currentApply(...args),
+  })
+  return ret
+}
+const $ = makeProxy()
 
-const test = [].$
-test.push(1)
+!Object.prototype.$ &&
+  Object.defineProperty(Object.prototype, '$', {
+    get() {
+      let cell = null
+      const value = this
+      let ret = null
+      const f = null
+      let currentGet = getName
+      const currentApply = apply
+      function getName(target, prop, proxy) {
+        if (!state[prop]) {
+          cell = {}
+          cell.value = value
+          state[prop] = cell
+        }
+        currentGet = get
+        return ret
+      }
+      function get(target, prop, receiver) {
+        console.log('get', { target, prop, receiver })
+        return ret
+      }
+      function apply(target, thisArg, argumentsList) {}
+      ret = new Proxy(() => {}, {
+        get: (...args) => currentGet(...args),
+        apply: (...args) => currentApply(...args),
+      })
+      return ret
+    },
+  })
+
+'hello'.$.hello
+'world'.$.world
+
+$.hello.concat(' ').concat.world
 
 const ev = {
   kb: '',
