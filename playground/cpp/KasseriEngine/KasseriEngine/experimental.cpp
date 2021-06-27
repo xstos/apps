@@ -65,7 +65,7 @@ Pipe operator >>(char const* str, Pipe l) {
     
     return l;
 }
-Pipe operator |(Pipe& l, char const* str) {
+Pipe& operator |(Pipe& l, char const* str) {
     if (!l.lhs.has_value()) {
         l.lhs = str;
         return l;
@@ -81,7 +81,7 @@ Pipe operator |(Pipe l, int x) {
     std::cout << x;
     return l;
 }
-Pipe operator |(Pipe l, Func f) {
+Pipe& operator |(Pipe& l, Func f) {
     std::cout << f;
     l.f = f;
     return l;
@@ -90,7 +90,7 @@ Pipe o;
 
 int main()
 {
-    auto foo = o | "hello" | concat;
-    foo | " world";
+    
+    o | "hello" | concat | " world";
     
 }
