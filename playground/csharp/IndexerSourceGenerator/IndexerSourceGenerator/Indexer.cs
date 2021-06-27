@@ -11,7 +11,24 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace IndexerSourceGenerator
 {
-    
+    public static class CompilationExtensions
+    {
+        static IEnumerable<INamespaceSymbol> GetContainingNamespaces(this ISymbol symbol)
+        {
+            var containingNamespace = symbol.ContainingNamespace;
+            while (containingNamespace is { IsGlobalNamespace: false })
+            {
+                yield return containingNamespace;
+                containingNamespace = containingNamespace.ContainingNamespace;
+            }
+        }
+        public static string GetQualifiedName(this ISymbol symbol, params string[] concat)
+        {
+            var path = symbol.GetContainingNamespaces().Reverse().Select(cn => cn.Name).Concat(concat);
+            return string.Join(".", path);
+        }
+    }
+
     public class Watcher : ISyntaxReceiver
     {
         public Action<SyntaxNode> Action { get; set; }
@@ -20,12 +37,22 @@ namespace IndexerSourceGenerator
             Action(syntaxNode);
         }
     }
+
+    public class Index
+    {
+
+    }
+    public class Indexes
+    {
+        public List<Index> Values { get; set; }
+    }
     [Generator]
     public class Indexer: ISourceGenerator
     {
         private string artifacts = null;
         private string index = null;
-        private List<string> names = new List<string>();
+        private List<ClassDeclarationSyntax> classes = new List<ClassDeclarationSyntax>();
+
         public void Initialize(GeneratorInitializationContext context)
         {
 #if DEBUG
@@ -40,7 +67,7 @@ namespace IndexerSourceGenerator
                 {
                     if (node is ClassDeclarationSyntax syn)
                     {
-                        names.Add(syn.Identifier.ValueText);
+                        classes.Add(syn);
                     }
                 }
             });
@@ -73,7 +100,14 @@ namespace IndexerSourceGenerator
                 File.Delete(index);
             }
 
-            File.AppendAllLines(index, names);
+            var toAppend = classes.Select((ClassDeclarationSyntax classSyn) =>
+            {
+                SemanticModel semanticModel = context.Compilation.GetSemanticModel(classSyn.SyntaxTree);
+                ISymbol? typeSymbol = semanticModel.GetDeclaredSymbol(classSyn);
+                return typeSymbol.GetQualifiedName(classSyn.Identifier.ValueText);
+            });
+            
+            File.AppendAllLines(index, toAppend);
         }
     }
 }

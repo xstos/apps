@@ -13,3 +13,8 @@ namespace GeneratorUsageExample
         }
     }
 }
+
+class ImGlobalYay
+{
+
+}
