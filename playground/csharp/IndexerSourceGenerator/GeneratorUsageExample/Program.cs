@@ -12,6 +12,23 @@ namespace GeneratorUsageExample
         {
         }
     }
+
+    public class IocAttribute : Attribute
+    {
+
+    }
+
+    [Ioc]
+    public interface IInjectableService
+    {
+
+    }
+
+    [Ioc]
+    public class InjectableServiceImpl : IInjectableService
+    {
+
+    }
 }
 
 class ImGlobalYay

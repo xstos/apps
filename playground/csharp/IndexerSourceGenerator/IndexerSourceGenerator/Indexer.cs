@@ -13,7 +13,7 @@ namespace IndexerSourceGenerator
 {
     public static class CompilationExtensions
     {
-        static IEnumerable<INamespaceSymbol> GetContainingNamespaces(this ISymbol symbol)
+        static IEnumerable<INamespaceSymbol> TraverseNamespaces(this ISymbol symbol)
         {
             var containingNamespace = symbol.ContainingNamespace;
             while (containingNamespace is { IsGlobalNamespace: false })
@@ -24,7 +24,7 @@ namespace IndexerSourceGenerator
         }
         public static string GetQualifiedName(this ISymbol symbol, params string[] concat)
         {
-            var path = symbol.GetContainingNamespaces().Reverse().Select(cn => cn.Name).Concat(concat);
+            var path = symbol.TraverseNamespaces().Reverse().Select(cn => cn.Name).Concat(concat);
             return string.Join(".", path);
         }
     }
@@ -78,8 +78,10 @@ namespace IndexerSourceGenerator
 
             if (artifacts == null)
             {
-                IEnumerable<FileInfo> GetSourcePaths() => 
-                    context.Compilation.SyntaxTrees.Select(st => new FileInfo(st.FilePath));
+                IEnumerable<FileInfo> GetSourcePaths() =>
+                context.Compilation.SyntaxTrees
+                    .Where(st => !string.IsNullOrWhiteSpace(st.FilePath))
+                    .Select(st => new FileInfo(st.FilePath));
 
                 var dir = GetSourcePaths().First(fi =>
                     fi.Name.Equals("assemblyinfo.cs", StringComparison.InvariantCultureIgnoreCase))
