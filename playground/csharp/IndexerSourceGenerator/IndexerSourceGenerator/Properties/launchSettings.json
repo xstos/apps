@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "IndexerSourceGenerator": {
+      "commandName": "DebugRoslynComponent",
+      "targetProject": "..\\GeneratorUsageExample\\GeneratorUsageExample.csproj"
+    }
+  }
+}
