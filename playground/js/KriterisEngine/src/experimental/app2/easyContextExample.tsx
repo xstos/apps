@@ -13,8 +13,12 @@ function BuildContext(props) {
 function useInit() {
   let cached = null
   return function (value) {
-    if (cached) return cached()
-    cached = value
+    if (value) {
+      cached = value
+    }
+    if (cached) {
+      return cached()
+    }
   }
 }
 
@@ -24,11 +28,14 @@ function InnerComponent(props) {
   const hello = useHello()
   return <div>{hello}</div>
 }
-
+``
 function App() {
   return (
     <div>
       <BuildContext value="hello!" defaultValue="default!!" useInit={useHello}>
+        <InnerComponent />
+      </BuildContext>
+      <BuildContext value="goodbye!" defaultValue="default!!" useInit={useHello}>
         <InnerComponent />
       </BuildContext>
       <InnerComponent />

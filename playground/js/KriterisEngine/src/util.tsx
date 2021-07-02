@@ -1,4 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars,no-debugger,@typescript-eslint/no-use-before-define,no-plusplus */
+import * as _ from 'lodash'
+import * as R from 'ramda'
 import { TNodeId } from './types'
 
 export function Load() {}
@@ -16,6 +18,7 @@ Array.prototype.last = function last() {
 Array.prototype.equals = function equals(other: []) {
   return arrayEqual(this, other)
 }
+
 function arrayEqual(a: any[], b: any[]) {
   return a.every((value, i) => value === b[i])
 }
@@ -71,4 +74,61 @@ export function last(array, valueIfNotFound = undefined) {
   const len = array.length
   if (len === 0) return valueIfNotFound
   return array[len - 1]
+}
+function entries2(o) {
+  if (_.isArray(o)) {
+    return o.map((value, key) => [key, value])
+  }
+  if (_.isObject(o)) {
+    return Object.entries(o)
+  }
+  return []
+}
+
+/**
+ * recursively loops through obj to build a property list
+ * @param obj
+ * @returns {Array<*>|Array<void>}
+ * @see https://stackoverflow.com/questions/15690706/recursively-looping-through-an-object-to-build-a-property-list
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/yield*
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/yield
+ */
+export function getPaths(obj, predicate=(()=>true)) {
+  const ret2 = []
+  //todo unit test
+  function iter(
+    o,
+    currentPath = [],
+    currentAncestors = [],
+    cachedEntries = null
+  ) {
+    const entries = cachedEntries || entries2(o)
+    for (const [key, value] of entries) {
+      const path = [...currentPath, key]
+      const ancestors = [...currentAncestors, o]
+      const childEntries = entries2(value)
+      const ret = {
+        value,
+        parent: o,
+        path,
+        ancestors,
+        isLeaf: childEntries.length < 1,
+      }
+      predicate(value) && ret2.push(ret)
+      iter(value, path, ancestors, childEntries)
+    }
+  }
+  ret2.push({
+    value:obj,
+    parent: null,
+    path: [],
+    ancestors: [],
+    isLeaf: entries2(obj).length < 1,
+  })
+  iter(obj)
+  return ret2
+}
+
+export function getPath(o, ...items) {
+  return R.path(items, o)
 }
