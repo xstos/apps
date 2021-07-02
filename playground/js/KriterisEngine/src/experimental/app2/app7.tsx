@@ -32,31 +32,34 @@ function getInitialState() {
   )
 }
 
+function HandleKeyReducer(action, state) {
+  const key = action.payload.key
+  const all = getPaths(state, (item) => item.type)
+  const focused = all.filter((path) =>
+    getPath(path, 'value', 'props', 'k_focused')
+  )[0]
+  const cursorIndex = focused.value.children.findIndex(
+    (item) => item.props.k_cursor
+  )
+
+  if (key === '`') {
+
+  } else if (key === 'backspace') {
+    cursorIndex > 0 && focused.value.children.splice(cursorIndex - 1, 1)
+  } else if (key === 'arrowleft') {
+
+  } else if (key === 'arrowright') {
+
+  } else {
+    const keyEl = el('span', { k_key: 1 })(key)
+    focused.value.children.splice(cursorIndex, 0, keyEl)
+  }
+}
+
 function Reducer(oldState, action) {
   const state = cloneDeep(oldState)
   if (action.type === 'key') {
-    const key = action.payload.key
-    const all = getPaths(state, (item) => item.type)
-    const focused = all.filter((path) =>
-      getPath(path, 'value', 'props', 'k_focused')
-    )[0]
-    const cursorIndex = focused.value.children.findIndex(
-      (item) => item.props.k_cursor
-    )
-
-    if (key === '`') {
-
-    } else if (key === 'backspace') {
-      cursorIndex > 0 && focused.value.children.splice(cursorIndex - 1, 1)
-    } else if (key === 'arrowleft') {
-      
-    } else if (key === 'arrowright') {
-
-    }
-    else {
-      const keyEl = el('span', { k_key: 1 })(key)
-      focused.value.children.splice(cursorIndex, 0, keyEl)
-    }
+    HandleKeyReducer(action, state)
   }
   return state
 }
