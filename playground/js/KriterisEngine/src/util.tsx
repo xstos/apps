@@ -132,3 +132,10 @@ export function getPaths(obj, predicate=(()=>true)) {
 export function getPath(o, ...items) {
   return R.path(items, o)
 }
+
+export function swap(array, index1, index2) {
+  const first = array[index1]
+  const second = array[index2]
+  array[index1] = second
+  array[index2] = first
+}

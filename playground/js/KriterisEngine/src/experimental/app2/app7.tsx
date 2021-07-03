@@ -8,7 +8,7 @@ import * as R from 'ramda'
 import * as _ from 'lodash'
 import cloneDeep from 'clone-deep'
 import { bindkeys } from './keybindings'
-import { getPath, getPaths } from '../../util'
+import { getPath, getPaths, swap } from '../../util'
 
 const json = JSON.stringify
 const store = createStore(Reducer, getInitialState())
@@ -26,33 +26,45 @@ function el(type, props = {}) {
   })
 }
 
+
 function getInitialState() {
-  return el('div', { k_focused: 1, k_root: 1 })(
-    el('span', { k_cursor: 1 })('█')
+
+  return div({ k_focused: 1, k_root: 1 })(
+    span({ k_cursor: 1 })('█')
   )
 }
-
+function div(props) {
+  return el('div', props)
+}
+function span(props) {
+  return el('span', props)
+}
 function HandleKeyReducer(action, state) {
-  const key = action.payload.key
+  const { key } = action.payload
   const all = getPaths(state, (item) => item.type)
   const focused = all.filter((path) =>
     getPath(path, 'value', 'props', 'k_focused')
   )[0]
-  const cursorIndex = focused.value.children.findIndex(
-    (item) => item.props.k_cursor
-  )
+  const fch = focused.value.children
+  const cursorIndex = fch.findIndex((item) => item.props.k_cursor)
 
   if (key === '`') {
-
+    const jumpMenu = div({ k_jumpmenu: 1 })(
+      div({ k_jumpmenuitem:1 })('item1'),
+      div({ k_jumpmenuitem:1 })('item2'),
+    )
+    fch.push(jumpMenu)
   } else if (key === 'backspace') {
-    cursorIndex > 0 && focused.value.children.splice(cursorIndex - 1, 1)
+    cursorIndex > 0 && fch.splice(cursorIndex - 1, 1)
   } else if (key === 'arrowleft') {
-
+    cursorIndex > 0 && swap(fch, cursorIndex - 1, cursorIndex)
   } else if (key === 'arrowright') {
-
+    cursorIndex < fch.length - 1 && swap(fch, cursorIndex + 1, cursorIndex)
+  } else if (key === 'delete') {
+    fch.splice(cursorIndex + 1, 1)
   } else {
     const keyEl = el('span', { k_key: 1 })(key)
-    focused.value.children.splice(cursorIndex, 0, keyEl)
+    fch.splice(cursorIndex, 0, keyEl)
   }
 }
 
@@ -88,3 +100,19 @@ export function App7() {
     document.getElementById('root')
   )
 }
+
+// const old = React.createElement
+// let log = null
+// React.createElement = (type,props, children, ...items) => {
+//   log && log({type, props, children, items})
+//   return old(type,props,children)
+// }
+//
+// log = console.log
+// const foo = <div>
+//   foo
+//   <span>yo<pre>derp</pre></span>
+// </div>
+//
+// ReactDOM.render(foo,document.createElement('div'))
+// log=null
