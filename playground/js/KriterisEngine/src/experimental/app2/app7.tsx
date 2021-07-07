@@ -6,9 +6,11 @@ import { createStore } from 'redux'
 import { stringify } from 'javascript-stringify'
 import * as R from 'ramda'
 import * as _ from 'lodash'
+import { v4 as uuidv4 } from 'uuid'
 import cloneDeep from 'clone-deep'
 import { bindkeys } from './keybindings'
-import { getPath, getPaths, swap } from '../../util'
+import { rpath, flatten, swap, setter } from '../../util'
+import { ExampleComponentUsage } from '../../components/reactPromise'
 
 const json = JSON.stringify
 const store = createStore(Reducer, getInitialState())
@@ -34,6 +36,10 @@ function getInitialState() {
   )
 }
 function div(props) {
+  setter(props)
+    .style.border('1px solid red')
+    .style.margin(3)
+
   return el('div', props)
 }
 function span(props) {
@@ -41,19 +47,22 @@ function span(props) {
 }
 function HandleKeyReducer(action, state) {
   const { key } = action.payload
-  const all = getPaths(state, (item) => item.type)
+  const all = flatten(state, (item) => item.type)
   const focused = all.filter((path) =>
-    getPath(path, 'value', 'props', 'k_focused')
+    rpath(path, 'value', 'props', 'k_focused')
   )[0]
   const fch = focused.value.children
-  const cursorIndex = fch.findIndex((item) => item.props.k_cursor)
 
+  const cursorIndex = fch.findIndex((item) => item.props.k_cursor)
+  const cursor = fch[cursorIndex]
   if (key === '`') {
+    focused.value.props.k_focused=0
     const jumpMenu = div({ k_jumpmenu: 1 })(
+      div({ k_jumpmenusearchbox:1, k_focused: 1 })(cursor),
       div({ k_jumpmenuitem:1 })('item1'),
       div({ k_jumpmenuitem:1 })('item2'),
     )
-    fch.push(jumpMenu)
+    fch[cursorIndex] = jumpMenu
   } else if (key === 'backspace') {
     cursorIndex > 0 && fch.splice(cursorIndex - 1, 1)
   } else if (key === 'arrowleft') {
@@ -84,6 +93,7 @@ function Render(o) {
 }
 
 function App(props) {
+  return <ExampleComponentUsage></ExampleComponentUsage>
   const state = store.getState()
 
   return Render(state)

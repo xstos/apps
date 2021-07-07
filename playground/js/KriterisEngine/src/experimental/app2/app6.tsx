@@ -71,10 +71,22 @@ const $ = makeProxy()
     },
   })
 
-'hello'.$.hello
-'world'.$.world
+const cell = new Proxy(()=>{},{})
+const run = new Proxy(()=>{},{})
 
-$.hello.concat(' ').concat.world
+cell.A1('hello')
+cell.B1('world')
+
+run.concat(cell.A1, ' ', cell.B1)(cell.helloworld)
+
+cell.items([1,2,3])
+cell.left()
+cell.right()
+run.plus(cell.left, cell.right)(
+  run.div
+)
+
+run.math_floor
 
 const ev = {
   kb: '',

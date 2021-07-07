@@ -1,8 +1,9 @@
 import { App } from './app'
 import { App2 } from './experimental/app2/app2'
 import { App3 } from './experimental/app2/app3'
-import { App4 } from './experimental/app2/app4'
-import { App5 } from './experimental/app2/app5'
+import { InjectedPropsBase } from './experimental/app2/InjectedPropsbase'
+import { MillionLetters } from './experimental/app2/MillionLetters'
+import { CanvasRawPixels } from './experimental/app2/CanvasRawPixels'
 import { App6 } from './experimental/app2/app6'
 import { App7 } from './experimental/app2/app7'
 

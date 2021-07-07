@@ -1,6 +1,6 @@
 import * as R from 'ramda'
 //https://kitsunegames.com/post/development/2016/07/11/canvas3d-3d-rendering-in-javascript/
-export function App5() {
+export function CanvasRawPixels() {
   document.getElementById('root').remove()
   const { body } = document
   const bodyStyle = body.style

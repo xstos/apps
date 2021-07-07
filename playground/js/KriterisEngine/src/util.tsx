@@ -93,7 +93,7 @@ function entries2(o) {
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/yield*
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/yield
  */
-export function getPaths(obj, predicate=(()=>true)) {
+export function flatten(obj, predicate=(()=>true)) {
   const ret2 = []
   //todo unit test
   function iter(
@@ -129,7 +129,7 @@ export function getPaths(obj, predicate=(()=>true)) {
   return ret2
 }
 
-export function getPath(o, ...items) {
+export function rpath(o, ...items) {
   return R.path(items, o)
 }
 
@@ -139,3 +139,32 @@ export function swap(array, index1, index2) {
   array[index1] = second
   array[index2] = first
 }
+
+export function setter(o) {
+  const props = []
+  function get(target, prop, proxy) {
+    props.push(prop)
+    return proxy
+  }
+  function apply(target, proxy, argumentsList) {
+    props.reduce((accum, currentValue, currentIndex)=>{
+      if (currentIndex===props.length-1) {
+        accum[currentValue]=argumentsList[0]
+        return
+      }
+      let ret = accum[currentValue]
+      if (!ret) {
+        ret = {}
+        accum[currentValue] = ret
+      }
+      return ret
+    },o)
+    props.length =0
+    return proxy
+  }
+  return new Proxy(()=>{}, {
+    get,
+    apply,
+  })
+}
+

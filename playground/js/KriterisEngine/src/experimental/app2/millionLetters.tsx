@@ -67,7 +67,7 @@ function pushSquare(
   )
 }
 
-export function App4() {
+export function MillionLetters() {
   const bodyStyle = document.body.style
   bodyStyle.margin = '0px'
   bodyStyle.padding = '0px'
