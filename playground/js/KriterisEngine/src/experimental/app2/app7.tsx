@@ -10,7 +10,6 @@ import { v4 as uuidv4 } from 'uuid'
 import cloneDeep from 'clone-deep'
 import { bindkeys } from './keybindings'
 import { rpath, flatten, swap, setter } from '../../util'
-import { ExampleComponentUsage } from '../../components/reactPromise'
 
 const json = JSON.stringify
 const store = createStore(Reducer, getInitialState())
@@ -93,7 +92,6 @@ function Render(o) {
 }
 
 function App(props) {
-  return <ExampleComponentUsage></ExampleComponentUsage>
   const state = store.getState()
 
   return Render(state)
