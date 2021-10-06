@@ -10,6 +10,7 @@ namespace GeneratorUsageExample
     {
         static void Main(string[] args)
         {
+            var imavariable = 2;
         }
     }
 

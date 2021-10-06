@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace IndexerSourceGenerator
@@ -68,6 +69,8 @@ namespace IndexerSourceGenerator
                     if (node is ClassDeclarationSyntax syn)
                     {
                         classes.Add(syn);
+                    } else if (node is VariableDeclaratorSyntax vds)
+                    {
                     }
                 }
             });
@@ -105,11 +108,33 @@ namespace IndexerSourceGenerator
             var toAppend = classes.Select((ClassDeclarationSyntax classSyn) =>
             {
                 SemanticModel semanticModel = context.Compilation.GetSemanticModel(classSyn.SyntaxTree);
-                ISymbol? typeSymbol = semanticModel.GetDeclaredSymbol(classSyn);
+                
+                ISymbol? typeSymbol = ModelExtensions.GetDeclaredSymbol(semanticModel, classSyn);
                 return typeSymbol.GetQualifiedName(classSyn.Identifier.ValueText);
             });
             
             File.AppendAllLines(index, toAppend);
+            var tree = CSharpSyntaxTree.ParseText(context.Compilation.SyntaxTrees.First(t => t.FilePath.Contains("Program.cs"))
+                .GetText());
+            var root = tree.GetRoot() as CompilationUnitSyntax;
+            foreach (var descendantNode in root.DescendantNodes())
+            {
+                if (descendantNode is VariableDeclaratorSyntax vds)
+                {
+                    
+                }
+            }
+            var foo = "";
+            static Compilation CreateCompilation(params string[] sources)
+            {
+                return CSharpCompilation.Create(
+                    assemblyName: "compilation",
+                    syntaxTrees: sources.Where(source => !string.IsNullOrWhiteSpace(source)).Select(source =>
+                        CSharpSyntaxTree.ParseText(source, new CSharpParseOptions(LanguageVersion.Preview))),
+                    references: new[] { MetadataReference.CreateFromFile(typeof(Binder).GetTypeInfo().Assembly.Location) },
+                    options: new CSharpCompilationOptions(OutputKind.ConsoleApplication)
+                );
+            }
         }
     }
 }
