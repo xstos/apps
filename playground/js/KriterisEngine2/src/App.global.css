@@ -1,0 +1,23 @@
+/**, *:before, *:after {*/
+/*    -webkit-box-sizing: border-box !important;*/
+/*    -moz-box-sizing: border-box !important;*/
+/*    -ms-box-sizing: border-box !important;*/
+/*    box-sizing: border-box !important;*/
+/*}*/
+html, body {
+    min-height: 99.9vh;
+    background-color: black;
+    margin: 0px;
+    padding: 0px;
+}
+body {
+    box-shadow: inset 1px 1px 0px #9a5b5b,
+    inset -1px -1px 0px #9a5b5b;
+}
+.root {
+    /*height: 100%;*/
+    /*width: 100%;*/
+    /*position: absolute;*/
+    /*border: 1px solid red;*/
+
+}

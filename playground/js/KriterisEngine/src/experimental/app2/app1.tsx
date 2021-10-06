@@ -4,8 +4,11 @@ import React, { useEffect, useState } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import cloneDeep from 'clone-deep'
 import * as _ from 'lodash'
+import { idGen } from '../../util'
 
-export function InjectedPropsBase() {
+const getId = idGen()
+
+export function App1() {
   ReactDOM.render(<App />, document.getElementById('root'))
 }
 // function Pipe(props) {
@@ -54,16 +57,15 @@ function App2() {
 function App() {
   return (
     <>
-      <X cell='greeting'>hello</X>
-      <X F={String.prototype.toUpperCase}>
-        <X ref='greeting'/>
+      <X>
+        A<Y>two</Y>
       </X>
     </>
   )
 }
 
 const state = {
-  nodes: [],
+  children: [],
 }
 function CellR(props) {
   return null
@@ -96,35 +98,26 @@ function Cell(props) {
 class X extends React.Component {
   constructor(props) {
     super(props)
-    const { cell, ref } = props
-    if (cell) {
-      let cellData =state[cell]
-      if (!cellData) {
-        cellData = {
-
+    const id = getId()
+    console.log(id, this)
+    this.componentDidMount = () => {
+      console.log('mount', id)
+      state.children[id] = {}
+      React.Children.forEach((child, index) => {
+        if (React.isValidElement(child)) {
         }
-        state[cell] = cellData
-      }
+      }, props.children)
     }
-    this.componentDidMount = ()=>{
-
+    this.componentWillUnmount = () => {
+      console.log('unmount', id)
     }
-    this.componentWillUnmount = ()=>{
-
+    this.render = () => {
+      console.log('render', id)
+      return <div>{props.children}</div>
     }
-    this.render = ()=>{
-      return null
-    }
-    if (_.isString(props.children)) {
-
-      this.render=()=>{
-        return this.props.F.call(props.children)
-      }
-    }
-
   }
 }
-
+class Y extends X {}
 function withBase(InputComponent) {
   return class OutputComponent extends React.Component {
     constructor(props) {
@@ -146,14 +139,21 @@ function withBase(InputComponent) {
       const { children, ...rest } = this.props
       function clone(child, index) {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child, {...child.props, parentId: id, childIndex: index })
-        } else {
-          return child
+          return React.cloneElement(child, {
+            ...child.props,
+            parentId: id,
+            childIndex: index,
+          })
         }
+        return child
       }
 
       const mapped = React.Children.map(children, clone)
-      return <InputComponent {...rest} hasMounted={hasMounted} id={id}>{mapped}</InputComponent>
+      return (
+        <InputComponent {...rest} hasMounted={hasMounted} id={id}>
+          {mapped}
+        </InputComponent>
+      )
     }
   }
 }
