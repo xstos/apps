@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -7,6 +8,24 @@ namespace EasyAuthWpf
 {
     class Program
     {
+        static async Task<string> GetHttpContentWithToken(string url, string token)
+        {
+            var httpClient = new System.Net.Http.HttpClient();
+            try
+            {
+                var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Get, url);
+                //Add the token in Authorization header
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                var response = await httpClient.SendAsync(request);
+                var content = await response.Content.ReadAsStringAsync();
+                return content;
+            }
+            catch (Exception ex)
+            {
+                return ex.ToString();
+            }
+        }
+
         [STAThread]
         public static void Main(string[] args)
         {
@@ -20,10 +39,15 @@ namespace EasyAuthWpf
             var sp = new StackPanel();
             var login = new Button() {Content = "Login"};
             var logout = new Button() {Content = "Logout"};
-            var appServiceName = "<enter appservice name here>"; //i.e. https://<appServiceName>.azurewbsites.net/
+            var appServiceName = "<enter appservice name here>"; //i.e. https://<appServiceName>.azurewebsites.net/
             login.Click += (sender, eventArgs) =>
             {
-                Helper.EasyAuthLogin(appServiceName,o => {},() => {}, exception => {});
+                Helper.EasyAuthLogin(appServiceName, async o =>
+                {
+                    dynamic d = o;
+                    var id_token = d[0].id_token;
+                    var response = await GetHttpContentWithToken($"https://{appServiceName}.azurewebsites.net", (string) id_token);
+                },() => {}, exception => {});
             };
             logout.Click += (sender, eventArgs) =>
             {
