@@ -1,0 +1,20 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon server.js --verbose --ignore ./db/",
+    "mkcert-install": "choco install mkcert",
+    "devcert": "mkcert -key-file ./ssl/key.pem -cert-file ./ssl/cert.pem localhost 127.0.0.1 ::1"
+  },
+  "author": "https://github.com/xstos",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.17.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
+  }
+}

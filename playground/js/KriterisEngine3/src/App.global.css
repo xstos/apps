@@ -1,6 +1,11 @@
-html, body {
-    margin: 8px
-}
 body {
-
+    margin: 8px;
+    height: 100vh;
+    width: 100vw;
+}
+.root {
+    height: 100%;
+}
+* {
+    box-sizing: border-box;
 }

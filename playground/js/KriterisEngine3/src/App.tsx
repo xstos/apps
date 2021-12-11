@@ -4,7 +4,16 @@ import ReactDOM from 'react-dom'
 import { useEffect, useState } from 'react'
 import { store, view } from '@risingstack/react-easy-state';
 import * as _ from 'lodash'
-import {Paper, TextField} from "@material-ui/core";
+import {makeStyles, Paper, TextField} from "@material-ui/core";
+import Grid from "@material-ui/core/Grid";
+
+const useStyles = makeStyles({
+    grid: {
+        width: '100%',
+        height: '100%',
+        border: '5px solid red'
+    },
+});
 
 const state = store({
     inputBoxValue: "",
@@ -16,29 +25,21 @@ const map = {
     ['\t']: '⇥'
 }
 function Render(props) {
-    function mapKeys(key, i) {
-        return <span key={i}>{map[key] || key}</span>;
-    }
-    function textFieldChanged(e) {
-        state.keys = e.target.value.split('')
-    }
-    return <Paper elevation={3} >
-        <TextField
-            style={{width: "100%"}}
-            label="Paste here"
-            multiline
-            rows={4}
-            onChange={textFieldChanged}
-            inputProps={{
-                style: {fontFamily: "monospace"}
-            }}
-        />
-        <pre style={{fontSize: '18px'}}>
-            {state.keys.map(mapKeys)}
-        </pre>
-    </Paper>
+    return <DockContainer></DockContainer>
 }
+function r(n) {
+    var ret =[]
+    for (let j = 0; j < n; j++) {
+        ret.push(j)
+    }
+    return ret
+}
+function DockContainer(props) {
+    const classes = useStyles();
+    let style = {width: "100%", fontFamily: "monospace"};
+    return <div style={style}>{r(2000).map(i=><span>{i}</span>)}</div>
 
+}
 export function App() {
     const WrappedView = view(Render)
     return <WrappedView/>

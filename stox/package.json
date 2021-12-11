@@ -1,0 +1,11 @@
+{
+  "name": "stox",
+  "version": "1.0.0",
+  "dependencies": {
+
+  },
+  "devDependencies": {
+    "request": "^2.88.2",
+    "rxjs": "latest"
+  }
+}
