@@ -361,3 +361,5 @@ MigrationBackup/
 /playground/js/parcel2-client-server/client/dist/
 /playground/python/untitled/build/
 /playground/python/untitled/dist/
+/**/.parcel-cache/
+/playground/js/selfmodjs/client/dist/
