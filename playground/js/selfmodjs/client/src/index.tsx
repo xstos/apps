@@ -3,6 +3,47 @@ import ReactDOM from 'react-dom'
 import { store, view } from '@risingstack/react-easy-state';
 import {createApi} from "./api";
 import {TAction, TState} from "./types";
+import {onkey} from "./io";
+
+declare global {
+    // interface Object {
+    //     with() : void;
+    // }
+    interface Array<T> {
+        find2(item: T, callback: TFind2Callback<T>): void
+        insertItemsAtMut(index:Number, ...items: T[]) : T[]
+    }
+    interface Object {
+        log<T>(): T
+    }
+}
+
+type TFind2Callback<T> = (index: Number, array: T[]) => void
+function setProtos() {
+
+}
+Object.prototype.log = function<T>(): T {
+    console.log(this)
+    return this
+}
+Array.prototype.find2 = function<T>(itemToFind: T, callback: TFind2Callback<T>): void {
+    const i = this.findIndex(v=>v===itemToFind)
+    if (i<0) return;
+    callback(i,this)
+}
+Array.prototype.insertItemsAtMut = function<T>(index: number, ...items: T[]): T[] {
+    this.splice(index,0,items)
+}
+
+const cursor = '█'
+
+const state = store({
+    nodes: [
+        ['[',0],
+        cursor,
+        [']',0]
+    ]
+});
 
 function setStyles() {
 
@@ -22,98 +63,73 @@ function setStyles() {
 
 }
 setStyles()
+function push(...items) {
 
-
-
-const state2 = store({
-    doc: {
-        elements: [
-            0
-        ],
-        links: [
-
-        ]
-    }
-});
-
-const state = () => state2.db
-const api = createApi(dispatch)
-
-function dispatch(action: TAction) {
-    console.log("dispatch", action)
-    switch (action.type) {
-        case "db.get":
-            if (action.success) {
-                const {response}=action
-                state2.db = response
-            } else {
-                state().error = action.value
-            }
-            break
-        case "change":
-            state().value = action.value
-            saveDb(state())
-            break
-        case "add":
-            state().todos.push(state().value)
-            saveDb(state())
-            break
-        case "remove":
-            state().todos.splice(action.index, 1)
-            saveDb(state())
-            break
-    }
+    state.nodes.find2('█', (index,nodes) => {
+        if (items[0] ==='backspace') {
+            if (index===0) return
+            nodes.splice(+index-1,1)
+            return
+        }
+        nodes.insertItemsAtMut(index, ...items)
+    })
 
 }
+onkey((data)=>{
+    const {key, dt} = data
+    push(key)
+    //console.log(data)
+})
 
-function App(props) { //pure react JSX component that renders our state and dispatches actions
 
-    const dispatchAdd = () => dispatch({type: "add"})
-    const dispatchChange = event => dispatch({type: "change", value: event.target.value})
-    const dispatchRemove = index => dispatch({type: "remove", index})
 
-    function MakeTodo(value: string, index: number) {
-        function DeleteTodoButton() {
-            return <button onClick={() => dispatchRemove(index)}>x</button>;
-        }
+//const api = createApi(dispatch)
 
-        return <div key={index}>
-            {value}
-            <DeleteTodoButton/>
-        </div>
+function dispatch(...items) {
+
+    console.log(JSON.stringify(items))
+}
+
+function App(props) {
+    function renderNode(nodeData) {
+
     }
-
-    const todoListStyle = {backgroundColor: "beige"};
     return (
-      <Node button>
-          <input onChange={dispatchChange} placeholder="enter todo" defaultValue={state().value}/>
-          <button onClick={dispatchAdd}>add todo</button>
-          <div style={todoListStyle}>
-              {state().todos.map(MakeTodo)}
-          </div>
-          <div>{state().error}</div>
-      </Node>
+        <>
+            {btn("new")}
+            <_div>[{state.nodes.map(renderNode)}]</_div>
+        </>
+
     )
 }
-function Node(props): JSX.Element {
-    const { div } = props
-    const keys = Object.keys(props)
+function layoutEngine() {
 
-    return React.createElement()
 }
-function EasyApp() {
-    const RenderView = view(App)
-    return <RenderView/>
+function _div(props) {
+    return <div ref={(el)=>{
+        if (!el) return
+        const s = el.style
+        s.backgroundColor='red'
+        // s.position= 'fixed'
+        s.fontFamily='monospace'
+        // s.left='100px'
+        // s.top= '100px'
+
+        //console.log(el.clientWidth,el.clientHeight)
+    }}>{props.children}</div>
+}
+function btn(id) {
+    return <button onClick={()=>{}}>{id}</button>
 }
 
 ReactDOM.render( //render our app inside the 'root' div element
-  <EasyApp/>,
+  React.createElement(view(App)),
   document.getElementById('root')
 )
 
-api.get("db.get", "https://localhost:8000/api/db") //load data from the server
+//api.get("db.get", "https://localhost:8000/api/db") //load data from the server
 
 function saveDb(state: TState) {
     console.log("saving", state)
-    api.post("db.post", "https://localhost:8000/api/db", state)
+    //api.post("db.post", "https://localhost:8000/api/db", state)
 }

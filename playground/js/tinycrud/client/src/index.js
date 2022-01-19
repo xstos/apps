@@ -55,8 +55,12 @@ function App(state) { //pure react JSX component that renders our state and disp
     const onAdd = () => dispatch({type: "add"});
     const onChange = event => dispatch({type: "change", value: event.target.value});
     const onRemove = index => dispatch({type: "remove", index});
+    const {local, crud} = state
+
     return (
       <div>
+          local.ShowA && <Compo></Compo>
+
           <input onChange={onChange} placeholder="enter task" defaultValue={state.value}/>
           <button onClick={onAdd}>add task</button>
           <div style={{backgroundColor: "beige"}}>

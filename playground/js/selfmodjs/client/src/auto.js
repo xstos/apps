@@ -62,9 +62,48 @@ function eval(currentValue, op, args) {
             break;
     }
 }
-auto({ foo: 'hello', bar: 'world' }).map((key, index)=>key)
+auto({ foo: 'hello', bar: 'world' }).map((pair, index)=>pair)
 auto(1,2,3).map(i=>i+1) //2,3,4
 auto('a','b','c').map(c=>c+1 ) //['a1', 'b1', 'c1']
 auto("hello\nthere").split('\n')
 auto(1,2,3).concat(4,5,6)
 
+
+var docCookiesExample = new Proxy(()=>{}, {
+    apply: function(target, thisProxy, argumentsList) {
+        return thisProxy
+    },
+    get: function (oTarget, sKey) {
+        return oTarget[sKey] || oTarget.getItem(sKey) || undefined;
+    },
+    set: function (oTarget, sKey, vValue) {
+        if (sKey in oTarget) { return false; }
+        return oTarget.setItem(sKey, vValue);
+    },
+    deleteProperty: function (oTarget, sKey) {
+        if (!sKey in oTarget) { return false; }
+        return oTarget.removeItem(sKey);
+    },
+    enumerate: function (oTarget, sKey) {
+        return oTarget.keys();
+    },
+    ownKeys: function (oTarget, sKey) {
+        return oTarget.keys();
+    },
+    has: function (oTarget, sKey) {
+        return sKey in oTarget || oTarget.hasItem(sKey);
+    },
+    defineProperty: function (oTarget, sKey, oDesc) {
+        if (oDesc && 'value' in oDesc) { oTarget.setItem(sKey, oDesc.value); }
+        return oTarget;
+    },
+    getOwnPropertyDescriptor: function (oTarget, sKey) {
+        var vValue = oTarget.getItem(sKey);
+        return vValue ? {
+            value: vValue,
+            writable: true,
+            enumerable: true,
+            configurable: false
+        } : undefined;
+    },
+});
