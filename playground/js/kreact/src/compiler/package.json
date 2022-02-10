@@ -1,0 +1,15 @@
+{
+  "name": "compiler",
+  "version": "1.0.0",
+  "type": "module",
+  "devDependencies": {
+    "@babel/core": "^7.14.3",
+    "@babel/generator": "^7.13.16",
+    "@babel/parser": "^7.13.16",
+    "@babel/traverse": "^7.13.17",
+    "babel-helper-builder-react-jsx": "^6.26.0",
+    "babel-plugin-jsx-factory": "latest",
+    "babel-plugin-syntax-jsx": "^6.18.0",
+    "babel-runtime": "^6.26.0"
+  }
+}

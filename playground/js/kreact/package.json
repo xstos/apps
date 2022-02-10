@@ -1,0 +1,21 @@
+{
+  "name": "kreact",
+  "version": "1.0.0",
+  "private": true,
+  "description": "",
+  "source": "src/index.js",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "parcel src/index.html --open --key ./ssl/key.pem --cert ./ssl/cert.pem --https"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "axios": "^0.21.1",
+    "hyperactiv": "^0.10.1",
+    "keyboardjs": "^2.6.4",
+    "parcel": "^2.3.0"
+  },
+  "dependencies": {},
+  "browserslist": "> 0.5%, last 2 versions, not dead"
+}
