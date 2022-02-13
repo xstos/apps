@@ -1,53 +1,32 @@
-/*
- * @jsx jsx
- */
-/// <reference lib="DOM" />
+
 import hyperactiv from 'hyperactiv'
-import {logj} from "./util";
-
-document.body.style.backgroundColor="black"
+import {logj, setStyles} from "./util";
+import React from "react";
+import ReactDOM from 'react-dom'
+setStyles()
 const { observe, computed } = hyperactiv
-
-
-declare namespace JSX {
-  // The return type of our JSX Factory
-  type Element = HTMLElement;
-
-  // IntrinsicElementMap grabs all the standard HTML tags in the TS DOM lib.
-  interface IntrinsicElements extends IntrinsicElementMap { }
-
-
-  // The following are custom types, not part of TS's known JSX namespace:
-  type IntrinsicElementMap = {
-    [K in keyof HTMLElementTagNameMap]: {
-      [k: string]: any
-    }
-  }
-
-  type Tag = keyof JSX.IntrinsicElements;
-
-  interface Component {
-    (properties?: { [key: string]: any }, children?: Node[]): Node
-  }
-}
 
 let seed=0
 
 //https://stackoverflow.com/a/68238924/1618433
-function jsx<T extends JSX.Tag = JSX.Tag>(tag: T, props: { [key: string]: any } | null, ...children: Node[]): JSX.Element
-function jsx(tag: JSX.Component, props: Parameters<typeof tag> | null, ...children: Node[]): Node
-function jsx(tag: JSX.Tag | JSX.Component, props: { [key: string]: any } | null, ...children: Node[]) {
-  const { __source, __self, ...restProps } = props
-  return {tag, props: restProps, children}
-}
+//https://dev.to/gugadev/use-custom-elements-in-react-using-a-custom-jsx-pragma-3kc
+let reactMode = false
+export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
+  if (reactMode) return React.createElement(tag,props,...children)
+  //console.log({type,props,children})
+  if (props) {
+    return {type: tag, props, children}
+  }
 
+  return {tag, children}
+}
 const app = <cells>
   <pi>{3.14159}</pi>
   <radius>{3}</radius>
   <exponent>{2}</exponent>
   <area><pow><radius/><exponent/></pow></area>
 </cells>
-
+logj(app)
 const builtin = {
   pow: Math.pow
 }
@@ -93,10 +72,7 @@ function processNode(node,state, parentId) {
   state.nodes[id]=node
   const isBuiltin = builtin[node.tag]
   isBuiltin && (node.formula = isBuiltin)
-
-
-  const { __source, __self, ...rest } = node.props
-  if (Object.keys(rest).length <1) delete node.props
+  //if (Object.keys(node.props).length <1) delete node.props
 
   function processChild(child, index) {
     if (!child.tag) return
@@ -114,7 +90,7 @@ function processNode(node,state, parentId) {
 const mystate = { nodes: [], byName: {}}
 
 const ast = processNodes(app,mystate)
-logj(ast)
+//logj(ast)
 
 const observedState = observe(mystate)
 function setupObserve(mystate) {
@@ -164,3 +140,17 @@ function getValue(child) {
 }
 setupObserve(observedState)
 
+reactMode=true
+function Node(props) {
+  const node = idToNode(props.id)
+
+  let children = node.children && node.children.map(child=>(<Node id={child} />));
+  return <div style={{padding: "5px", border: "1px solid red"}}>
+    {node.tag} id={node.id} value={node.value} {children}
+  </div>
+}
+
+ReactDOM.render(
+  <Node id={observedState.root}></Node>,
+  document.getElementById('root')
+)

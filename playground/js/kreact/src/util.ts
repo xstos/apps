@@ -1,4 +1,6 @@
-function setStyles() {
+import {FunctionComponent, ReactChild} from "react";
+
+export function setStyles() {
 
     const html = document.documentElement.style
     const body = document.body.style
@@ -13,9 +15,10 @@ function setStyles() {
     root.width="100%"
     root.margin=zero
     root.padding=zero
-
+    html.backgroundColor = "black"
+    html.color = "white"
 }
-setStyles()
+
 
 export function isPrimitive(arg) {
     const type = typeof arg;
@@ -48,3 +51,4 @@ export function expandedLog(item, maxDepth = 100, depth = 0) {
 export function logj(o) {
     return console.log(JSON.stringify(o,null,2))
 }
+
