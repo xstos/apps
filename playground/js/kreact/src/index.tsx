@@ -3,6 +3,7 @@
  */
 /// <reference lib="DOM" />
 import hyperactiv from 'hyperactiv'
+import {logj} from "./util";
 
 document.body.style.backgroundColor="black"
 const { observe, computed } = hyperactiv
@@ -27,34 +28,6 @@ declare namespace JSX {
 
   interface Component {
     (properties?: { [key: string]: any }, children?: Node[]): Node
-  }
-}
-
-function isPrimitive(arg) {
-  const type = typeof arg;
-  return arg == null || (type != "object" && type != "function") ? [type,null] : [null,Array.isArray(arg) ? "array" : type];
-}
-
-//https://stackoverflow.com/questions/10464844/is-there-a-way-to-auto-expand-objects-in-chrome-dev-tools/27610197#27610197
-function expandedLog(item, maxDepth = 100, depth = 0){
-  if (depth > maxDepth ) {
-    console.log(item);
-    return;
-  }
-  if (typeof item === 'object' && item !== null) {
-    Object.entries(item).forEach(([key, value]) => {
-      const [primType, nonPrimType] = isPrimitive(value)
-
-      if (primType) {
-        console.log(key+": "+value)
-        return;
-      }
-      console.group(key + ' : ' + nonPrimType);
-      expandedLog(value, maxDepth, depth + 1);
-      console.groupEnd();
-    });
-  } else {
-    console.log(item);
   }
 }
 
@@ -141,8 +114,7 @@ function processNode(node,state, parentId) {
 const mystate = { nodes: [], byName: {}}
 
 const ast = processNodes(app,mystate)
-
-console.log(JSON.stringify(ast,null,2))
+logj(ast)
 
 const observedState = observe(mystate)
 function setupObserve(mystate) {
