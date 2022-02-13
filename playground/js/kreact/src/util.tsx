@@ -1,7 +1,3 @@
-import hyperactiv from 'hyperactiv'
-
-const { observe, computed } = hyperactiv
-
 function setStyles() {
 
     const html = document.documentElement.style
