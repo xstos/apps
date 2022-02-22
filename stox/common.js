@@ -49,5 +49,7 @@ function stringIndex() {
 function fsread(filePath) {
     return fs.readFileSync(filePath, { encoding: 'utf8' })
 }
-
-module.exports = { months, stringIndex,fsread }
+function fswrite(filePath, data) {
+    return fs.writeFileSync(filePath,data, { encoding: 'utf8' })
+}
+module.exports = { months, stringIndex,fsread, fswrite }

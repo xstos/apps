@@ -1,11 +1,12 @@
 const fs = require('fs')
 const Papa = require('papaparse')
 
-const { months, stringIndex, fsread } = require('./common.js')
+const { months, stringIndex, fsread, fswrite } = require('./common.js')
 
 const path = 'C:\\Users\\user\\Downloads\\eoddata\\'
 const data = path+'data\\'
 const data_out=path+"data_out\\"
+const data_out_json=path+"data_out_json\\"
 const makeEmptyArray = ()=>[]
 const symbolMap = stringIndex()
 
@@ -35,12 +36,12 @@ function parseDate(dateString) {
 
 function processByYearData() {
     const stockDataBySymbol = new Map()
-    let outHeader
+    let header
     eoddataPaths.forEach((filePath) => {
         const raw = fsread(filePath)
         const parsed = Papa.parse(raw)
-        const [ header, ...rows ] = parsed.data
-        outHeader = header
+        const [ h, ...rows ] = parsed.data
+        header=h
         let allZero = true
         const currentRows = []
         for (const row of rows) {
@@ -53,19 +54,20 @@ function processByYearData() {
             if (volume!==0) {
                 allZero = false
             }
-            const ret =[null, symbolIndex, date, Number(open), Number(high), Number(low), Number(close), volume ]
+            const ret =[symbolIndex, date, Number(open), Number(high), Number(low), Number(close), volume ]
             currentRows.push(ret)
         }
         if (allZero) return //exchange was closed
         for (const row of currentRows) {
-            const [_,symbol] = row
+            const [symbol,d,o,h,l,c,v] = row
             const rowsBySymbol = stockDataBySymbol._getOrCreate(symbol,makeEmptyArray)
-            rowsBySymbol.push(row)
+            rowsBySymbol.push([d,o,h,l,c,v])
         }
     })
-    outHeader = ['Company Name', ...outHeader]
 
     function writeDataBySymbol() {
+        let [s,...restOfHeader] = header
+        header = restOfHeader
         stockDataBySymbol.forEach((rows, symbolId)=>
         {
             const symbol = symbolMap.get(symbolId)
@@ -74,21 +76,30 @@ function processByYearData() {
                 console.log("missing company name "+symbol)
                 debugger
             }
-            for (const row of rows) {
-                row[1]=''
-                row[0]=''
+            function writeCsv() {
+                const table = [[symbol,companyName],header,...rows]
+                const content = Papa.unparse(table)
+                let outPath = `${data_out}${symbol.replace(".","_")}.csv`;
+                fs.writeFileSync(outPath,content,'utf8')
+                // const read = fsread(outPath)
+                // if (content!==read) {
+                //     debugger
+                // }
             }
-            outHeader[0]=companyName
-            outHeader[1]=symbol
-            const content = Papa.unparse([outHeader,...rows])
-            let outPath = `${data_out}${symbol.replace(".","_")}.csv`;
-            fs.writeFileSync(outPath,content,'utf8')
-            // const read = fsread(outPath)
-            // if (content!==read) {
-            //     debugger
-            // }
+            function writeJson() {
+                const data = {
+                    symbol,
+                    companyName,
+                    header,
+                    rows
+                }
+                const outPath = `${data_out_json}${symbol.replace(".","_")}.json`;
+                fs.writeFileSync(outPath,JSON.stringify(data),'utf8')
+            }
+            //writeJson()
         })
     }
+    //writeDataBySymbol()
 }
 function dateWithinRange(start, end) {
     return (v)=> v>=start && v<=end
@@ -97,35 +108,40 @@ function between(v, low, high) {
     return v>=low && v<=high
 }
 function processBySymbol() {
-    const bySymbolPaths = fs.readdirSync(data_out)
-        .map(file => data_out+file)
-        .filter(filePath=>filePath.endsWith('.csv'))
+    const bySymbolPaths = fs.readdirSync(data_out_json)
+        .map(file => data_out_json+file)
+        .filter(filePath=>filePath.endsWith('.json'))
         .sort()
     const crashPerf = []
     const noData = []
     const hasData = []
     bySymbolPaths.forEach((filePath)=>{
-        const csv = fsread(filePath)
-        let [header, ...rows]  = Papa.parse(csv).data
+        const json = fsread(filePath)
+        let {
+            symbol,
+            companyName,
+            header,
+            rows
+        }  = JSON.parse(json)
 
-        const companyName = header[0]
-        const symbol = header[1]
         let [lower, upper] = [Date.UTC(2007, 5, 1), Date.UTC(2009,1,1)]
-        let before, after
+
         const crashRange = rows.filter(row=>{
-            const [_,__,dstr,o,h,l,c,v] = row
-            return between(parseDate(dstr),lower,upper)
+            return between(row[0],lower,upper)
         })
-        if (crashRange.length>1) {
-            hasData.push(companyName+ " "+symbol)
-        }
+        if (crashRange.length<2) return
 
-
-        //perf = after[6] / before[6]
-        //crashPerf.push([symbol, companyName, perf])
+        let rangeReturn=1
+        crashRange.forEach(row=>{
+            const [date,o,h,l,c,v] = row
+            rangeReturn*= c/o
+        })
+        crashPerf.push([symbol, companyName, rangeReturn])
     })
-    //crashPerf.sort((a,b) => b[2]-a[2])
+    const crashResults = Papa.unparse(crashPerf)
+    fswrite(data+"2008crash_perf.csv",crashResults)
 }
+
 //processByYearData()
 
 
