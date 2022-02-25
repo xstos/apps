@@ -20,17 +20,26 @@ const eoddataPaths = fs.readdirSync(data)
     .sort()
 
 function parseDate(dateString) {
-    let day = dateString.substring(0,2);
-    day = Number(day)
-    let month = dateString.substring(3,6).toLowerCase();
-    month = months[month]
+    let [d,m,y] = dateString.replaceAll(' ','-').split('-')
+
+    if (!d || !m || !y) {
+        throw new Error("bad date str")
+    }
+
+    let day = Number(d)
+    if (day<1 || day>31) {
+        throw new Error("bad day")
+    }
+    let month = months[m.toLowerCase()]
+
     if (month === null || month === undefined) {
         throw new Error("bad month")
     }
-    month = Number(month)
-    let year = dateString.substring(7)
-    year = Number(year)
 
+    let year = Number(y)
+    if (year<2000 || year > 2025) {
+        throw new Error("bad year")
+    }
     return Date.UTC(year,month,day)
 }
 
@@ -47,6 +56,10 @@ function processByYearData() {
         for (const row of rows) {
             let [ symbol, date,open,high,low,close,volume ] = row
             if (!date) continue
+            if (close==="0") {
+                continue
+            }
+
             const symbolIndex = symbolMap.get(symbol)
             date = parseDate(date)
 
@@ -66,7 +79,7 @@ function processByYearData() {
     })
 
     function writeDataBySymbol() {
-        let [s,...restOfHeader] = header
+        let [_,...restOfHeader] = header
         header = restOfHeader
         stockDataBySymbol.forEach((rows, symbolId)=>
         {
@@ -96,25 +109,24 @@ function processByYearData() {
                 const outPath = `${data_out_json}${symbol.replace(".","_")}.json`;
                 fs.writeFileSync(outPath,JSON.stringify(data),'utf8')
             }
-            //writeJson()
+            //writeCsv()
+            writeJson()
         })
     }
-    //writeDataBySymbol()
+    writeDataBySymbol()
 }
-function dateWithinRange(start, end) {
-    return (v)=> v>=start && v<=end
-}
-function between(v, low, high) {
-    return v>=low && v<=high
-}
-function processBySymbol() {
+const year = Date.UTC(2008,0,1) - Date.UTC(2007,0,1)
+
+
+function runReport() {
     const bySymbolPaths = fs.readdirSync(data_out_json)
         .map(file => data_out_json+file)
         .filter(filePath=>filePath.endsWith('.json'))
         .sort()
-    const crashPerf = []
+    const perf = []
     const noData = []
     const hasData = []
+    const [dateColumnIndex, openCol, highCol, lowCol, closeColumnIndex, volumeCol] = [0,1,2,3,4,5]
     bySymbolPaths.forEach((filePath)=>{
         const json = fsread(filePath)
         let {
@@ -123,28 +135,56 @@ function processBySymbol() {
             header,
             rows
         }  = JSON.parse(json)
+        if (symbol==="CLML.U.TO") {
+            debugger
+        }
+        //let [lower, upper] = [Date.UTC(2007, months.sep, 1), Date.UTC(2009,months.feb,1)]
+        let filteredRows = rows
+        // filteredRows = rows.filter(row=>{
+        //     return between(row[dateColumnIndex],lower,upper)
+        // })
+        if (filteredRows.length<2) return
+        const [first,last] = [filteredRows[0],filteredRows._last()]
 
-        let [lower, upper] = [Date.UTC(2007, 5, 1), Date.UTC(2009,1,1)]
-
-        const crashRange = rows.filter(row=>{
-            return between(row[0],lower,upper)
+        let totalReturn = last[closeColumnIndex] / first[closeColumnIndex]
+        if (totalReturn<1) return
+        totalReturn-=1
+        const totalPeriod = (last[dateColumnIndex] - first[dateColumnIndex])/year
+        const yearlyReturn = totalReturn/totalPeriod
+        let drawDown=0
+        getPairs(filteredRows).forEach(([previousDayRow, currentDayRow]) => {
+            const ret = currentDayRow[closeColumnIndex] / previousDayRow[closeColumnIndex]
+            if (ret<1) {
+                drawDown+=1-ret
+            }
         })
-        if (crashRange.length<2) return
 
-        let rangeReturn=1
-        crashRange.forEach(row=>{
-            const [date,o,h,l,c,v] = row
-            rangeReturn*= c/o
-        })
-        crashPerf.push([symbol, companyName, rangeReturn])
+        perf.push([symbol, companyName, yearlyReturn, drawDown])
     })
-    const crashResults = Papa.unparse(crashPerf)
-    fswrite(data+"2008crash_perf.csv",crashResults)
+    const perfCsv = Papa.unparse([["Symbol", "Company Name", "Return"],... perf])
+    fswrite(path+"report.csv",perfCsv)
 }
 
 //processByYearData()
+runReport()
+
+function getPairs(arr) {
+    const l = arr.length
+    const ret =[]
+    for (let i = 1; i < l; i++) {
+        ret.push([arr[i-1], arr[i]])
+    }
+    //fswrite(path+"pairs.csv",Papa.unparse(ret))
+    return ret
+}
+
+function dateWithinRange(start, end) {
+    return (v)=> v>=start && v<=end
+}
+function between(v, low, high) {
+    return v>=low && v<=high
+}
 
 
-processBySymbol()
 
 const foo = ""
