@@ -15,7 +15,18 @@ Map.prototype._getOrCreate = function(key, valueFactory) {
     this.set(key,val)
     return val
 }
+function _chunk (arr, len) {
+    var chunks = [],
+        i = 0,
+        n = arr.length;
 
+    while (i < n) {
+        chunks.push(arr.slice(i, i += len));
+    }
+
+    return chunks;
+}
+Array.prototype._chunk = _chunk
 Array.prototype._toMap = function() {
     return new Map(this)
 }
@@ -64,5 +75,9 @@ function fsread(filePath) {
 function fswrite(filePath, data) {
     return fs.writeFileSync(filePath,data, { encoding: 'utf8' })
 }
+const ticksPerDayInv = 1/(1000 * 3600 * 24)
+function daysBetween(date1, date2) {
+    return (date2.getTime() - date1.getTime()) * ticksPerDayInv
+}
 
-module.exports = { months, stringIndex,fsread, fswrite }
+module.exports = { months, stringIndex,fsread, fswrite, daysBetween}

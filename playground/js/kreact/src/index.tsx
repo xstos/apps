@@ -3,11 +3,13 @@ import hyperactiv from 'hyperactiv'
 import {logj, setStyles} from "./util";
 import React from "react";
 import ReactDOM from 'react-dom'
+import {foo} from "./jsParser";
 setStyles()
 const { observe, computed } = hyperactiv
-
+const derp = foo
 let seed=0
 
+//https://stackoverflow.com/questions/67759433/typescript-parcel-new-jsx-transform-react-is-not-defined-error
 //https://stackoverflow.com/a/68238924/1618433
 //https://dev.to/gugadev/use-custom-elements-in-react-using-a-custom-jsx-pragma-3kc
 let reactMode = false
@@ -20,12 +22,15 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
 
   return {tag, children}
 }
+
 const app = <cells>
+
   <pi>{3.14159}</pi>
   <radius>{3}</radius>
   <exponent>{2}</exponent>
   <area><pow><radius/><exponent/></pow></area>
 </cells>
+
 logj(app)
 const builtin = {
   pow: Math.pow

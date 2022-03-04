@@ -2,7 +2,9 @@
   "name": "stox",
   "version": "1.0.0",
   "dependencies": {
-    "papaparse": "^5.3.1"
+    "papaparse": "^5.3.1",
+    "regression": "^2.0.1",
+    "smoothish": "^1.0.0"
   },
   "devDependencies": {
     "request": "^2.88.2",
