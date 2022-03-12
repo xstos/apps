@@ -50,7 +50,7 @@ namespace KriterisEngine
                 var dayKey = keyFactory("day", day);
                 var monthKey = keyFactory("month", month);
                 var yearKey = keyFactory("year", year);
-                mmf.Write();
+                //mmf.Write();
             });
         }
 

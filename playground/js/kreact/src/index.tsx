@@ -1,11 +1,23 @@
-
 import hyperactiv from 'hyperactiv'
 import {logj, setStyles} from "./util";
 import React from "react";
 import ReactDOM from 'react-dom'
 import {foo} from "./jsParser";
+import {Machine} from "./statemachine";
+import {bindkeys} from "./io";
+import {StateMachine} from "./statemachine-renderer";
+
 setStyles()
 const { observe, computed } = hyperactiv
+const state2 = {
+  focus: [0],
+  nodes:[{
+    children: []
+  }]
+}
+const machine = Machine(state2)
+bindkeys(machine.input)
+
 const derp = foo
 let seed=0
 
@@ -23,8 +35,12 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return {tag, children}
 }
 
-const app = <cells>
+export const intellisense = <menu>
+  <item selected>foo</item>
+  <item>bar</item>
+</menu>
 
+const app = <cells>
   <pi>{3.14159}</pi>
   <radius>{3}</radius>
   <exponent>{2}</exponent>
@@ -35,9 +51,10 @@ logj(app)
 const builtin = {
   pow: Math.pow
 }
+
+
 function processNodes(root,state) {
   processNode(root,state, undefined)
-  mystate.root = root.id
 
   function nodeInit(node) {
     if (!node.children) return //
@@ -92,10 +109,14 @@ function processNode(node,state, parentId) {
 
   return state
 }
-const mystate = { nodes: [], byName: {}}
+const mystate = { nodes: [], byName: {}, root: 0}
+///
 
 const ast = processNodes(app,mystate)
 //logj(ast)
+
+
+
 
 const observedState = observe(mystate)
 function setupObserve(mystate) {
@@ -154,8 +175,12 @@ function Node(props) {
     {node.tag} id={node.id} value={node.value} {children}
   </div>
 }
-
+const rootId = observedState.root
+const renderMe = <>
+  <Node id={rootId}></Node>
+  <StateMachine menu={intellisense}></StateMachine>
+</>
 ReactDOM.render(
-  <Node id={observedState.root}></Node>,
+  renderMe,
   document.getElementById('root')
 )

@@ -126,9 +126,21 @@ function runReport() {
         .map(file => data_out_json+file)
         .filter(filePath=>filePath.endsWith('.json'))
         .sort()
+    const [gh,...googrows] = Papa.parse(fsread(path+"covid crash data.csv")).data
+    const googMap = googrows.reduce((accum,value) => {
+        const [tick,name,fulltick,data] = value
+        if (!value[0]) return accum
+        const parsedData = JSON.parse(data).map(([dt,cl])=>{
+            const [y,m,d] = dt.split("/").map(Number)
+            return [new Date(Date.UTC(y,m-1,d)),cl]
+        })
 
+        accum.set(tick+".TO",[tick+".TO",name,parsedData])
+        return accum
+    },new Map())
     const noData = []
     const hasData = []
+    const lastCovidDateTicks = (new Date(Date.UTC(2020,3,1)))
     const [dateColumnIndex, openCol, highCol, lowCol, closeColumnIndex, volumeCol, daysElapsedCol] = [0,1,2,3,4,5,6]
     const perf = bySymbolPaths.map(processFile).filter(r=>r)
 
@@ -157,8 +169,15 @@ function runReport() {
         let totalPeriod = daysBetween(firstDate, makeDateFromArray(last[dateColumnIndex]))
         totalPeriod = totalPeriod / 365.25
         let totalReturn = last[closeColumnIndex] / first[closeColumnIndex]
-        if (totalPeriod<0.2) {
-            return [symbol, companyName, "insufficient data", "totalPeriod", totalPeriod]
+        const hasGoog = googMap.has(symbol)
+        let covidReturn
+        if (hasGoog) {
+            if (firstDate>lastCovidDateTicks) {
+                return [symbol, companyName, "insufficient data", "totalPeriod", totalPeriod]
+            }
+            const [_,__,prices] = googMap.get(symbol)
+            covidReturn = prices._last()[1] / prices[0][1]
+
         }
         if (totalReturn < 1) {
             return [symbol, companyName, -(1-totalReturn), 'N/A', 'N/A']
@@ -211,10 +230,10 @@ function runReport() {
                 up += ret
             }
         })
-        return [symbol, companyName, yearlyReturn, down/delta, up/delta, totalPeriod]
+        return [symbol, companyName, yearlyReturn, down/delta, up/delta, totalPeriod, covidReturn]
     }
 
-    const perfCsv = Papa.unparse([["Symbol", "Company Name", "Return", "Losses", "Gains", "#Years"],... perf])
+    const perfCsv = Papa.unparse([["Symbol", "Company Name", "Return", "Losses", "Gains", "#Years", "CovidReturn"],... perf])
     fswrite(path+"report.csv",perfCsv)
 }
 
