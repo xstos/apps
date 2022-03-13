@@ -7,7 +7,7 @@ export function bindkeys(onkey) {
   keyboard.bind([...lettersArray, 'space', 'enter', 'escape', 'backspace', 'left', 'right', 'up', 'down', 'delete'], pressed)
 
   function pressed(e) {
-    const o = { type: "io",  key: e.key.toLowerCase() }
+    const o = { tag: "io",  key: e.key.toLowerCase() }
     onkey(o)
   }
 }

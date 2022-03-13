@@ -1,4 +1,21 @@
-import {FunctionComponent, ReactChild} from "react";
+
+declare global {
+    interface Object {
+
+    }
+    interface Array<T> {
+        _insertItemsAtMut(index:Number, ...items: T[]) : T[]
+    }
+
+}
+export function isNum(v) {
+    return typeof v === "number"
+}
+Array.prototype._insertItemsAtMut = function<T>(index: number, ...items: T[]): T[] {
+    this.splice(index,0,items)
+    return this
+}
+
 
 export function setStyles() {
 
@@ -51,4 +68,16 @@ export function expandedLog(item, maxDepth = 100, depth = 0) {
 export function logj(o) {
     return console.log(JSON.stringify(o,null,2))
 }
+export function equals(a,b) {
+    return a===b
+}
+export function equalsAny(value,...args) {
+    return args.find((arg)=>equals(value,arg))
+}
 
+export function swapIndexes<T>(array: T[], first: number, second:number): T[] {
+    const old = array[first]
+    array[first]=array[second]
+    array[second]=old
+    return array
+}

@@ -1,20 +1,30 @@
 import hyperactiv from 'hyperactiv'
-import {logj, setStyles} from "./util";
+
 import React from "react";
 import ReactDOM from 'react-dom'
-import {foo} from "./jsParser";
-import {Machine} from "./statemachine";
-import {bindkeys} from "./io";
-import {StateMachine} from "./statemachine-renderer";
 
+import {logj, setStyles} from "./util";
+import {foo} from "./jsParser";
+import {bindkeys} from "./io";
+import {Machine} from "./stateMachine";
+
+export const cursorBlock = '█'
 setStyles()
 const { observe, computed } = hyperactiv
-const state2 = {
-  focus: [0],
-  nodes:[{
-    children: []
-  }]
-}
+function getInitialState() {
+  return {
+    mode: 'normal',
+    focused: [0],
+    nodes:[{
+      tag: 'cell',
+      children: [1]
+    }, {
+      tag: 'cursor'
+    }]
+  }
+}//
+const ls = localStorage.getItem("state")
+const state2 = ls && JSON.parse(ls) || getInitialState()
 const machine = Machine(state2)
 bindkeys(machine.input)
 
@@ -176,9 +186,11 @@ function Node(props) {
   </div>
 }
 const rootId = observedState.root
+const Render = machine.Render
 const renderMe = <>
   <Node id={rootId}></Node>
-  <StateMachine menu={intellisense}></StateMachine>
+  <br/>
+  <Render id={0}></Render>
 </>
 ReactDOM.render(
   renderMe,
