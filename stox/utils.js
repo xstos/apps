@@ -196,14 +196,18 @@ function runReport() {
         totalReturn -= 1
 
         const yearlyReturn = totalReturn / totalPeriod
-        if (yearlyReturn===0) {
 
-        } else if (!yearlyReturn) {
-            debugger
-        }
 
         const close = readColumn(filteredRows, closeColumnIndex)
         const dc = readColumn(filteredRows, dateColumnIndex)
+        const intervalIndexes = getPairsWithIndexes(dc).map(p=>{
+            const [[[py,pm,pd], prevIndex],[[y,m,d], curIndex]] = p
+            if (py!==y) return curIndex
+            return null
+        }).filter(v=>v!==null)
+        const yearlyReturns = getPairs(intervalIndexes).map(([i1,i2])=>close[i2]/close[i1])
+        const numPositiveYears = yearlyReturns.filter(r=>r>0.95).length
+
         const smoothed = close //smoothish(close, {radius: 1})
         const max = Math.max(...smoothed)
         const min = Math.min(...smoothed)
@@ -230,10 +234,10 @@ function runReport() {
                 up += ret
             }
         })
-        return [symbol, companyName, yearlyReturn, down/delta, up/delta, totalPeriod, covidReturn]
+        return [symbol, companyName, yearlyReturn, down/delta, up/delta, totalPeriod, covidReturn, numPositiveYears]
     }
 
-    const perfCsv = Papa.unparse([["Symbol", "Company Name", "Return", "Losses", "Gains", "#Years", "CovidReturn"],... perf])
+    const perfCsv = Papa.unparse([["Symbol", "Company Name", "Return", "Losses", "Gains", "#Years", "CovidReturn", "NumPositiveYears"],... perf])
     fswrite(path+"report.csv",perfCsv)
 }
 
@@ -267,7 +271,16 @@ function getPairs(arr) {
     //fswrite(path+"pairs.csv",Papa.unparse(ret))
     return ret
 }
+function getPairsWithIndexes(arr) {
+    const l = arr.length
+    const ret =[]
+    for (let i = 1; i < l; i++) {
+        let prevIx = i-1;
+        ret.push([[arr[prevIx],prevIx], [arr[i],i]])
+    }
 
+    return ret
+}
 function dateWithinRange(start, end) {
     return (v)=> v>=start && v<=end
 }

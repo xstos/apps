@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import hyperactiv from "hyperactiv";
 import {equalsAny, isNum, swapIndexes} from "./util";
+const { observe, computed, dispose } = hyperactiv
 
 const reactMode = true
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
@@ -11,19 +12,14 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return {tag, children}
 }
 
-const { observe, computed, dispose } = hyperactiv
-
 type TData = { tag:'io', key:string }
-
 type TChild = number | string
-
 type TNode = {
   tag: string,
   children: TChild[]
 }
 
 export function Machine(state) {
-
   const observed = observe(state)
   const focused = observed.focused
   const nodes = observed.nodes
@@ -37,7 +33,15 @@ export function Machine(state) {
   function isCursor(node: TNode) {
     return node.tag==='cursor'
   }
-
+  function createNode():number {
+    const newIndex = nodes.length
+    const newNode = {
+      tag: 'cell',
+      children: []
+    }
+    nodes.push(newNode)
+    return newIndex
+  }
   function input(data: TData) {
     const {tag}=data
     console.log(data)
@@ -50,6 +54,9 @@ export function Machine(state) {
         if (key === 'backspace') {
           if (focusedNodeIndex === 0) return
           focusedChildren.splice(focusedNodeIndex-1, 1)
+        } else if (key === 'delete') {
+          if (focusedChildren.length===focusedNodeIndex+1) return
+          focusedChildren.splice(focusedNodeIndex+1, 1)
         }
         else if (key==="arrowleft") {
           if (focusedNodeIndex === 0) return
@@ -58,10 +65,11 @@ export function Machine(state) {
         else if (key==="arrowright") {
           if (focusedNodeIndex === focusedChildren.length-1) return
           swapIndexes(focusedChildren,focusedNodeIndex,focusedNodeIndex+1)
+        } else if (key==="ctrl+enter") {
+          const newNodeIndex = createNode()
+          //todo
         }
-        else if (equalsAny(key,"arrowleft","arrowright","arrowup","arrowdown")) {
-
-        } else {
+        else {
           focusedChildren._insertItemsAtMut(focusedNodeIndex, key)
         }
       })
