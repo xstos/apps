@@ -23,6 +23,7 @@ export function Machine(state) {
   const observed = observe(state)
   const focused = observed.focused
   const nodes = observed.nodes
+  const cursorId = 1
   function getNodeById(id):TNode {
     if (!isNum(id)) return ({
       tag: '',
@@ -33,11 +34,11 @@ export function Machine(state) {
   function isCursor(node: TNode) {
     return node.tag==='cursor'
   }
-  function createNode():number {
+  function createNode(children):number {
     const newIndex = nodes.length
     const newNode = {
       tag: 'cell',
-      children: []
+      children
     }
     nodes.push(newNode)
     return newIndex
@@ -47,37 +48,37 @@ export function Machine(state) {
     console.log(data)
     if (tag==='io') {
       const { key } = data
-      focused.forEach((nodeId: number) => {
+      focused.forEach(applyInputToNode)
+
+      function applyInputToNode(nodeId: number) {
         const focusedNode = getNodeById(nodeId)
         const focusedChildren = focusedNode.children
-        const focusedNodeIndex = focusedChildren.findIndex(childNodeId => isCursor(getNodeById(childNodeId)))
+        const cursorIndex = focusedChildren.findIndex(childNodeId => isCursor(getNodeById(childNodeId)))
         if (key === 'backspace') {
-          if (focusedNodeIndex === 0) return
-          focusedChildren.splice(focusedNodeIndex-1, 1)
+          if (cursorIndex === 0) return
+          focusedChildren.splice(cursorIndex - 1, 1)
         } else if (key === 'delete') {
-          if (focusedChildren.length===focusedNodeIndex+1) return
-          focusedChildren.splice(focusedNodeIndex+1, 1)
+          if (focusedChildren.length === cursorIndex + 1) return
+          focusedChildren.splice(cursorIndex + 1, 1)
+        } else if (key === "arrowleft") {
+          if (cursorIndex === 0) return
+          swapIndexes(focusedChildren, cursorIndex, cursorIndex - 1)
+        } else if (key === "arrowright") {
+          if (cursorIndex === focusedChildren.length - 1) return
+          swapIndexes(focusedChildren, cursorIndex, cursorIndex + 1)
+        } else if (key === "ctrl+enter") {
+          const newNodeId = createNode([cursorId])
+          state.focused.length = 0
+          state.focused.push(newNodeId)
+          focusedChildren[cursorIndex]=newNodeId
+
+        } else {
+          focusedChildren._insertItemsAtMut(cursorIndex, key)
         }
-        else if (key==="arrowleft") {
-          if (focusedNodeIndex === 0) return
-          swapIndexes(focusedChildren,focusedNodeIndex,focusedNodeIndex-1)
-        }
-        else if (key==="arrowright") {
-          if (focusedNodeIndex === focusedChildren.length-1) return
-          swapIndexes(focusedChildren,focusedNodeIndex,focusedNodeIndex+1)
-        } else if (key==="ctrl+enter") {
-          const newNodeIndex = createNode()
-          //todo
-        }
-        else {
-          focusedChildren._insertItemsAtMut(focusedNodeIndex, key)
-        }
-      })
+      }
     }
     localStorage.setItem("state", JSON.stringify(observed))
   }
-
-  state.input = input
 
   function Render(props) {
     const id = props.id
@@ -98,8 +99,10 @@ export function Machine(state) {
     useEffect(()=>{
       console.log('mount '+id)
       const refreshChildren = computed(()=>{
+        console.log("computed render "+id)
         setChildren(renderChildren())
       })
+
       return ()=>{
         console.log('unmount '+id)
         dispose(refreshChildren)
@@ -110,6 +113,7 @@ export function Machine(state) {
     return <pre style={s}>{id} {children}</pre>
   }
 
+  state.input = input
   state.Render = Render
   return state;
 }
