@@ -5,17 +5,43 @@ declare global {
     }
     interface Array<T> {
         _insertItemsAtMut(index:Number, ...items: T[]) : T[]
+        _findItem(predicate: TPredicate<T>, valueIfNotFound: TPosition<T>) : TPosition<T>
+        _findIndexes(predicate: TPredicate<T>): number[]
+        _removeItem(item:T): T[]
     }
 
 }
-export function isNum(v) {
+export type TPosition<T> = [number, T]
+export function isNum(v: any) {
     return typeof v === "number"
 }
-Array.prototype._insertItemsAtMut = function<T>(index: number, ...items: T[]): T[] {
-    this.splice(index,0,items)
+Array.prototype._removeItem = function<T>(item:T) {
+    const ix = this.findIndex((o)=>item===o)
+    if (ix===-1) return this
+    this.splice(ix,1)
     return this
 }
+Array.prototype._insertItemsAtMut = function<T>(index: number, ...items: T[]): T[] {
+    this.splice(index,0,...items)
+    return this
+}
+Array.prototype._findIndexes = function<T>(predicate: TPredicate<T>): number[] {
+    const l = this.length
+    const ret = []
+    let temp
+    for (let i = 0; i < l; i++) {
+        temp=this[i]
+        if (predicate(temp, i, this)) ret.push(temp)
+    }
+    return ret
+}
+export type TPredicate<T> = (value: T, index: number, obj: T[]) => unknown
 
+Array.prototype._findItem = function<T>(predicate: TPredicate<T>, valueIfNotFound: TPosition<T>): TPosition<T> {
+    const ret = this.findIndex(predicate)
+    if (ret===-1) return valueIfNotFound
+    return [ret,this[ret]]
+}
 
 export function setStyles() {
 

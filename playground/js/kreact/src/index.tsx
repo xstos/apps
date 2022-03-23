@@ -6,23 +6,12 @@ import ReactDOM from 'react-dom'
 import {logj, setStyles} from "./util";
 import {foo} from "./jsParser";
 import {bindkeys} from "./io";
-import {Machine} from "./stateMachine";
+import {getInitialState, Machine} from "./stateMachine";
 
 export const cursorBlock = '█'
 setStyles()
 const { observe, computed } = hyperactiv
-function getInitialState() {
-  return {
-    mode: 'normal',
-    focused: [0],
-    nodes:[{
-      tag: 'cell',
-      children: [1]
-    }, {
-      tag: 'cursor'
-    }]
-  }
-}//
+
 const ls = localStorage.getItem("state")
 const state2 = ls && JSON.parse(ls) || getInitialState()
 const machine = Machine(state2)
