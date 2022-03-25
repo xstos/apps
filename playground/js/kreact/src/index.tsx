@@ -179,7 +179,7 @@ const Render = machine.Render
 const renderMe = <>
   <Node id={rootId}></Node>
   <br/>
-  <Render id={0}></Render>
+  <Render id={1}></Render>
 </>
 ReactDOM.render(
   renderMe,

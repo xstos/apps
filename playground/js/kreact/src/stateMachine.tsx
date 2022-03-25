@@ -35,13 +35,16 @@ type TPosition = {
 
 export function getInitialState() {
   return {
-    focused: [0],
-    nodes:[{
-      tag: 'cell',
-      children: [1]
-    }, {
+    focused: [1],
+    nodes:[
+    {
       tag: 'cursor'
-    }]
+    },
+    {
+      tag: 'cell',
+      children: [0]
+    }
+    ]
   }
 }
 function curryEquals(first: any) {
@@ -52,7 +55,7 @@ export function Machine(state: TState) {
   const observed = observe(state)
   const focused = observed.focused
   const nodes: TNode[] = observed.nodes
-  const cursorId = 1
+  const cursorId = 0
   const emptyNode = {
     tag: '',
     children: []
@@ -60,6 +63,9 @@ export function Machine(state: TState) {
   function getNodeById(id: TChild):TNode {
     if (!isNum(id)) return emptyNode
     return nodes[id]
+  }
+  function isContainer(node: TNode) {
+    return node.tag==='cell'
   }
   function isCursor(node: TNode) {
     return node.tag==='cursor'
@@ -121,6 +127,27 @@ export function Machine(state: TState) {
           focusedChildren.splice(cursorIndex, 1) //delete current cursor
           destNode.children._insertItemsAtMut(index,cursorId)
         }
+        function move(direction) {
+          const right = direction>0;
+          const endIndex = right ? focusedChildren.length - 1 : 0
+          const offset = right ? 1 : -1
+          if (cursorIndex === endIndex) {
+            const parent = getParentNodePosition(nodeId)
+            if (parent.empty) return //root node
+            const offs = right ? 1 : 0
+            goTo(parent.parentNodeId, parent.childIndex+offs)
+            return
+          }
+
+          const targetNodeId = focusedChildren[cursorIndex+offset]
+          const targetNode = getNodeById(targetNodeId)
+          if (isContainer(targetNode)) {
+            const gotoIndex = right ? 0 : targetNode.children.length
+            goTo(targetNodeId,gotoIndex)
+            return
+          }
+          swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
+        }
         if (key === 'backspace') {
           if (cursorIndex === 0) return
           focusedChildren.splice(cursorIndex - 1, 1)
@@ -128,18 +155,9 @@ export function Machine(state: TState) {
           if (focusedChildren.length === cursorIndex + 1) return
           focusedChildren.splice(cursorIndex + 1, 1)
         } else if (key === "arrowleft") {
-          if (cursorIndex === 0) {
-            const parent = getParentNodePosition(nodeId)
-            if (parent.empty) return //root node
-            goTo(parent.parentNodeId, parent.childIndex)
-            return
-          }
-          const prevNode = nodes[cursorIndex-1]
-          if (prevNode.children)
-          swapIndexes(focusedChildren, cursorIndex, cursorIndex - 1)
+          move(-1)
         } else if (key === "arrowright") {
-          if (cursorIndex === focusedChildren.length - 1) return
-          swapIndexes(focusedChildren, cursorIndex, cursorIndex + 1)
+          move(1)
         } else if (key === "ctrl+enter") {
           const newNodeId = createNode([cursorId])
           state.focused.length = 0
