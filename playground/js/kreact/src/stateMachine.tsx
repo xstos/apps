@@ -109,7 +109,11 @@ export function Machine(state: TState) {
     focused._removeItem(oldNodeId) //change focus
     focused.push(newNodeId)
   }
-
+  function navUpEnabled(nodeId: number) {
+    const node = getNodeById(nodeId)
+    if (node.tag==='search') return false
+    return true
+  }
   function input(data: TData) {
     const {tag}=data
     console.log(data)
@@ -138,6 +142,7 @@ export function Machine(state: TState) {
           const endIndex = right ? focusedChildren.length - 1 : 0
           const offset = right ? 1 : -1
           if (cursorIndex === endIndex) {
+            if (!navUpEnabled(focusedNodeId)) return
             const parent = getParentNodePosition(focusedNodeId)
             if (parent.empty) return //root node
             const offs = right ? 1 : 0
@@ -159,7 +164,7 @@ export function Machine(state: TState) {
           if (cursorIndex === 0) return
           focusedChildren.splice(cursorIndex - 1, 1)
         }
-        function delete_() {
+        function del() {
           if (focusedChildren.length === cursorIndex + 1) return
           focusedChildren.splice(cursorIndex + 1, 1)
         }
@@ -190,7 +195,7 @@ export function Machine(state: TState) {
         if (key === 'backspace') {
           backspace();
         } else if (key === 'delete') {
-          delete_();
+          del();
         } else if (key === "arrowleft") {
           moveLeft();
         } else if (key === "arrowright") {
@@ -254,10 +259,10 @@ export function Machine(state: TState) {
     const s={border: `1px solid ${color}`, padding: "3px", display: 'inline-block', margin: '0px'}
     const pos = getParentNodePosition(id)
     function showState() {
-      return <Conditional show={id===1}>
+      return <If value={id===1}>
         <br/>
-        <pre>{getStateAsJson()}</pre>
-      </Conditional>
+        <pre style={{fontSize: '10px'}}>{getStateAsJson()}</pre>
+      </If>
     }
     return <>
       <pre style={s}>#[{id}] p[{pos.parentNodeId}] {children}</pre>
@@ -270,7 +275,7 @@ export function Machine(state: TState) {
   return state;
 }
 
-function Conditional(props) {
-  if (props.show) return props.children
+function If(props) {
+  if (props.value) return props.children
   return null
 }
