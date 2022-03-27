@@ -4,7 +4,7 @@ import {equalsAny, isNum, swapIndexes, TPredicate} from "./util";
 
 const { observe, computed, dispose } = hyperactiv
 
-const reactMode = true
+let reactMode = false
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   if (reactMode) return React.createElement(tag,props,...children)
   if (props) {
@@ -13,7 +13,18 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return {tag, children}
 }
 
+const searchJsx = <search>
+  <searchText/>
+  <searchResults>
+
+  </searchResults>
+</search>
+
+reactMode=true
+
 export type TState = {
+  Render: (props) => JSX.Element;
+  input: (data: TData) => void;
   focused: number[]
   nodes: TNode[]
 }
@@ -126,7 +137,7 @@ export function Machine(state: TState) {
         const focusedNode = getNodeById(focusedNodeId)
         const focusedChildren = focusedNode.children
         const cursorIndex = findCursorIndex(focusedChildren)
-        function goTo(destNodeId: number, index) {
+        function goTo(destNodeId: number, index: number) {
           if (destNodeId===focusedNodeId) {
             swapIndexes(focusedChildren, cursorIndex, index)
             return
@@ -154,7 +165,7 @@ export function Machine(state: TState) {
           const targetNode = getNodeById(targetNodeId)
           if (isContainer(targetNode)) {
             const gotoIndex = right ? 0 : targetNode.children.length
-            goTo(targetNodeId,gotoIndex)
+            goTo(targetNodeId as number,gotoIndex)
             return
           }
           swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
@@ -218,7 +229,7 @@ export function Machine(state: TState) {
   function getStateAsJson() {
     return JSON.stringify(observedState, null, 2);
   }
-  function Render(props) {
+  function Render(props: {id: number}) {
     const id = props.id
     const currentNode = getNodeById(id)
     const isSearch = currentNode.tag==='search'
@@ -235,7 +246,7 @@ export function Machine(state: TState) {
         if (isCursor(cn)) {
           return '█'
         }
-        return <Render id={childId}/>
+        return <Render id={childId as number}/>
       }
       return n.children?.map(mapChild)
     }
@@ -275,7 +286,7 @@ export function Machine(state: TState) {
   return state;
 }
 
-function If(props) {
+function If(props: {value: boolean, children: any}) {
   if (props.value) return props.children
   return null
 }
