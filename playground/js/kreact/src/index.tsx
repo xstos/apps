@@ -114,9 +114,6 @@ const mystate = { nodes: [], byName: {}, root: 0}
 const ast = processNodes(app,mystate)
 //logj(ast)
 
-
-
-
 const observedState = observe(mystate)
 function setupObserve(mystate) {
   const nodes = mystate.nodes
@@ -176,8 +173,9 @@ function Node(props) {
 }
 const rootId = observedState.root
 const Render = machine.Render
+const thing = <Node id={rootId}></Node>
 const renderMe = <>
-  <Node id={rootId}></Node>
+  {/* thing */}
   <br/>
   <Render id={1}></Render>
 </>

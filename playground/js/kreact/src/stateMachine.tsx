@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import hyperactiv from "hyperactiv";
-import {equalsAny, isNum, TPosition, swapIndexes, TPredicate} from "./util";
-import {TState} from "./index";
+import {equalsAny, isNum, swapIndexes, TPredicate} from "./util";
+
 const { observe, computed, dispose } = hyperactiv
 
 const reactMode = true
@@ -52,28 +52,29 @@ function curryEquals(first: any) {
 }
 
 export function Machine(state: TState) {
-  const observed = observe(state)
-  const focused = observed.focused
-  const nodes: TNode[] = observed.nodes
+  const observedState = observe(state)
+  const focused = observedState.focused
+  const nodes: TNode[] = observedState.nodes
   const cursorId = 0
   const emptyNode = {
     tag: '',
     children: []
   }
+
   function getNodeById(id: TChild):TNode {
     if (!isNum(id)) return emptyNode
     return nodes[id]
   }
   function isContainer(node: TNode) {
-    return node.tag==='cell'
+    return equalsAny(node.tag,'cell','search')
   }
   function isCursor(node: TNode) {
     return node.tag==='cursor'
   }
-  function createNode(children: TChild[]):number {
+  function createNode(children: TChild[], tag='cell'):number {
     const newIndex = nodes.length
     const newNode = {
-      tag: 'cell',
+      tag,
       children
     }
     nodes.push(newNode)
@@ -81,12 +82,12 @@ export function Machine(state: TState) {
   }
   function getParentNodePosition(childNodeId: number) {
     const l = nodes.length
-    const childNodeIdEquals = curryEquals(childNodeId)
+    const childNodeIdEqualsPredicate = curryEquals(childNodeId)
     for (let parentNodeId = 0; parentNodeId < l; parentNodeId++) {
       const parentNode = nodes[parentNodeId]
       const children = parentNode.children;
       if (!children) continue
-      const childIndex = children.findIndex(childNodeIdEquals)
+      const childIndex = children.findIndex(childNodeIdEqualsPredicate)
       if (childIndex === -1) continue
       return {
         parentNodeId,
@@ -101,38 +102,43 @@ export function Machine(state: TState) {
       childIndex: -1,
     }
   }
+  function findCursorIndex(children: TChild[]) {
+    return children.findIndex(childNodeId => isCursor(getNodeById(childNodeId)))
+  }
+  function changeFocus(oldNodeId: number, newNodeId: number) {
+    focused._removeItem(oldNodeId) //change focus
+    focused.push(newNodeId)
+  }
 
   function input(data: TData) {
     const {tag}=data
     console.log(data)
     if (tag==='io') {
       const { key } = data;
+      if (key==='unidentified') return
       [...focused].forEach(applyInputToNode)
-      function changeFocus(oldNodeId, newNodeId) {
-        focused._removeItem(oldNodeId) //change focus
-        focused.push(newNodeId)
-      }
-      function applyInputToNode(nodeId: number) {
-        const focusedNode = getNodeById(nodeId)
+
+      function applyInputToNode(focusedNodeId: number) {
+        const focusedNode = getNodeById(focusedNodeId)
         const focusedChildren = focusedNode.children
-        const cursorIndex = focusedChildren.findIndex(childNodeId => isCursor(getNodeById(childNodeId)))
-        function goTo(destNodeId, index) {
-          if (destNodeId===nodeId) {
+        const cursorIndex = findCursorIndex(focusedChildren)
+        function goTo(destNodeId: number, index) {
+          if (destNodeId===focusedNodeId) {
             swapIndexes(focusedChildren, cursorIndex, index)
             return
           }
           const destNode = getNodeById(destNodeId)
-          changeFocus(nodeId, destNodeId)
+          changeFocus(focusedNodeId, destNodeId)
 
           focusedChildren.splice(cursorIndex, 1) //delete current cursor
           destNode.children._insertItemsAtMut(index,cursorId)
         }
-        function move(direction) {
+        function move(direction: number) {
           const right = direction>0;
           const endIndex = right ? focusedChildren.length - 1 : 0
           const offset = right ? 1 : -1
           if (cursorIndex === endIndex) {
-            const parent = getParentNodePosition(nodeId)
+            const parent = getParentNodePosition(focusedNodeId)
             if (parent.empty) return //root node
             const offs = right ? 1 : 0
             goTo(parent.parentNodeId, parent.childIndex+offs)
@@ -148,53 +154,95 @@ export function Machine(state: TState) {
           }
           swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
         }
-        if (key === 'backspace') {
+
+        function backspace() {
           if (cursorIndex === 0) return
           focusedChildren.splice(cursorIndex - 1, 1)
-        } else if (key === 'delete') {
+        }
+        function delete_() {
           if (focusedChildren.length === cursorIndex + 1) return
           focusedChildren.splice(cursorIndex + 1, 1)
-        } else if (key === "arrowleft") {
-          move(-1)
-        } else if (key === "arrowright") {
-          move(1)
-        } else if (key === "ctrl+enter") {
+        }
+        function newCell() {
           const newNodeId = createNode([cursorId])
-          state.focused.length = 0
-          state.focused.push(newNodeId)
-          focusedChildren[cursorIndex]=newNodeId
-
-        } else {
+          changeFocus(focusedNodeId, newNodeId)
+          focusedChildren[cursorIndex] = newNodeId
+        }
+        function linebreak() {
+          focusedChildren._insertItemsAtMut(cursorIndex, 'br')
+        }
+        function moveLeft() {
+          move(-1)
+        }
+        function moveRight() {
+          move(1)
+        }
+        function search() {
+          const newNodeId = createNode([cursorId], 'search')
+          const node = getNodeById(newNodeId)
+          changeFocus(focusedNodeId, newNodeId)
+          focusedChildren[cursorIndex] = newNodeId
+        }
+        function insertKey() {
           focusedChildren._insertItemsAtMut(cursorIndex, key)
+        }
+
+        if (key === 'backspace') {
+          backspace();
+        } else if (key === 'delete') {
+          delete_();
+        } else if (key === "arrowleft") {
+          moveLeft();
+        } else if (key === "arrowright") {
+          moveRight();
+        } else if (key === "ctrl+enter") {
+          newCell();
+        } else if (key === "enter") {
+          linebreak();
+        } else if (key === "`") {
+          search();
+        } else {
+          insertKey();
         }
       }
     }
-    const value = JSON.stringify(observed, null, 2);
+    const value = getStateAsJson()
     localStorage.setItem("state", value)
     console.log(value)
   }
-
+  function getStateAsJson() {
+    return JSON.stringify(observedState, null, 2);
+  }
   function Render(props) {
     const id = props.id
+    const currentNode = getNodeById(id)
+    const isSearch = currentNode.tag==='search'
     function renderChildren() {
       const n = getNodeById(id)
-
-      return n.children?.map(childId => {
-        if (!isNum(childId)) return childId
+      function mapChild(childId: TChild) {
+        if (!isNum(childId)) {
+          if (childId === 'br') {
+            return <br/>
+          }
+          return childId
+        }
         const cn = getNodeById(childId)
         if (isCursor(cn)) {
           return '█'
         }
         return <Render id={childId}/>
-      })
+      }
+      return n.children?.map(mapChild)
     }
 
     const [children, setChildren] = useState(renderChildren());
+    const [refreshState, setRefreshState] = useState(showState())
     useEffect(()=>{
       console.log('mount '+id)
       const refreshChildren = computed(()=>{
         console.log("computed render "+id)
         setChildren(renderChildren())
+        setRefreshState(showState())
       })
 
       return ()=>{
@@ -202,10 +250,19 @@ export function Machine(state: TState) {
         dispose(refreshChildren)
       }
     },[])
-
-    const s={border: "1px solid green", padding: "3px", display: 'inline-block', margin: '0px'}
+    const color = isSearch ? 'red' : 'green'
+    const s={border: `1px solid ${color}`, padding: "3px", display: 'inline-block', margin: '0px'}
     const pos = getParentNodePosition(id)
-    return <pre style={s}>{id} {pos.parentNodeId} {children}</pre>
+    function showState() {
+      return <Conditional show={id===1}>
+        <br/>
+        <pre>{getStateAsJson()}</pre>
+      </Conditional>
+    }
+    return <>
+      <pre style={s}>#[{id}] p[{pos.parentNodeId}] {children}</pre>
+      {refreshState}
+    </>
   }
 
   state.input = input
@@ -213,3 +270,7 @@ export function Machine(state: TState) {
   return state;
 }
 
+function Conditional(props) {
+  if (props.show) return props.children
+  return null
+}
