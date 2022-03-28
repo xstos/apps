@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, {useEffect, useState} from "react";
 import hyperactiv from "hyperactiv";
-import {equalsAny, isNum, swapIndexes, TPredicate} from "./util";
+import {isNum, swapIndexes} from "./util";
 
 const { observe, computed, dispose } = hyperactiv
 
@@ -23,9 +23,8 @@ const searchJsx = <search>
 reactMode=true
 
 export type TState = {
-  Render: (props) => JSX.Element;
+  Render: (props: {id: TChild}) => JSX.Element;
   input: (data: TData) => void;
-  focused: number[]
   nodes: TNode[]
 }
 type TData = { tag:'io', key:string }
@@ -46,7 +45,6 @@ type TPosition = {
 
 export function getInitialState() {
   return {
-    focused: [1],
     nodes:[
     {
       tag: 'cursor'
@@ -61,7 +59,9 @@ export function getInitialState() {
 function curryEquals(first: any) {
   return (second: any)=>first===second
 }
-
+function has(o:any,key:string):boolean {
+  return key in o
+}
 export function Machine(state: TState) {
   const observedState = observe(state)
   const focused = observedState.focused
@@ -74,10 +74,10 @@ export function Machine(state: TState) {
 
   function getNodeById(id: TChild):TNode {
     if (!isNum(id)) return emptyNode
-    return nodes[id]
+    return nodes[id as number]
   }
   function isContainer(node: TNode) {
-    return equalsAny(node.tag,'cell','search')
+    return node.tag !=='' && has(node, 'children')
   }
   function isCursor(node: TNode) {
     return node.tag==='cursor'
@@ -116,22 +116,24 @@ export function Machine(state: TState) {
   function findCursorIndex(children: TChild[]) {
     return children.findIndex(childNodeId => isCursor(getNodeById(childNodeId)))
   }
-  function changeFocus(oldNodeId: number, newNodeId: number) {
-    focused._removeItem(oldNodeId) //change focus
-    focused.push(newNodeId)
-  }
+
   function navUpEnabled(nodeId: number) {
     const node = getNodeById(nodeId)
     if (node.tag==='search') return false
     return true
   }
+  function getFocusedNodeIds() {
+    return nodes.map((n, i) => [n, i])
+        .filter(([n, i]) => isContainer(n) && findCursorIndex(n.children) !== -1)
+        .map(([n, i]) => i as number)
+  }
   function input(data: TData) {
     const {tag}=data
-    console.log(data)
+
     if (tag==='io') {
       const { key } = data;
       if (key==='unidentified') return
-      [...focused].forEach(applyInputToNode)
+      getFocusedNodeIds().forEach(applyInputToNode)
 
       function applyInputToNode(focusedNodeId: number) {
         const focusedNode = getNodeById(focusedNodeId)
@@ -143,8 +145,6 @@ export function Machine(state: TState) {
             return
           }
           const destNode = getNodeById(destNodeId)
-          changeFocus(focusedNodeId, destNodeId)
-
           focusedChildren.splice(cursorIndex, 1) //delete current cursor
           destNode.children._insertItemsAtMut(index,cursorId)
         }
@@ -168,6 +168,7 @@ export function Machine(state: TState) {
             goTo(targetNodeId as number,gotoIndex)
             return
           }
+
           swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
         }
 
@@ -181,7 +182,6 @@ export function Machine(state: TState) {
         }
         function newCell() {
           const newNodeId = createNode([cursorId])
-          changeFocus(focusedNodeId, newNodeId)
           focusedChildren[cursorIndex] = newNodeId
         }
         function linebreak() {
@@ -196,7 +196,6 @@ export function Machine(state: TState) {
         function search() {
           const newNodeId = createNode([cursorId], 'search')
           const node = getNodeById(newNodeId)
-          changeFocus(focusedNodeId, newNodeId)
           focusedChildren[cursorIndex] = newNodeId
         }
         function insertKey() {
@@ -224,12 +223,12 @@ export function Machine(state: TState) {
     }
     const value = getStateAsJson()
     localStorage.setItem("state", value)
-    console.log(value)
+
   }
   function getStateAsJson() {
     return JSON.stringify(observedState, null, 2);
   }
-  function Render(props: {id: number}) {
+  function Render(props: {id: TChild}): JSX.Element {
     const id = props.id
     const currentNode = getNodeById(id)
     const isSearch = currentNode.tag==='search'
@@ -283,7 +282,7 @@ export function Machine(state: TState) {
 
   state.input = input
   state.Render = Render
-  return state;
+  return state
 }
 
 function If(props: {value: boolean, children: any}) {
