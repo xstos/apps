@@ -266,12 +266,12 @@ export function Machine(state: TState) {
       }
     },[])
     const color = isSearch ? 'red' : 'green'
-    const s={border: `1px solid ${color}`, padding: "3px", display: 'inline-block', margin: '0px'}
+    const s={border: `1px solid ${color}`}
     const pos = getParentNodePosition(id)
     function showState() {
       return <If value={id===1}>
         <br/>
-        <pre style={{fontSize: '10px'}}>{getStateAsJson()}</pre>
+        <pre style={{}}>{getStateAsJson()}</pre>
       </If>
     }
     return <>

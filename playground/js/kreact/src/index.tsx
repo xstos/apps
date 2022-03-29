@@ -1,3 +1,4 @@
+import './index.css';
 import hyperactiv from 'hyperactiv'
 
 import React from "react";
@@ -176,7 +177,7 @@ const Render = machine.Render
 const thing = <Node id={rootId}></Node>
 const renderMe = <>
   {/* thing */}
-  <br/>
+
   <Render id={1}></Render>
 </>
 ReactDOM.render(
