@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from "react";
 import hyperactiv from "hyperactiv";
 import {isNum, swapIndexes} from "./util";
-import {debug} from "hyperactiv/types/handlers";
 
 const { observe, computed, dispose } = hyperactiv
 
