@@ -1,6 +1,7 @@
 import React, {useEffect, useState} from "react";
 import hyperactiv from "hyperactiv";
 import {isNum, swapIndexes} from "./util";
+import {debug} from "hyperactiv/types/handlers";
 
 const { observe, computed, dispose } = hyperactiv
 
@@ -13,12 +14,14 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return {tag, children}
 }
 
-const searchJsx = <search>
-  <searchText/>
-  <searchResults>
 
-  </searchResults>
-</search>
+
+const searchJsx = <jumpmenu>
+  <text/>
+  <results>
+
+  </results>
+</jumpmenu>
 
 reactMode=true
 
@@ -59,6 +62,10 @@ export function getInitialState() {
 const rootNodeId = 1
 function isString(o) {
   return typeof o === 'string'
+}
+function hasTag(node: TNode, tag: string) {
+  const spl = node.tag.split('_')
+  return spl.includes(tag)
 }
 function curryEquals(first: any) {
   return (second: any)=>first===second
@@ -200,9 +207,43 @@ export function Machine(state: TState) {
           move(1)
         }
         function search() {
-          const newNodeId = createNode([cursorId], 'search')
+
+          reactMode = false
+          const searchJsx = <jumpmenu>
+            <text><cursor/>hi there</text>
+            <results>
+
+            </results>
+          </jumpmenu>
+          reactMode=true
+
+          function injectJsxAsNodes(jsx) {
+            if (isString(jsx)) {
+              return jsx
+            }
+            const mappedChildren = jsx.children.map(childJsx=>{
+              const cid = injectJsxAsNodes(childJsx)
+              return cid
+            })
+            const exploded = mappedChildren.reduce((accum, current)=>{
+              if (isString(current)) {
+                const split = current.split('');
+
+                const c = accum.concat(...split);
+                debugger
+                return c
+              } else {
+                return accum.concat(current)
+              }
+            },[])
+            const newNodeId = createNode(exploded, jsx.tag)
+            return newNodeId
+          }
+          const newNodeId = injectJsxAsNodes(searchJsx)
           const node = getNodeById(newNodeId)
           focusedChildren[cursorIndex] = newNodeId
+          //const newNodeId = createNode([cursorId], 'search')
+
         }
         function insertKey() {
           focusedChildren._insertItemsAtMut(cursorIndex, key)
@@ -233,7 +274,7 @@ export function Machine(state: TState) {
       }
     }
     const value = getStateAsJson()
-    localStorage.setItem("state", value)
+    //localStorage.setItem("state", value)
 
   }
   function getStateAsJson() {
@@ -299,7 +340,7 @@ export function Machine(state: TState) {
       </div>)
     }
     return <>
-      <pre style={s}>#[{id}] p[{pos.parentNodeId}] {children}</pre>
+      <pre style={s}>id:{id} tag:{currentNode.tag} parent:{pos.parentNodeId} {children}</pre>
       {ternary(isSearch, renderSearch())}
       {refreshState}
     </>
@@ -317,3 +358,4 @@ function If(props: {value: boolean, children: any}) {
   if (props.value) return props.children
   return null
 }
+
