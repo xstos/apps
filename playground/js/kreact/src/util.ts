@@ -8,6 +8,7 @@ declare global {
         _findItem(predicate: TPredicate<T>, valueIfNotFound: TPosition<T>) : TPosition<T>
         _findIndexes(predicate: TPredicate<T>): number[]
         _removeItem(item:T): T[]
+        _filterMap<U>(filter: TCallbackFilter<T, U>) : U[]
     }
 
 }
@@ -37,6 +38,18 @@ Array.prototype._findIndexes = function<T>(predicate: TPredicate<T>): number[] {
 }
 export type TPredicate<T> = (value: T, index: number, obj: T[]) => unknown
 
+export type TCallbackFilter<T,U> = (value: T, index: number, array: T[]) => [boolean,U]
+Array.prototype._filterMap = function<T,U>(filter: TCallbackFilter<T, U>): U[] {
+    const l = this.length
+    let filt
+    const ret = []
+    for (let i = 0; i < l; i++) {
+        filt = filter(this[i],i,this)
+        if (!filt[0]) continue
+        ret.push(filt[1])
+    }
+    return ret
+}
 Array.prototype._findItem = function<T>(predicate: TPredicate<T>, valueIfNotFound: TPosition<T>): TPosition<T> {
     const ret = this.findIndex(predicate)
     if (ret===-1) return valueIfNotFound

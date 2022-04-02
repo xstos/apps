@@ -56,6 +56,10 @@ export function getInitialState() {
     ]
   }
 }
+const rootNodeId = 1
+function isString(o) {
+  return typeof o === 'string'
+}
 function curryEquals(first: any) {
   return (second: any)=>first===second
 }
@@ -116,7 +120,9 @@ export function Machine(state: TState) {
   function findCursorIndex(children: TChild[]) {
     return children.findIndex(childNodeId => isCursor(getNodeById(childNodeId)))
   }
-
+  function evaluateNodeAsText(node: TNode) {
+    return node.children && node.children.filter(isString).join('')
+  }
   function navUpEnabled(nodeId: number) {
     const node = getNodeById(nodeId)
     if (node.tag==='search') return false
@@ -210,7 +216,12 @@ export function Machine(state: TState) {
           moveLeft();
         } else if (key === "arrowright") {
           moveRight();
-        } else if (key === "ctrl+enter") {
+        } else if (key === "arrowup") {
+
+        } else if (key === "arrowdown") {
+
+        }
+        else if (key === "ctrl+enter") {
           newCell();
         } else if (key === "enter") {
           linebreak();
@@ -274,8 +285,22 @@ export function Machine(state: TState) {
         <pre style={{}}>{getStateAsJson()}</pre>
       </If>
     }
+    function renderSearch() {
+      const searchText = evaluateNodeAsText(currentNode)
+
+      function canReferenceCell(n, i) {
+        return i !== rootNodeId && n.tag === 'cell';
+      }
+
+      const cells = nodes._filterMap((n,i)=>[canReferenceCell(n,i), {n,i:id, text: evaluateNodeAsText(n)}])
+      
+      return (<div>
+        {cells.map(({n,id,text})=><div>{id} {text}</div>)}
+      </div>)
+    }
     return <>
       <pre style={s}>#[{id}] p[{pos.parentNodeId}] {children}</pre>
+      {ternary(isSearch, renderSearch())}
       {refreshState}
     </>
   }
@@ -284,7 +309,10 @@ export function Machine(state: TState) {
   state.Render = Render
   return state
 }
-
+function mapFilter<T>(items: T[], )
+function ternary(test, valueIfTrue, valueIfFalse=undefined) {
+  return test ? valueIfTrue : valueIfFalse
+}
 function If(props: {value: boolean, children: any}) {
   if (props.value) return props.children
   return null
