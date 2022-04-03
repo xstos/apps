@@ -109,3 +109,15 @@ export function swapIndexes<T>(array: T[], first: number, second:number): T[] {
     array[second]=old
     return array
 }
+
+export function isString(o) {
+    return typeof o === 'string'
+}
+
+export function curryEquals(first: any) {
+    return (second: any) => first === second
+}
+
+export function has(o: any, key: string): boolean {
+    return key in o
+}

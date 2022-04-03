@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import hyperactiv from "hyperactiv";
-import {isNum, swapIndexes} from "./util";
+import {curryEquals, has, isNum, isString, swapIndexes} from "./util";
 
 const { observe, computed, dispose } = hyperactiv
 
@@ -12,18 +12,8 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   }
   return {tag, children}
 }
-
-
-
-const searchJsx = <jumpmenu>
-  <text/>
-  <results>
-
-  </results>
-</jumpmenu>
-
 reactMode=true
-
+const br = <br/>
 export type TState = {
   Render: (props: {id: TChild}) => JSX.Element;
   input: (data: TData) => void;
@@ -59,22 +49,9 @@ export function getInitialState() {
   }
 }
 const rootNodeId = 1
-function isString(o) {
-  return typeof o === 'string'
-}
-function hasTag(node: TNode, tag: string) {
-  const spl = node.tag.split('_')
-  return spl.includes(tag)
-}
-function curryEquals(first: any) {
-  return (second: any)=>first===second
-}
-function has(o:any,key:string):boolean {
-  return key in o
-}
+
 export function Machine(state: TState) {
   const observedState = observe(state)
-  const focused = observedState.focused
   const nodes: TNode[] = observedState.nodes
   const cursorId = 0
   const emptyNode = {
@@ -129,21 +106,25 @@ export function Machine(state: TState) {
   function evaluateNodeAsText(node: TNode) {
     return node.children && node.children.filter(isString).join('')
   }
-  function navUpEnabled(nodeId: number) {
+  function canNavUp(nodeId: number) {
     const node = getNodeById(nodeId)
     if (node.tag==='search') return false
     return true
   }
+  function isFocused(n: TNode) {
+    return isContainer(n) && findCursorIndex(n.children) !== -1;
+  }
   function getFocusedNodeIds() {
     return nodes.map((n, i) => [n, i])
-        .filter(([n, i]) => isContainer(n) && findCursorIndex(n.children) !== -1)
+        .filter(([n, i]) => isFocused(n))
         .map(([n, i]) => i as number)
   }
+
   function input(data: TData) {
     const {tag}=data
 
     if (tag==='io') {
-      const { key } = data;
+      let { key } = data;
       if (key==='unidentified') return
       getFocusedNodeIds().forEach(applyInputToNode)
 
@@ -165,7 +146,7 @@ export function Machine(state: TState) {
           const endIndex = right ? focusedChildren.length - 1 : 0
           const offset = right ? 1 : -1
           if (cursorIndex === endIndex) {
-            if (!navUpEnabled(focusedNodeId)) return
+            if (!canNavUp(focusedNodeId)) return
             const parent = getParentNodePosition(focusedNodeId)
             if (parent.empty) return //root node
             const offs = right ? 1 : 0
@@ -183,7 +164,6 @@ export function Machine(state: TState) {
 
           swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
         }
-
         function backspace() {
           if (cursorIndex === 0) return
           focusedChildren.splice(cursorIndex - 1, 1)
@@ -208,12 +188,13 @@ export function Machine(state: TState) {
         function search() {
 
           reactMode = false
-          const searchJsx = <jumpmenu>
-            <text><cursor/>hi there</text>
-            <results>
-
-            </results>
-          </jumpmenu>
+          const searchJsx = <search>
+            <searchQuery><cursor/>hi there</searchQuery>
+            <searchResults>
+              yo<br/>
+              yo2<br/>
+            </searchResults>
+          </search>
           reactMode=true
 
           function injectJsxAsNodes(jsx) {
@@ -226,11 +207,7 @@ export function Machine(state: TState) {
             })
             const exploded = mappedChildren.reduce((accum, current)=>{
               if (isString(current)) {
-                const split = current.split('');
-
-                const c = accum.concat(...split);
-                debugger
-                return c
+                return accum.concat(...(current.split('')))
               } else {
                 return accum.concat(current)
               }
@@ -244,8 +221,8 @@ export function Machine(state: TState) {
           //const newNodeId = createNode([cursorId], 'search')
 
         }
-        function insertKey() {
-          focusedChildren._insertItemsAtMut(cursorIndex, key)
+        function insertKey(text: string = key) {
+          focusedChildren._insertItemsAtMut(cursorIndex, text)
         }
 
         if (key === 'backspace') {
@@ -260,6 +237,8 @@ export function Machine(state: TState) {
 
         } else if (key === "arrowdown") {
 
+        } else if (key.startsWith('shift+') && key.length===7) {
+          insertKey(key.replace('shift+','').toUpperCase())
         }
         else if (key === "ctrl+enter") {
           newCell();
@@ -279,9 +258,11 @@ export function Machine(state: TState) {
   function getStateAsJson() {
     return JSON.stringify(observedState, null, 2);
   }
+
   function Render(props: {id: TChild}): JSX.Element {
     const id = props.id
     const currentNode = getNodeById(id)
+    const { tag } = currentNode
     const isSearch = currentNode.tag==='search'
     function renderChildren() {
       const n = getNodeById(id)
@@ -317,15 +298,15 @@ export function Machine(state: TState) {
       }
     },[])
     const color = isSearch ? 'red' : 'green'
-    const s={border: `1px solid ${color}`}
+    const s={border: `1px solid ${color}`, padding: "3px"}
     const pos = getParentNodePosition(id)
     function showState() {
-      return <If value={id===1}>
-        <br/>
+      return <If value={id===rootNodeId}>
+        <br/><br/>
         <pre style={{}}>{getStateAsJson()}</pre>
       </If>
     }
-    function renderSearch() {
+    function renderSearchResultsWip() {
       const searchText = evaluateNodeAsText(currentNode)
 
       function canReferenceCell(n, i) {
@@ -338,10 +319,29 @@ export function Machine(state: TState) {
         {cells.map(({n,id,text})=><div>{id} {text}</div>)}
       </div>)
     }
+    function breakBefore() {
+      return tag.startsWith('search')
+    }
+    const hasCursor = isFocused(currentNode)
+    if (id===rootNodeId) {
+      return <>
+        <pre>{children}</pre>
+        {refreshState}
+      </>
+    }
     return <>
-      <pre style={s}>id:{id} tag:{currentNode.tag} parent:{pos.parentNodeId} {children}</pre>
-      {ternary(isSearch, renderSearch())}
-      {refreshState}
+      <If value={breakBefore()}><br/></If>
+      <pre style={s}>id:{id}{br}tag:{currentNode.tag}{br}parent:{pos.parentNodeId}{br}
+        <If value={hasCursor}>
+          <C colorRed>[</C>
+        </If>
+        <div style={{border: '1px dashed grey' , display: 'inline-block'}}>
+          {children}
+        </div>
+        <If value={hasCursor}>
+          <C colorRed>]</C>
+        </If>
+      </pre>
     </>
   }
 
@@ -349,7 +349,7 @@ export function Machine(state: TState) {
   state.Render = Render
   return state
 }
-function mapFilter<T>(items: T[], )
+
 function ternary(test, valueIfTrue, valueIfFalse=undefined) {
   return test ? valueIfTrue : valueIfFalse
 }
@@ -358,3 +358,7 @@ function If(props: {value: boolean, children: any}) {
   return null
 }
 
+function C(props) {
+  const {children, ...rest} =  props;
+  return <div style={{display: 'inline-block', color: Object.keys(rest)[0] }}>{children}</div>
+}
