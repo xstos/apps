@@ -10,11 +10,16 @@ declare global {
         _removeItem(item:T): T[]
         _filterMap<U>(filter: TCallbackFilter<T, U>) : U[]
     }
-
+    interface String {
+        _toCharArray() : String[]
+    }
 }
 export type TPosition<T> = [number, T]
 export function isNum(v: any) {
     return typeof v === "number"
+}
+String.prototype._toCharArray = function() {
+    return this.split('')
 }
 Array.prototype._removeItem = function<T>(item:T) {
     const ix = this.findIndex((o)=>item===o)
