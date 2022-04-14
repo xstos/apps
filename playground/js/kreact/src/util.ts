@@ -15,9 +15,7 @@ declare global {
     }
 }
 export type TPosition<T> = [number, T]
-export function isNum(v: any) {
-    return typeof v === "number"
-}
+
 String.prototype._toCharArray = function() {
     return this.split('')
 }
