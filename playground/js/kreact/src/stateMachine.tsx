@@ -35,9 +35,10 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
 reactMode=true
 const br = <br/>
 export type TState = {
-  Render: (props: {id: TChild}) => JSX.Element;
-  input: (data: TData) => void;
+  Render: (props: {id: TChild}) => JSX.Element
+  input: (data: TData) => void
   nodes: TNode[]
+  console: any[]
 }
 type TData = { tag:'io', key:string }
 type TChild = number | string
@@ -61,7 +62,6 @@ export function getInitialState() {
     nodes: [
     {
       tag: 'cursor',
-      positions: [],
       lastNodeStack: []
     },
     {
@@ -69,7 +69,7 @@ export function getInitialState() {
       children: [0]
     },
     ],
-    cells: {}
+    console: []
   }
 }
 const rootNodeId = 1
@@ -83,10 +83,19 @@ export function Machine(state: TState) {
     tag: '',
     children: []
   }
-
+  function log(...items) {
+    state.console.push(...items)
+  }
+  function isRef(id: TChild) {
+    return typeof nodes[id] === 'number'
+  }
   function getNodeById(id: TChild):TNode {
     if (typeof id === 'string') return emptyNode
-    return nodes[id]
+    const ret = nodes[id]
+    if (typeof ret === 'number') {
+      return nodes[ret]
+    }
+    return ret
   }
   function hasChildren(node: TNode) {
     return node.tag !=='' && has(node, 'children')
@@ -94,7 +103,7 @@ export function Machine(state: TState) {
   function isCursor(node: TNode) {
     return node.tag==='cursor'
   }
-  function createNode(children: TChild[], tag='cell'):number {
+  function createNode(children: TChild[]=[], tag='cell'):number {
     const newIndex = nodes.length
     const newNode = {
       tag,
@@ -102,6 +111,15 @@ export function Machine(state: TState) {
     }
     nodes.push(newNode)
     return newIndex
+  }
+  function createRef(id: number) {
+    const newIndex = nodes.length
+    nodes.push(id)
+    return newIndex
+  }
+  function createNodeAndRef() {
+    const id = createNode()
+    return createRef(id)
   }
   function getParentNodePosition(childNodeId: number) {
     const l = nodes.length
@@ -145,7 +163,8 @@ export function Machine(state: TState) {
     let node
     const ret = []
     for (let nodeId = 0; nodeId < numNodes; nodeId++) {
-      node=nodes[nodeId]
+      node=getNodeById(nodeId)
+      if (rootNodeId!==nodeId && typeof nodes[nodeId] ==='number') continue
       if (!hasChildren(node)) continue
       const children = node.children
       const numChildren = children.length
@@ -160,6 +179,7 @@ export function Machine(state: TState) {
     }
     return ret
   }
+
   function input(data: TData) {
     const {tag}=data
 
@@ -175,11 +195,14 @@ export function Machine(state: TState) {
       function applyInputToNode(focusedNodeId: number, cursorIndex: number) {
         const focusedNode = getNodeById(focusedNodeId)
         const focusedChildren = focusedNode.children
+        // if (focusedChildren.length===0) {
+        //   debugger
+        // }
         const cursorNode = getNodeById(focusedChildren[cursorIndex])
-        function saveCursorPos(id: number, index: number) {
-          cursorNode.positions[id]={
-            id, index
-          }
+
+        function insertItems(children=focusedChildren, index=cursorIndex, ...items: TChild[]) {
+          log(`insert ${index}`)
+          children._insertItemsAtMut(index,...items)
         }
 
         function move(direction: number) {
@@ -188,11 +211,14 @@ export function Machine(state: TState) {
               swapIndexes(focusedChildren, cursorIndex, index)
               return
             }
+            log(`goto ${destNodeId} ${index}`)
 
             const destNode = getNodeById(destNodeId)
             focusedChildren.splice(cursorIndex, 1) //delete current cursor
-            destNode.children._insertItemsAtMut(index,cursorId)
+            //destNode.children._insertItemsAtMut(index,cursorId)
+            insertItems(destNode.children,index,cursorId)
           }
+          //debugger
           const directionRight = direction>0;
           const directionLeft = !directionRight
           const endIndex = directionRight ? focusedChildren.length - 1 : 0
@@ -202,28 +228,26 @@ export function Machine(state: TState) {
             if (!canNavUp(focusedNodeId)) return
 
             if (cursorNode.lastNodeStack.length<1) return //root node
-            const parentId = cursorNode.lastNodeStack.pop() || rootNodeId
-            if (!cursorNode.positions[parentId]) return //root node
+            const parentId = cursorNode.lastNodeStack.pop()
+            if (!parentId) {
+              debugger
+              return
+            }
 
-            const parentPos = cursorNode.positions[parentId]
-            const offs = directionRight ? 2 : 0
-            //goTo(parent.id, parent.index+offs)
-            const destIndex = directionLeft ? parentPos.index : parentPos.index+2
-            saveCursorPos(focusedNodeId, destIndex)
-            goTo(parentId, parentPos.index+offs)
+            const parentPos = getParentNodePosition(parentId)
+
+            const offs = directionRight ? 1 : 0
+            goTo(parentPos.id, parentPos.index+offs)
             return
           }
 
           const targetNodeId = focusedChildren[cursorIndex+offset]
+
           const targetNode = getNodeById(targetNodeId)
           if (hasChildren(targetNode)) {
             //entering a cell (descending)
             const gotoIndex = directionRight ? 0 : targetNode.children.length
-            if (focusedNodeId!==targetNodeId) {
-              cursorNode.lastNodeStack.push(focusedNodeId)
-              const adjustedCursorIndex = directionLeft ? cursorIndex-2 : cursorIndex
-              saveCursorPos(focusedNodeId, adjustedCursorIndex)
-            }
+            cursorNode.lastNodeStack.push(targetNodeId)
             goTo(targetNodeId as number,gotoIndex)
             return
           }
@@ -239,10 +263,10 @@ export function Machine(state: TState) {
           focusedChildren.splice(cursorIndex + 1, 1)
         }
         function newCell() {
-          cursorNode.lastNodeStack.push(focusedNodeId)
-          saveCursorPos(focusedNodeId, cursorIndex)
-          const newNodeId = createNode([cursorId])
-          focusedChildren[cursorIndex] = newNodeId
+          const newNodeId = createNodeAndRef()
+          insertItems(focusedChildren,cursorIndex+1, newNodeId)
+          //focusedChildren._insertItemsAtMut(cursorIndex, newNodeId)
+
         }
         function linebreak() {
           focusedChildren._insertItemsAtMut(cursorIndex, 'br')
@@ -298,14 +322,18 @@ export function Machine(state: TState) {
           focusedChildren[cursorIndex] = newNodeId
         }
         function insertKey(text: string = key) {
-          focusedChildren._insertItemsAtMut(cursorIndex, text)
+          insertItems(focusedChildren,cursorIndex, text)
+          //focusedChildren._insertItemsAtMut(cursorIndex, text)
         }
 
         if (false) { }
         else if (key.startsWith('{')) {
           const command = JSON.parse(key)
           if (command.tag==='newRef') {
-            focusedChildren._insertItemsAtMut(cursorIndex+1,command.id)
+            debugger
+            const targetId = nodes[command.id]
+            const newRefId = createRef(targetId)
+            focusedChildren._insertItemsAtMut(cursorIndex+1,newRefId)
           }
         }
         else if (key === 'backspace') {
@@ -345,33 +373,40 @@ export function Machine(state: TState) {
     return JSON.stringify(observedState, null, 2);
   }
 
-  function Render(props: {id: TChild}): JSX.Element {
+  function Render(props: {id: TChild, index: number}): JSX.Element {
     const id = props.id
+    const index = props.index
     const currentNode = getNodeById(id)
+    const hasCursor = isFocused(currentNode)
     const { tag } = currentNode
     const isSearch = currentNode.tag==='search'
     function renderChildren() {
       const n = getNodeById(id)
-      function mapChild(childId: TChild) {
+      function mapChild(childId: TChild, index: number) {
         if (typeof childId === 'string') {
+          const indexStr = '' // `(${index})`
           if (childId.startsWith('{')) {
             const obj = JSON.parse(childId)
             const { id, tag } = obj
             if (tag===cursorChar) {
-              return '▒'
+              return '▒' + indexStr
             }
           }
           if (childId === 'br') {
             return <br/>
           }
 
-          return childId
+          return childId + indexStr
         }
         const cn = getNodeById(childId)
         if (isCursor(cn)) {
+          if (isRef(id) && cn.lastNodeStack[cn.lastNodeStack.length-1]!==id) {
+            return null
+          }
+
           return <span className={'blink_me'}>{cursorChar}</span>
         }
-        return <Render id={childId as number}/>
+        return <Render id={childId as number} index={index}/>
       }
       return n.children?.map(mapChild)
     }
@@ -396,7 +431,7 @@ export function Machine(state: TState) {
     function showState() {
       return <If value={id===rootNodeId}>
         <br/><br/>
-        <div style={{font: '7px consolas, monospace', color: 'grey'}}>{getStateAsJson()}</div>
+        <pre style={{font: '8px consolas, monospace', color: 'grey'}}>{getStateAsJson()}</pre>
       </If>
     }
     function renderSearchResultsWip() {
@@ -413,19 +448,18 @@ export function Machine(state: TState) {
       </div>)
     }
     function ActionButton(props) {
-      return <button onClick={()=>{
+      return <div onClick={()=>{
         const key = JSON.stringify({ tag: 'newRef', id })
         input({tag:'io', key })
       }
-      }>{props.children}</button>
+      }>{props.children}</div>
     }
     function shouldInsertPrefixLineBreak() {
       return tag.startsWith('search')
     }
-    const hasCursor = isFocused(currentNode)
+
     if (id===rootNodeId) {
       return <>
-
         <pre>{children}</pre>
         {refreshState}
       </>
@@ -443,17 +477,18 @@ export function Machine(state: TState) {
       </>
     }
     //const ntag =currentNode.tag
-    const ntag=null
+
     return <>
+
       <If value={shouldInsertPrefixLineBreak()}><br/></If>
-      <pre style={s}>{id} {ntag}{br}
+      <pre style={s}>{id}
         <CursorBrackets>
           <pre style={{border: '1px dashed grey' , display: 'inline-block'}}>
             {children}
           </pre>
 
         </CursorBrackets>
-        <ActionButton>📄</ActionButton>
+        <ActionButton>clone</ActionButton>
       </pre>
     </>
   }
