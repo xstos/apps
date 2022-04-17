@@ -61,10 +61,13 @@ export function getInitialState() {
   return {
     nodes: [
     {
+      id: 0,
       tag: 'cursor',
       lastNodeStack: []
     },
     {
+      id: 1,
+      root: true,
       tag: 'cell',
       children: [0]
     },
@@ -84,6 +87,7 @@ export function Machine(state: TState) {
     children: []
   }
   function log(...items) {
+    return
     state.console.push(...items)
   }
   function isRef(id: TChild) {
@@ -106,6 +110,7 @@ export function Machine(state: TState) {
   function createNode(children: TChild[]=[], tag='cell'):number {
     const newIndex = nodes.length
     const newNode = {
+      id: newIndex,
       tag,
       children
     }
@@ -330,7 +335,6 @@ export function Machine(state: TState) {
         else if (key.startsWith('{')) {
           const command = JSON.parse(key)
           if (command.tag==='newRef') {
-            debugger
             const targetId = nodes[command.id]
             const newRefId = createRef(targetId)
             focusedChildren._insertItemsAtMut(cursorIndex+1,newRefId)
@@ -448,11 +452,12 @@ export function Machine(state: TState) {
       </div>)
     }
     function ActionButton(props) {
-      return <div onClick={()=>{
+      return <button key={"ab_"+id} onClick={()=>{
         const key = JSON.stringify({ tag: 'newRef', id })
         input({tag:'io', key })
+        document.activeElement?.blur()
       }
-      }>{props.children}</div>
+      }>{props.children}</button>
     }
     function shouldInsertPrefixLineBreak() {
       return tag.startsWith('search')
@@ -460,7 +465,7 @@ export function Machine(state: TState) {
 
     if (id===rootNodeId) {
       return <>
-        <pre>{children}</pre>
+        <pre key={id}>{children}</pre>
         {refreshState}
       </>
     }
@@ -468,11 +473,9 @@ export function Machine(state: TState) {
       if (!hasCursor) return props.children
       return <>
         <If value={hasCursor}>
-          <Color red>[</Color>
-        </If>
+          <Color red>[</Color></If>
         {props.children}
-        <If value={hasCursor}>
-          <Color red>]</Color>
+        <If value={hasCursor}><Color red>]</Color>
         </If>
       </>
     }
@@ -481,14 +484,12 @@ export function Machine(state: TState) {
     return <>
 
       <If value={shouldInsertPrefixLineBreak()}><br/></If>
-      <pre style={s}>{id}
+      <pre key={id} style={s}><ActionButton>{id}</ActionButton>
         <CursorBrackets>
-          <pre style={{border: '1px dashed grey' , display: 'inline-block'}}>
+          <pre key={id+"_2"} style={{border: '1px dashed grey' , display: 'inline-block'}}>
             {children}
           </pre>
-
         </CursorBrackets>
-        <ActionButton>clone</ActionButton>
       </pre>
     </>
   }
@@ -502,7 +503,7 @@ function ternary(test, valueIfTrue, valueIfFalse=undefined) {
   return test ? valueIfTrue : valueIfFalse
 }
 function If(props: {value: boolean, children: any}) {
-  if (props.value) return props.children
+  if (props.value) return <>{props.children}</>
   return null
 }
 
@@ -510,5 +511,5 @@ function Color(props) {
   const {children, ...rest} =  props;
   const color = Object.keys(rest)[0]
   //const display = 'inline-block'
-  return <span style={{ color }}>{children}</span>
+  return <span key={JSON.stringify(children)} style={{ color }}>{children}</span>
 }
