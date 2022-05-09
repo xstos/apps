@@ -178,7 +178,7 @@ const thing = <Node id={rootId}></Node>
 const renderMe = <>
   {/* thing */}
 
-  <Render id={1}></Render>
+  <Render></Render>
 </>
 ReactDOM.render(
   renderMe,

@@ -3,6 +3,7 @@ import hyperactiv from "hyperactiv";
 import { curryEquals, has, isString, swapIndexes} from "./util";
 
 const { observe, computed, dispose } = hyperactiv
+import { watch, store as createStore } from 'hyperactiv/src/react'
 
 /*
 const testObj = {
@@ -78,9 +79,8 @@ export function getInitialState() {
 const rootNodeId = 1
 const cursorChar = '█'
 export function Machine(state: TState) {
-  const observedState = observe(state)
-
-  const nodes: TNode[] = observe(state.nodes)
+  const observedState = createStore(state)
+  const nodes: TNode[] = observedState.nodes
   const cursorId = 0
   const emptyNode = {
     tag: '',
@@ -495,7 +495,40 @@ export function Machine(state: TState) {
   }
 
   state.input = input
-  state.Render = Render
+  function R(n: TNode,id: TChild) {
+    function ActionButton(props) {
+      return <button key={"ab_"+id} onClick={()=>{
+        const key = JSON.stringify({ tag: 'newRef', id })
+        input({tag:'io', key })
+        document.activeElement?.blur()
+      }
+      }>{props.children}</button>
+    }
+    function mapChild(childId: TChild) {
+      if (typeof childId === 'string') {
+        if (childId === 'br') {
+          return <br/>
+        }
+        return childId
+      }
+      const cn = getNodeById(childId)
+      if (isCursor(cn)) {
+        if (isRef(id) && cn.lastNodeStack[cn.lastNodeStack.length - 1] !== id) {
+          return null
+        }
+
+        return <span className={'blink_me'}>{cursorChar}</span>
+      }
+      return R(cn, childId)
+    }
+    return <pre style={{border: '1px dashed grey' , display: 'inline-block'}}>
+      <ActionButton>{id}</ActionButton>
+      {n.children.map(mapChild)}
+    </pre>
+  }
+
+  state.Render = watch(()=>R(nodes[1],1))
+
   return state
 }
 
