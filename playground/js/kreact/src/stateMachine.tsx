@@ -1,6 +1,6 @@
 import React, {useEffect, useState} from "react";
 import hyperactiv from "hyperactiv";
-import { curryEquals, has, isString, swapIndexes} from "./util";
+import {arreq, curryEquals, has, isString, swapIndexes} from "./util";
 
 const { observe, computed, dispose } = hyperactiv
 import { watch, store as createStore } from 'hyperactiv/src/react'
@@ -64,7 +64,7 @@ export function getInitialState() {
     {
       id: 0,
       tag: 'cursor',
-      lastNodeStack: []
+      lastNodeStack: [1]
     },
     {
       id: 1,
@@ -162,7 +162,6 @@ export function Machine(state: TState) {
   function isFocused(n: TNode) {
     return hasChildren(n) && findCursorIndex(n.children) !== -1;
   }
-
   function findChildrenBackward() {
     const numNodes = nodes.length
     let node
@@ -184,7 +183,6 @@ export function Machine(state: TState) {
     }
     return ret
   }
-
   function input(data: TData) {
     const {tag}=data
 
@@ -226,13 +224,14 @@ export function Machine(state: TState) {
           //debugger
           const directionRight = direction>0;
           const directionLeft = !directionRight
-          const endIndex = directionRight ? focusedChildren.length - 1 : 0
+          const cursorLeftmost = cursorIndex === 0
+          const cursorRightmost = cursorIndex === focusedChildren.length - 1
           const offset = directionRight ? 1 : -1
-          if (cursorIndex === endIndex) {
+          if (directionLeft && cursorLeftmost || directionRight && cursorRightmost) {
             //exiting a cell (ascending)
             if (!canNavUp(focusedNodeId)) return
 
-            if (cursorNode.lastNodeStack.length<1) return //root node
+            if (cursorNode.lastNodeStack.length===1) return //root node
             const parentId = cursorNode.lastNodeStack.pop()
             if (!parentId) {
               debugger
@@ -494,13 +493,13 @@ export function Machine(state: TState) {
     </>
   }
 
-  state.input = input
-  function R(n: TNode,id: TChild) {
+  function R(n: TNode,id: TChild, path: number[]) {
+    const buttonLabel = isRef(id) ? nodes[id] : id
     function ActionButton(props) {
       return <button key={"ab_"+id} onClick={()=>{
         const key = JSON.stringify({ tag: 'newRef', id })
         input({tag:'io', key })
-        document.activeElement?.blur()
+        blurActiveElement()
       }
       }>{props.children}</button>
     }
@@ -513,21 +512,30 @@ export function Machine(state: TState) {
       }
       const cn = getNodeById(childId)
       if (isCursor(cn)) {
-        if (isRef(id) && cn.lastNodeStack[cn.lastNodeStack.length - 1] !== id) {
+        if (!arreq(cn.lastNodeStack, path)) {
           return null
         }
 
-        return <span className={'blink_me'}>{cursorChar}</span>
+        return <span className={'blink_me'}>{buttonLabel} {JSON.stringify(cn.lastNodeStack)}</span>
       }
-      return R(cn, childId)
+      const pathClone = [...path]
+      pathClone.push(childId)
+      return R(cn, childId, pathClone)
     }
+
+    const showRefButton = id!==rootNodeId;
+
     return <pre style={{border: '1px dashed grey' , display: 'inline-block'}}>
-      <ActionButton>{id}</ActionButton>
+      <If value={showRefButton}>
+        <ActionButton>{buttonLabel}</ActionButton>
+      </If>
+      {JSON.stringify(path)}
       {n.children.map(mapChild)}
     </pre>
   }
 
-  state.Render = watch(()=>R(nodes[1],1))
+  state.input = input
+  state.Render = watch(()=>R(nodes[1],1, [1]))
 
   return state
 }
@@ -546,3 +554,8 @@ function Color(props) {
   //const display = 'inline-block'
   return <span key={JSON.stringify(children)} style={{ color }}>{children}</span>
 }
+
+function blurActiveElement() {
+  document.activeElement?.blur()
+}
+

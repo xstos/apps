@@ -27,6 +27,8 @@ pre {
 
 .blink_me {
     animation: blinker 1s linear infinite;
+    background-color: white;
+    color: black;
 }
 
 @keyframes blinker {

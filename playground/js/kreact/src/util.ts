@@ -124,3 +124,7 @@ export function curryEquals(first: any) {
 export function has(o: any, key: string): boolean {
     return key in o
 }
+
+export function arreq<T>(a:T[],b:T[]) {
+    return a.every((v,i)=>v===b[i])
+}
