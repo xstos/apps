@@ -1,0 +1,25 @@
+html,
+body, .root {
+    margin: 0;
+    padding: 0;
+    background-color: black;
+    color: whitesmoke;
+}
+
+/* include border and padding in element width and height */
+* {
+    box-sizing: border-box;
+}
+
+/* full-sized  container that fills up the page */
+.root {
+    width: 100vw;
+    height: 100vh;
+    /* example padding, font-size, background, etc */
+}
+pre {
+    display: inline-block;
+    vertical-align: top;
+    margin: 0;
+    padding: 0;
+}
