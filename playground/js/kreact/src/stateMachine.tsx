@@ -376,123 +376,6 @@ export function Machine(state: TState) {
     return JSON.stringify(observedState, null, 2);
   }
 
-  function Render(props: {id: TChild, index: number}): JSX.Element {
-    const id = props.id
-    const index = props.index
-    const currentNode = getNodeById(id)
-    const hasCursor = isFocused(currentNode)
-    const { tag } = currentNode
-    const isSearch = currentNode.tag==='search'
-    function renderChildren() {
-      const n = getNodeById(id)
-      function mapChild(childId: TChild, index: number) {
-        if (typeof childId === 'string') {
-          const indexStr = '' // `(${index})`
-          if (childId.startsWith('{')) {
-            const obj = JSON.parse(childId)
-            const { id, tag } = obj
-            if (tag===cursorChar) {
-              return '▒' + indexStr
-            }
-          }
-          if (childId === 'br') {
-            return <br/>
-          }
-
-          return childId + indexStr
-        }
-        const cn = getNodeById(childId)
-        if (isCursor(cn)) {
-          if (isRef(id) && cn.lastNodeStack[cn.lastNodeStack.length-1]!==id) {
-            return null
-          }
-
-          return <span className={'blink_me'}>{cursorChar}</span>
-        }
-        return <Render id={childId as number} index={index}/>
-      }
-      return n.children?.map(mapChild)
-    }
-
-    const [children, setChildren] = useState(renderChildren());
-    const [refreshState, setRefreshState] = useState(showState())
-    useEffect(()=>{
-      console.log('mount '+id)
-      const refreshChildren = computed(()=>{
-        console.log("computed render "+id)
-        setChildren(renderChildren())
-        setRefreshState(showState())
-      })
-      return ()=>{
-        console.log('unmount '+id)
-        dispose(refreshChildren)
-      }
-    },[])
-    const color = isSearch ? 'red' : 'green'
-    const s={border: `1px solid ${color}`, padding: "3px"}
-    //const pos = getParentNodePosition(id)
-    function showState() {
-      return <If value={id===rootNodeId}>
-        <br/><br/>
-        <pre style={{font: '8px consolas, monospace', color: 'grey'}}>{getStateAsJson()}</pre>
-      </If>
-    }
-    function renderSearchResultsWip() {
-      const searchText = evaluateNodeAsText(currentNode)
-
-      function canReferenceCell(n, i) {
-        return i !== rootNodeId && n.tag === 'cell';
-      }
-
-      const cells = nodes._filterMap((n,i)=>[canReferenceCell(n,i), {n,i:id, text: evaluateNodeAsText(n)}])
-      
-      return (<div>
-        {cells.map(({n,id,text})=><div>{id} {text}</div>)}
-      </div>)
-    }
-    function ActionButton(props) {
-      return <button key={"ab_"+id} onClick={()=>{
-        const key = JSON.stringify({ tag: 'newRef', id })
-        input({tag:'io', key })
-        document.activeElement?.blur()
-      }
-      }>{props.children}</button>
-    }
-    function shouldInsertPrefixLineBreak() {
-      return tag.startsWith('search')
-    }
-
-    if (id===rootNodeId) {
-      return <>
-        <pre key={id}>{children}</pre>
-        {refreshState}
-      </>
-    }
-    function CursorBrackets(props) {
-      if (!hasCursor) return props.children
-      return <>
-        <If value={hasCursor}>
-          <Color red>[</Color></If>
-        {props.children}
-        <If value={hasCursor}><Color red>]</Color>
-        </If>
-      </>
-    }
-    //const ntag =currentNode.tag
-
-    return <>
-
-      <If value={shouldInsertPrefixLineBreak()}><br/></If>
-      <pre key={id} style={s}><ActionButton>{id}</ActionButton>
-        <CursorBrackets>
-          <pre key={id+"_2"} style={{border: '1px dashed grey' , display: 'inline-block'}}>
-            {children}
-          </pre>
-        </CursorBrackets>
-      </pre>
-    </>
-  }
-
   function R(n: TNode,id: TChild, path: number[]) {
     const buttonLabel = isRef(id) ? nodes[id] : id
     function ActionButton(props) {
@@ -506,17 +389,20 @@ export function Machine(state: TState) {
     function mapChild(childId: TChild) {
       if (typeof childId === 'string') {
         if (childId === 'br') {
-          return <br/>
+          return <>↵<br/></>
         }
         return childId
       }
       const cn = getNodeById(childId)
       if (isCursor(cn)) {
         if (!arreq(cn.lastNodeStack, path)) {
-          return null
+          //render alternate cursor inside cloned nodes that don't match the cursor's path
+          return <span style={{color: '#303030'}}>{cursorChar}</span>
         }
 
-        return <span className={'blink_me'}>{buttonLabel} {JSON.stringify(cn.lastNodeStack)}</span>
+        const lns = JSON.stringify(cn.lastNodeStack);
+        const cursorDebugStr = <span>{buttonLabel}({id}) {lns}</span>
+        return <span className={'blink_me'}> </span>
       }
       const pathClone = [...path]
       pathClone.push(childId)
@@ -525,7 +411,7 @@ export function Machine(state: TState) {
 
     const showRefButton = id!==rootNodeId;
 
-    return <pre style={{border: '1px dashed grey' , display: 'inline-block'}}>
+    return <pre style={{border: '1px dashed grey' , display: 'inline-block', padding: '5px'}}>
       <If value={showRefButton}>
         <ActionButton>{buttonLabel}</ActionButton>
       </If>
