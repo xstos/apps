@@ -411,11 +411,11 @@ export function Machine(state: TState) {
 
     const showRefButton = id!==rootNodeId;
 
+    const jpath = JSON.stringify(path);
     return <pre style={{border: '1px dashed grey' , display: 'inline-block', padding: '5px'}}>
       <If value={showRefButton}>
         <ActionButton>{buttonLabel}</ActionButton>
       </If>
-      {JSON.stringify(path)}
       {n.children.map(mapChild)}
     </pre>
   }
