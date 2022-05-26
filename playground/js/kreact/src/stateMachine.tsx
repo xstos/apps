@@ -1,10 +1,9 @@
-import React, {useEffect, useState} from "react";
+import React from "react";
 import hyperactiv from "hyperactiv";
 import {arreq, curryEquals, has, isString, swapIndexes} from "./util";
+import {store as createStore, watch} from 'hyperactiv/src/react'
 
 const { observe, computed, dispose } = hyperactiv
-import { watch, store as createStore } from 'hyperactiv/src/react'
-
 /*
 const testObj = {
   a: {
@@ -41,7 +40,8 @@ export type TState = {
   nodes: TNode[]
   console: any[]
 }
-type TData = { tag:'io', key:string }
+const ioTag = 'io';
+type TData = { tag:ioTag, key:string }
 type TChild = number | string
 type TNode = {
   tag: string,
@@ -78,6 +78,7 @@ export function getInitialState() {
 }
 const rootNodeId = 1
 const cursorChar = '█'
+const ctrlEnter = "ctrl+enter";
 export function Machine(state: TState) {
   const observedState = createStore(state)
   const nodes: TNode[] = observedState.nodes
@@ -186,9 +187,9 @@ export function Machine(state: TState) {
   function input(data: TData) {
     const {tag}=data
 
-    if (tag==='io') {
+    if (tag===ioTag) {
       let { key } = data
-      if (key==='unidentified') return
+      if (key==='unidentified') return;
       findChildrenBackward()
           .filter(pos=>pos.childValue===cursorId)
           .forEach(pos=> {
@@ -354,18 +355,20 @@ export function Machine(state: TState) {
         } else if (key.startsWith('shift+') && key.length===7) {
           insertKey(key.replace('shift+','').toUpperCase())
         }
-        else if (key === "ctrl+enter") {
-          newCell();
-        }
-        else if (key === "ctrl+r") {
-          newCell();
-        }
-        else if (key === "enter") {
-          linebreak();
-        } else if (key === "`") {
-          search();
-        } else {
-          insertKey();
+        else {
+          if (key === ctrlEnter) {
+            newCell();
+          }
+          else if (key === "ctrl+r") {
+            newCell();
+          }
+          else if (key === "enter") {
+            linebreak();
+          } else if (key === "`") {
+            search();
+          } else {
+            insertKey();
+          }
         }
       }
     }
@@ -375,13 +378,19 @@ export function Machine(state: TState) {
   function getStateAsJson() {
     return JSON.stringify(observedState, null, 2);
   }
-
+  function Verb(props: {value: any, children: any}) {
+    return <button onClick={()=>{
+      input(props.value)
+      blurActiveElement()
+    }
+    }>{props.children}</button>
+  }
   function R(n: TNode,id: TChild, path: number[]) {
     const buttonLabel = isRef(id) ? nodes[id] : id
     function ActionButton(props) {
       return <button key={"ab_"+id} onClick={()=>{
         const key = JSON.stringify({ tag: 'newRef', id })
-        input({tag:'io', key })
+        input({tag:ioTag, key })
         blurActiveElement()
       }
       }>{props.children}</button>
@@ -415,6 +424,10 @@ export function Machine(state: TState) {
     return <pre style={{border: '1px dashed grey' , display: 'inline-block', padding: '5px'}}>
       <If value={showRefButton}>
         <ActionButton>{buttonLabel}</ActionButton>
+      </If>
+      <If value={!showRefButton}>
+        <Verb value={{tag: ioTag, key: ctrlEnter}}>New Cell 🎬</Verb>
+        <br/>
       </If>
       {n.children.map(mapChild)}
     </pre>
