@@ -8,4 +8,4 @@ import { App6 } from './experimental/app2/app6'
 import { App7 } from './experimental/app2/app7'
 import { Persist } from './experimental/app2/persist'
 
-App1()
+App()
