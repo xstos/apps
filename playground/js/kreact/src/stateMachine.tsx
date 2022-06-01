@@ -3,6 +3,12 @@ import hyperactiv from "hyperactiv";
 import {arreq, curryEquals, has, isString, swapIndexes} from "./util";
 import {store as createStore, watch} from 'hyperactiv/src/react'
 
+const rootNodeId = 1
+const cursorChar = '█'
+const ctrlEnter = "ctrl+enter"
+const ctrlP = "ctrl+p"
+const ctrlV = "ctrl+v"
+const nbsp = "\u00a0"
 const { observe, computed, dispose } = hyperactiv
 /*
 const testObj = {
@@ -33,31 +39,27 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return {tag, children}
 }
 reactMode=true
-const br = <br/>
+
 export type TState = {
   Render: (props: {id: TChild}) => JSX.Element
   input: (data: TData) => void
   nodes: TNode[]
   console: any[]
 }
+
 const ioTag = 'io';
-type TData = { tag:ioTag, key:string }
+type TTag = "io"
+type TData = { tag: TTag, key:string }
 type TChild = number | string
 type TNode = {
   tag: string,
   children: TChild[]
-  positions: TPosition[]
-  lastNodeStack: number[]
+  lastNodeStack?: number[]
 }
-type TIdNode = {
-  id: number,
-  node: TNode
+type TNewCellArgs = {
+  tag?: string
+  children?: TChild[]
 }
-type TPosition = {
-  id: number
-  index: number
-}
-
 export function getInitialState() {
   return {
     nodes: [
@@ -76,22 +78,21 @@ export function getInitialState() {
     console: []
   }
 }
-const rootNodeId = 1
-const cursorChar = '█'
-const ctrlEnter = "ctrl+enter";
+
 export function Machine(state: TState) {
   const observedState = createStore(state)
   const nodes: TNode[] = observedState.nodes
   const cursorId = 0
   const emptyNode = {
     tag: '',
-    children: []
+    children: [],
   }
-  function log(...items) {
+  function log(...items: any[]) {
     return
     state.console.push(...items)
   }
   function isRef(id: TChild) {
+    if (typeof id !== "number") return false
     return typeof nodes[id] === 'number'
   }
   function getNodeById(id: TChild):TNode {
@@ -103,10 +104,13 @@ export function Machine(state: TState) {
     return ret
   }
   function hasChildren(node: TNode) {
-    return node.tag !=='' && has(node, 'children')
+    return node.tag!=="" && has(node, 'children')
   }
   function isCursor(node: TNode) {
     return node.tag==='cursor'
+  }
+  function createNode2(args: TNewCellArgs) {
+    return createNode(args.children || [], args.tag)
   }
   function createNode(children: TChild[]=[], tag='cell'):number {
     const newIndex = nodes.length
@@ -123,8 +127,8 @@ export function Machine(state: TState) {
     nodes.push(id)
     return newIndex
   }
-  function createNodeAndRef() {
-    const id = createNode()
+  function createNodeAndRef(args : TNewCellArgs | undefined = undefined) {
+    const id = args === undefined ? createNode() : createNode2(args)
     return createRef(id)
   }
   function getParentNodePosition(childNodeId: number) {
@@ -199,9 +203,7 @@ export function Machine(state: TState) {
       function applyInputToNode(focusedNodeId: number, cursorIndex: number) {
         const focusedNode = getNodeById(focusedNodeId)
         const focusedChildren = focusedNode.children
-        // if (focusedChildren.length===0) {
-        //   debugger
-        // }
+
         const cursorNode = getNodeById(focusedChildren[cursorIndex])
 
         function insertItems(children=focusedChildren, index=cursorIndex, ...items: TChild[]) {
@@ -222,18 +224,17 @@ export function Machine(state: TState) {
             //destNode.children._insertItemsAtMut(index,cursorId)
             insertItems(destNode.children,index,cursorId)
           }
-          //debugger
-          const directionRight = direction>0;
-          const directionLeft = !directionRight
-          const cursorLeftmost = cursorIndex === 0
-          const cursorRightmost = cursorIndex === focusedChildren.length - 1
+
+          const [directionLeft, directionRight] = [direction<0, direction>0]
+          const [cursorLeftmost, cursorRightmost] = [cursorIndex===0,  cursorIndex === focusedChildren.length - 1]
+
           const offset = directionRight ? 1 : -1
           if (directionLeft && cursorLeftmost || directionRight && cursorRightmost) {
             //exiting a cell (ascending)
             if (!canNavUp(focusedNodeId)) return
 
-            if (cursorNode.lastNodeStack.length===1) return //root node
-            const parentId = cursorNode.lastNodeStack.pop()
+            if (cursorNode.lastNodeStack?.length===1) return //root node
+            const parentId = cursorNode.lastNodeStack?.pop()
             if (!parentId) {
               debugger
               return
@@ -252,7 +253,7 @@ export function Machine(state: TState) {
           if (hasChildren(targetNode)) {
             //entering a cell (descending)
             const gotoIndex = directionRight ? 0 : targetNode.children.length
-            cursorNode.lastNodeStack.push(targetNodeId)
+            cursorNode.lastNodeStack?.push(targetNodeId as number)
             goTo(targetNodeId as number,gotoIndex)
             return
           }
@@ -267,8 +268,8 @@ export function Machine(state: TState) {
           if (focusedChildren.length === cursorIndex + 1) return
           focusedChildren.splice(cursorIndex + 1, 1)
         }
-        function newCell() {
-          const newNodeId = createNodeAndRef()
+        function newCell(args : TNewCellArgs | undefined = undefined) {
+          const newNodeId = createNodeAndRef(args)
           insertItems(focusedChildren,cursorIndex+1, newNodeId)
           //focusedChildren._insertItemsAtMut(cursorIndex, newNodeId)
 
@@ -330,7 +331,9 @@ export function Machine(state: TState) {
           insertItems(focusedChildren,cursorIndex, text)
           //focusedChildren._insertItemsAtMut(cursorIndex, text)
         }
-
+        function insertKeys(chars: string[]) {
+          insertItems(focusedChildren,cursorIndex, ...chars)
+        }
         if (false) { }
         else if (key.startsWith('{')) {
           const command = JSON.parse(key)
@@ -361,6 +364,14 @@ export function Machine(state: TState) {
           }
           else if (key === "ctrl+r") {
             newCell();
+          } else if (key === "ctrl+p") {
+            newCell({ tag: 'pipe'})
+          } else if (key === "ctrl+v") {
+            navigator.clipboard.readText().then(
+              clipText => {
+                const clipChars = clipText.split('')
+                insertKeys(clipChars)
+              });
           }
           else if (key === "enter") {
             linebreak();
@@ -386,7 +397,7 @@ export function Machine(state: TState) {
     }>{props.children}</button>
   }
   function R(n: TNode,id: TChild, path: number[]) {
-    const buttonLabel = isRef(id) ? nodes[id] : id
+    const buttonLabel = isRef(id) ? nodes[id as number] : id
     function ActionButton(props) {
       return <button key={"ab_"+id} onClick={()=>{
         const key = JSON.stringify({ tag: 'newRef', id })
@@ -400,18 +411,23 @@ export function Machine(state: TState) {
         if (childId === 'br') {
           return <>↵<br/></>
         }
+        if (childId === '\r') {
+          return '␍'
+        }
+        if (childId === '\n') {
+          return <>␤<br/></>
+        }
         return childId
       }
       const cn = getNodeById(childId)
       if (isCursor(cn)) {
-        if (!arreq(cn.lastNodeStack, path)) {
+        if (!arreq(cn.lastNodeStack || [], path)) {
           //render alternate cursor inside cloned nodes that don't match the cursor's path
           return <span style={{color: '#303030'}}>{cursorChar}</span>
         }
 
-        const lns = JSON.stringify(cn.lastNodeStack);
-        const cursorDebugStr = <span>{buttonLabel}({id}) {lns}</span>
-        return <span className={'blink_me'}> </span>
+        const cursorDebugStr = <span>{buttonLabel}({id}) {JSON.stringify(cn.lastNodeStack)}</span>
+        return <span className={'blink_me'}>{nbsp}</span>
       }
       const pathClone = [...path]
       pathClone.push(childId)
@@ -419,18 +435,29 @@ export function Machine(state: TState) {
     }
 
     const showRefButton = id!==rootNodeId;
-
+    const verbs = {
+      newCell: <Verb value={{tag: ioTag, key: ctrlEnter}}>New Cell</Verb>,
+      pipe: <Verb value={{tag: ioTag, key: ctrlP}}>Pipe</Verb>,
+      paste: <Verb value={{tag: ioTag, key: ctrlV}}>Paste</Verb>,
+    }
     const jpath = JSON.stringify(path);
-    return <pre style={{border: '1px dashed grey' , display: 'inline-block', padding: '5px'}}>
-      <If value={showRefButton}>
-        <ActionButton>{buttonLabel}</ActionButton>
-      </If>
-      <If value={!showRefButton}>
-        <Verb value={{tag: ioTag, key: ctrlEnter}}>New Cell 🎬</Verb>
-        <br/>
-      </If>
-      {n.children.map(mapChild)}
-    </pre>
+    const style = {
+      overflowWrap: 'anywhere',
+      display: 'inline-block',
+      maxWidth: '120ch',
+      border: '1px dashed grey'
+    };
+    const rootStyle = {
+
+    }
+    const s = '*'.repeat(1000)
+    //return <div>{s}</div>
+    if (!showRefButton) {
+      return <div style={rootStyle}>{[...Object.values(verbs)]}<br/>
+        {n.children.map(mapChild)}</div>
+    }
+    return <div style={style}>{n.tag}<ActionButton>{buttonLabel}</ActionButton>{n.children.map(mapChild)}
+    </div>
   }
 
   state.input = input
@@ -439,9 +466,6 @@ export function Machine(state: TState) {
   return state
 }
 
-function ternary(test, valueIfTrue, valueIfFalse=undefined) {
-  return test ? valueIfTrue : valueIfFalse
-}
 function If(props: {value: boolean, children: any}) {
   if (props.value) return <>{props.children}</>
   return null

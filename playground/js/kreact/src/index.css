@@ -13,16 +13,26 @@ body, .root {
 }
 
 /* full-sized  container that fills up the page */
-.root {
-    display: inline-block;
-    margin: 1ch;
+.root body html {
+    margin: 0px;
+    padding: 0px;
+    width: 98vw;
+    height: 98vh;
+    overflow-wrap: anywhere;
     /* example padding, font-size, background, etc */
 }
-pre {
-    display: inline-block;
+div {
+    font-family: monospace;
     vertical-align: top;
-    margin: 0;
-    padding: 0;
+}
+pre {
+    overflow-wrap: anywhere;
+    /*border: 1px dashed grey;*/
+    /*display: inline-block;*/
+    /*vertical-align: top;*/
+    /*word-wrap: anywhere;*/
+    /*margin: 0;*/
+    /*padding: 0.5ch;*/
 }
 
 .blink_me {
