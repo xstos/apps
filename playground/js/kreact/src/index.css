@@ -25,14 +25,9 @@ div {
     font-family: monospace;
     vertical-align: top;
 }
-pre {
+
+.ofw {
     overflow-wrap: anywhere;
-    /*border: 1px dashed grey;*/
-    /*display: inline-block;*/
-    /*vertical-align: top;*/
-    /*word-wrap: anywhere;*/
-    /*margin: 0;*/
-    /*padding: 0.5ch;*/
 }
 
 .blink_me {

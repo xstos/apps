@@ -43,19 +43,22 @@ reactMode=true
 export type TState = {
   Render: (props: {id: TChild}) => JSX.Element
   input: (data: TData) => void
-  nodes: TNode[]
+  nodes: TNodeData[]
   console: any[]
 }
-
+type TDerp = { foo: string}
 const ioTag = 'io';
 type TTag = "io"
 type TData = { tag: TTag, key:string }
+
 type TChild = number | string
 type TNode = {
   tag: string,
   children: TChild[]
   lastNodeStack?: number[]
 }
+type TNodeData = TNode | number
+
 type TNewCellArgs = {
   tag?: string
   children?: TChild[]
@@ -81,7 +84,7 @@ export function getInitialState() {
 
 export function Machine(state: TState) {
   const observedState = createStore(state)
-  const nodes: TNode[] = observedState.nodes
+  const nodes: TNodeData[] = observedState.nodes
   const cursorId = 0
   const emptyNode = {
     tag: '',
@@ -99,7 +102,7 @@ export function Machine(state: TState) {
     if (typeof id === 'string') return emptyNode
     const ret = nodes[id]
     if (typeof ret === 'number') {
-      return nodes[ret]
+      return nodes[ret] as TNode
     }
     return ret
   }
@@ -135,7 +138,7 @@ export function Machine(state: TState) {
     const l = nodes.length
     const childNodeIdEqualsPredicate = curryEquals(childNodeId)
     for (let parentNodeId = 0; parentNodeId < l; parentNodeId++) {
-      const parentNode = nodes[parentNodeId]
+      const parentNode = nodes[parentNodeId] as TNode
       const children = parentNode.children;
       if (!children) continue
       const childIndex = children.findIndex(childNodeIdEqualsPredicate)
@@ -286,23 +289,13 @@ export function Machine(state: TState) {
         function search() {
 
           reactMode = false
-          const searchJsx =
-              <cell>
-                <cell query><cursor/>hi there</cell><br/>
-                <cell containsQuery><contains><ref query/></contains></cell>
-                <br/>
-                <cell row>
-                  <set visible></set>
-                  <action>yo</action><br/>
-                </cell>
-                <visible>
-                  <action>yo2</action><br/>
-                </visible>
-              </cell>
+
+          // @ts-ignore
+          const searchJsx = <cell><cell query><cursor/>hi there</cell><br/><cell containsQuery><contains><ref query/></contains></cell><br/><cell row><set visible/><action>yo</action><br/></cell><visible><action>yo2</action><br/></visible></cell>
           console.log(searchJsx)
           reactMode=true
 
-          function injectJsxAsNodes(jsx) {
+          function injectJsxAsNodes(jsx: any) {
             if (isString(jsx)) {
               return jsx
             }
@@ -313,7 +306,7 @@ export function Machine(state: TState) {
               return cursorId
             }
             const mappedChildren = jsx.children.map(injectJsxAsNodes)
-            const exploded = mappedChildren.reduce((accum, current)=>{
+            const exploded = mappedChildren.reduce((accum: any[], current: string)=>{
               if (isString(current)) {
                 if (current==='br') return accum.concat(['br'])
                 return accum.concat(...(current._toCharArray()))
@@ -335,10 +328,10 @@ export function Machine(state: TState) {
           insertItems(focusedChildren,cursorIndex, ...chars)
         }
         if (false) { }
-        else if (key.startsWith('{')) {
+        else if (key.startsWith('{') && key.endsWith('}')) {
           const command = JSON.parse(key)
           if (command.tag==='newRef') {
-            const targetId = nodes[command.id]
+            const targetId = nodes[command.id] as number
             const newRefId = createRef(targetId)
             focusedChildren._insertItemsAtMut(cursorIndex+1,newRefId)
           }
@@ -357,33 +350,35 @@ export function Machine(state: TState) {
 
         } else if (key.startsWith('shift+') && key.length===7) {
           insertKey(key.replace('shift+','').toUpperCase())
+        } else if (key==='shift+arrowleft') {
+
+        } else if (key==='shift+arrowright') {
+
+        } else if (key === ctrlEnter) {
+          newCell();
+        } else if (key === "ctrl+r") {
+          newCell();
+        } else if (key === "ctrl+p") {
+          newCell({ tag: 'pipe'})
+        } else if (key === "ctrl+v") {
+          navigator.clipboard.readText().then(
+            clipText => {
+              const clipChars = clipText.split('')
+              insertKeys(clipChars)
+            });
+        }
+        else if (key === "enter") {
+          linebreak();
+        } else if (key === "`") {
+          search();
         }
         else {
-          if (key === ctrlEnter) {
-            newCell();
-          }
-          else if (key === "ctrl+r") {
-            newCell();
-          } else if (key === "ctrl+p") {
-            newCell({ tag: 'pipe'})
-          } else if (key === "ctrl+v") {
-            navigator.clipboard.readText().then(
-              clipText => {
-                const clipChars = clipText.split('')
-                insertKeys(clipChars)
-              });
-          }
-          else if (key === "enter") {
-            linebreak();
-          } else if (key === "`") {
-            search();
-          } else {
-            insertKey();
-          }
+          insertKey();
         }
       }
     }
     const value = getStateAsJson()
+    console.log(value)
     //localStorage.setItem("state", value)
   }
   function getStateAsJson() {
@@ -398,7 +393,7 @@ export function Machine(state: TState) {
   }
   function R(n: TNode,id: TChild, path: number[]) {
     const buttonLabel = isRef(id) ? nodes[id as number] : id
-    function ActionButton(props) {
+    function ActionButton(props: any) {
       return <button key={"ab_"+id} onClick={()=>{
         const key = JSON.stringify({ tag: 'newRef', id })
         input({tag:ioTag, key })
@@ -426,7 +421,7 @@ export function Machine(state: TState) {
           return <span style={{color: '#303030'}}>{cursorChar}</span>
         }
 
-        const cursorDebugStr = <span>{buttonLabel}({id}) {JSON.stringify(cn.lastNodeStack)}</span>
+        //const cursorDebugStr = <span>{buttonLabel}({id}) {JSON.stringify(cn.lastNodeStack)}</span>
         return <span className={'blink_me'}>{nbsp}</span>
       }
       const pathClone = [...path]
@@ -442,7 +437,6 @@ export function Machine(state: TState) {
     }
     const jpath = JSON.stringify(path);
     const style = {
-      overflowWrap: 'anywhere',
       display: 'inline-block',
       maxWidth: '120ch',
       border: '1px dashed grey'
@@ -450,18 +444,18 @@ export function Machine(state: TState) {
     const rootStyle = {
 
     }
-    const s = '*'.repeat(1000)
-    //return <div>{s}</div>
+    //const s = '*'.repeat(1000)
+
     if (!showRefButton) {
-      return <div style={rootStyle}>{[...Object.values(verbs)]}<br/>
+      return <div className={"ofw"} style={rootStyle}>{[...Object.values(verbs)]}<br/>
         {n.children.map(mapChild)}</div>
     }
-    return <div style={style}>{n.tag}<ActionButton>{buttonLabel}</ActionButton>{n.children.map(mapChild)}
+    return <div className={"ofw"} style={style}>{n.tag}<ActionButton>{buttonLabel}</ActionButton>{n.children.map(mapChild)}
     </div>
   }
 
   state.input = input
-  state.Render = watch(()=>R(nodes[1],1, [1]))
+  state.Render = watch(()=>R(nodes[1] as TNode,1, [1]))
 
   return state
 }
@@ -471,7 +465,7 @@ function If(props: {value: boolean, children: any}) {
   return null
 }
 
-function Color(props) {
+function Color(props: any) {
   const {children, ...rest} =  props;
   const color = Object.keys(rest)[0]
   //const display = 'inline-block'
@@ -479,6 +473,7 @@ function Color(props) {
 }
 
 function blurActiveElement() {
+  // @ts-ignore
   document.activeElement?.blur()
 }
 

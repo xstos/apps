@@ -10,6 +10,7 @@ export function bindkeys(onkey) {
   // })
   document.addEventListener('keydown', event => {
     const key = event.key.toLowerCase()
+    event.preventDefault()
     if (key==="control" || key==="alt" || key==="shift") return
     const mod = [event.ctrlKey && "ctrl", event.altKey && "alt", event.shiftKey && "shift"]
       .filter(v=>v)
