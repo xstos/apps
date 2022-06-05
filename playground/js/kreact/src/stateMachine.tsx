@@ -2,6 +2,7 @@ import React from "react";
 import hyperactiv from "hyperactiv";
 import {arreq, curryEquals, has, isString, swapIndexes} from "./util";
 import {store as createStore, watch} from 'hyperactiv/src/react'
+const { observe, computed, dispose } = hyperactiv
 
 const rootNodeId = 1
 const cursorChar = '█'
@@ -9,26 +10,6 @@ const ctrlEnter = "ctrl+enter"
 const ctrlP = "ctrl+p"
 const ctrlV = "ctrl+v"
 const nbsp = "\u00a0"
-const { observe, computed, dispose } = hyperactiv
-/*
-const testObj = {
-  a: {
-    a1: {
-
-    }
-  }
-}
-const obs = observe(testObj, {
-  bubble: true,
-  deep: true
-})
-
-obs.__handler = (keys, value, oldValue, observedObject) => {
-  console.log({keys,value,oldValue, observedObject})
-}
-
-obs.a.a1.foo=true
-*/
 
 let reactMode = false
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
@@ -46,7 +27,7 @@ export type TState = {
   nodes: TNodeData[]
   console: any[]
 }
-type TDerp = { foo: string}
+
 const ioTag = 'io';
 type TTag = "io"
 type TData = { tag: TTag, key:string }

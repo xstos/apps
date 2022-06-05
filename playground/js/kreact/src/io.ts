@@ -1,4 +1,5 @@
 import keyboard from 'keyboardjs'
+import {equalsAny} from "./util";
 
 export function bindkeys(onkey) {
   const lettersArray = Array.from(
@@ -10,13 +11,15 @@ export function bindkeys(onkey) {
   // })
   document.addEventListener('keydown', event => {
     const key = event.key.toLowerCase()
-    event.preventDefault()
+
     if (key==="control" || key==="alt" || key==="shift") return
     const mod = [event.ctrlKey && "ctrl", event.altKey && "alt", event.shiftKey && "shift"]
       .filter(v=>v)
 
     const foo = [...mod, key].join("+")
-
+    if (equalsAny(foo, 'ctrl+a', 'tab')) {
+      event.preventDefault()
+    }
     pressed({ tag: 'io', key: foo })
 
 
