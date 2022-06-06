@@ -1,10 +1,12 @@
 import React from "react";
-import hyperactiv from "hyperactiv";
-import {arreq, curryEquals, has, isString, swapIndexes} from "./util";
+import {arreq, has, isString, swapIndexes} from "./util";
 import {store as createStore, watch} from 'hyperactiv/src/react'
-const { observe, computed, dispose } = hyperactiv
+import {match, P} from "ts-pattern";
+import hyperactiv from "hyperactiv";
+//const { observe, computed, dispose } = hyperactiv
 
 const rootNodeId = 1
+const cursorId = 0
 const cursorChar = '█'
 const ctrlEnter = "ctrl+enter"
 const ctrlP = "ctrl+p"
@@ -29,14 +31,21 @@ export type TState = {
 }
 
 const ioTag = 'io';
-type TTag = "io"
-type TData = { tag: TTag, key:string }
-
-type TChild = number | string
+type TTag = typeof ioTag
+type TData = { tag: TTag, key:string } | { tag: 'newRef', id: number }
+type TChildId = { i: number }
+type TChildStr = { i: string }
+type TChild = TChildId | TChildStr
 type TNode = {
   tag: string,
   children: TChild[]
   lastNodeStack?: number[]
+}
+type TChildPosition = {
+  node: TNode,
+  nodeId: number,
+  childIndex: number,
+  childValue: TChild
 }
 type TNodeData = TNode | number
 
@@ -44,19 +53,21 @@ type TNewCellArgs = {
   tag?: string
   children?: TChild[]
 }
-export function getInitialState() {
+export function getInitialState(): TState {
   return {
     nodes: [
     {
-      id: 0,
+      // @ts-ignore
+      id: cursorId,
       tag: 'cursor',
-      lastNodeStack: [1]
+      lastNodeStack: [rootNodeId]
     },
     {
-      id: 1,
+      // @ts-ignore
+      id: rootNodeId,
       root: true,
       tag: 'cell',
-      children: [0]
+      children: [{i:cursorId}]
     },
     ],
     console: []
@@ -71,24 +82,26 @@ export function Machine(state: TState) {
     tag: '',
     children: [],
   }
-  function log(...items: any[]) {
-    return
-    state.console.push(...items)
+
+  function isRef(child: TChild) {
+    const i = child.i;
+    if (typeof i === 'string') return false
+    return typeof nodes[i] === 'number'
   }
-  function isRef(id: TChild) {
-    if (typeof id !== "number") return false
-    return typeof nodes[id] === 'number'
+  function getNodeById2(nodeIndex: number):TNode {
+    return getNodeById({i:nodeIndex})
   }
-  function getNodeById(id: TChild):TNode {
-    if (typeof id === 'string') return emptyNode
-    const ret = nodes[id]
+  function getNodeById(child: TChild):TNode {
+    const i = child.i;
+    if (typeof i === 'string') return emptyNode
+    const ret = nodes[i]
     if (typeof ret === 'number') {
       return nodes[ret] as TNode
     }
     return ret
   }
   function hasChildren(node: TNode) {
-    return node.tag!=="" && has(node, 'children')
+    return node.tag!=='' && has(node, 'children')
   }
   function isCursor(node: TNode) {
     return node.tag==='cursor'
@@ -117,12 +130,11 @@ export function Machine(state: TState) {
   }
   function getParentNodePosition(childNodeId: number) {
     const l = nodes.length
-    const childNodeIdEqualsPredicate = curryEquals(childNodeId)
     for (let parentNodeId = 0; parentNodeId < l; parentNodeId++) {
       const parentNode = nodes[parentNodeId] as TNode
       const children = parentNode.children;
       if (!children) continue
-      const childIndex = children.findIndex(childNodeIdEqualsPredicate)
+      const childIndex = children.findIndex((id)=>id.i===childNodeId)
       if (childIndex === -1) continue
       return {
         id: parentNodeId,
@@ -144,19 +156,18 @@ export function Machine(state: TState) {
     return node.children && node.children.filter(isString).join('')
   }
   function canNavUp(nodeId: number) {
-    const node = getNodeById(nodeId)
-    if (node.tag==='search') return false
-    return true
+    const node = getNodeById2(nodeId)
+    return node.tag !== 'search';
   }
   function isFocused(n: TNode) {
     return hasChildren(n) && findCursorIndex(n.children) !== -1;
   }
-  function findChildrenBackward() {
+  function findChildrenBackward(): TChildPosition[] {
     const numNodes = nodes.length
     let node
     const ret = []
     for (let nodeId = 0; nodeId < numNodes; nodeId++) {
-      node=getNodeById(nodeId)
+      node=getNodeById2(nodeId)
       if (rootNodeId!==nodeId && typeof nodes[nodeId] ==='number') continue
       if (!hasChildren(node)) continue
       const children = node.children
@@ -173,189 +184,185 @@ export function Machine(state: TState) {
     return ret
   }
   function input(data: TData) {
-    const {tag}=data
+    let {tag} = data
+    let {key,id} = match(data)
+      .with({tag: 'io'}, ({key})=>({key, id: -1}))
+      .with({tag: 'newRef'}, ({id})=>({key:'', id}))
+      .exhaustive()
 
-    if (tag===ioTag) {
-      let { key } = data
-      if (key==='unidentified') return;
-      findChildrenBackward()
-          .filter(pos=>pos.childValue===cursorId)
-          .forEach(pos=> {
-            applyInputToNode(pos.nodeId, pos.childIndex);
-          })
+    if (key==='unidentified') return;
 
-      function applyInputToNode(focusedNodeId: number, cursorIndex: number) {
-        const focusedNode = getNodeById(focusedNodeId)
-        const focusedChildren = focusedNode.children
+    const cursors = findChildrenBackward()
+      .filter(pos=>pos.childValue.i===cursorId);
 
-        const cursorNode = getNodeById(focusedChildren[cursorIndex])
+    cursors.forEach(pos=> {
+        applyInputToNode(pos.nodeId, pos.childIndex);
+      })
 
-        function insertItems(children=focusedChildren, index=cursorIndex, ...items: TChild[]) {
-          log(`insert ${index}`)
+    function applyInputToNode(focusedNodeId: number, cursorIndex: number) {
+      const focusedNode = getNodeById2(focusedNodeId)
+      const focusedChildren = focusedNode.children
+
+      const cursorNode = getNodeById(focusedChildren[cursorIndex])
+
+      function insertItems(children=focusedChildren, index=cursorIndex, ...items: TChild[]) {
           children._insertItemsAtMut(index,...items)
         }
-
-        function move(direction: number) {
-          function goTo(destNodeId: number, index: number) {
-            if (destNodeId===focusedNodeId) {
-              swapIndexes(focusedChildren, cursorIndex, index)
-              return
-            }
-            log(`goto ${destNodeId} ${index}`)
-
-            const destNode = getNodeById(destNodeId)
-            focusedChildren.splice(cursorIndex, 1) //delete current cursor
-            //destNode.children._insertItemsAtMut(index,cursorId)
-            insertItems(destNode.children,index,cursorId)
-          }
-
-          const [directionLeft, directionRight] = [direction<0, direction>0]
-          const [cursorLeftmost, cursorRightmost] = [cursorIndex===0,  cursorIndex === focusedChildren.length - 1]
-
-          const offset = directionRight ? 1 : -1
-          if (directionLeft && cursorLeftmost || directionRight && cursorRightmost) {
-            //exiting a cell (ascending)
-            if (!canNavUp(focusedNodeId)) return
-
-            if (cursorNode.lastNodeStack?.length===1) return //root node
-            const parentId = cursorNode.lastNodeStack?.pop()
-            if (!parentId) {
-              debugger
-              return
-            }
-
-            const parentPos = getParentNodePosition(parentId)
-
-            const offs = directionRight ? 1 : 0
-            goTo(parentPos.id, parentPos.index+offs)
+      function move(direction: number) {
+        function goTo(destNodeId: number, index: number) {
+          if (destNodeId===focusedNodeId) {
+            swapIndexes(focusedChildren, cursorIndex, index)
             return
           }
 
-          const targetNodeId = focusedChildren[cursorIndex+offset]
+          const destNode = getNodeById2(destNodeId)
+          focusedChildren.splice(cursorIndex, 1) //delete current cursor
+          //destNode.children._insertItemsAtMut(index,cursorId)
+          insertItems(destNode.children,index,{i:cursorId})
+        }
 
-          const targetNode = getNodeById(targetNodeId)
-          if (hasChildren(targetNode)) {
-            //entering a cell (descending)
-            const gotoIndex = directionRight ? 0 : targetNode.children.length
-            cursorNode.lastNodeStack?.push(targetNodeId as number)
-            goTo(targetNodeId as number,gotoIndex)
+        const [directionLeft, directionRight] = [direction<0, direction>0]
+        const [cursorLeftmost, cursorRightmost] = [cursorIndex===0,  cursorIndex === focusedChildren.length - 1]
+
+        const offset = directionRight ? 1 : -1
+        if (directionLeft && cursorLeftmost || directionRight && cursorRightmost) {
+          //exiting a cell (ascending)
+          if (!canNavUp(focusedNodeId)) return
+
+          if (cursorNode.lastNodeStack?.length===1) return //root node
+          const parentId = cursorNode.lastNodeStack?.pop()
+          if (!parentId) {
+            debugger
             return
           }
 
-          swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
-        }
-        function backspace() {
-          if (cursorIndex === 0) return
-          focusedChildren.splice(cursorIndex - 1, 1)
-        }
-        function del() {
-          if (focusedChildren.length === cursorIndex + 1) return
-          focusedChildren.splice(cursorIndex + 1, 1)
-        }
-        function newCell(args : TNewCellArgs | undefined = undefined) {
-          const newNodeId = createNodeAndRef(args)
-          insertItems(focusedChildren,cursorIndex+1, newNodeId)
-          //focusedChildren._insertItemsAtMut(cursorIndex, newNodeId)
+          const parentPos = getParentNodePosition(parentId)
 
+          const offs = directionRight ? 1 : 0
+          goTo(parentPos.id, parentPos.index+offs)
+          return
         }
-        function linebreak() {
-          focusedChildren._insertItemsAtMut(cursorIndex, 'br')
-        }
-        function moveLeft() {
-          move(-1)
-        }
-        function moveRight() {
-          move(1)
-        }
-        function search() {
 
-          reactMode = false
+        const targetNodeId = focusedChildren[cursorIndex+offset]
 
-          // @ts-ignore
-          const searchJsx = <cell><cell query><cursor/>hi there</cell><br/><cell containsQuery><contains><ref query/></contains></cell><br/><cell row><set visible/><action>yo</action><br/></cell><visible><action>yo2</action><br/></visible></cell>
-          console.log(searchJsx)
-          reactMode=true
+        const targetNode = getNodeById(targetNodeId)
+        if (hasChildren(targetNode)) {
+          //entering a cell (descending)
+          const gotoIndex = directionRight ? 0 : targetNode.children.length
+          const castedId = targetNodeId.i as number
+          cursorNode.lastNodeStack?.push(castedId)
+          goTo(castedId,gotoIndex)
+          return
+        }
 
-          function injectJsxAsNodes(jsx: any) {
-            if (isString(jsx)) {
-              return jsx
-            }
-            if (jsx.tag==='br') {
-              return 'br'
-            }
-            if (jsx.tag==='cursor') {
-              return cursorId
-            }
-            const mappedChildren = jsx.children.map(injectJsxAsNodes)
-            const exploded = mappedChildren.reduce((accum: any[], current: string)=>{
-              if (isString(current)) {
-                if (current==='br') return accum.concat(['br'])
-                return accum.concat(...(current._toCharArray()))
-              } else {
-                return accum.concat(current)
-              }
-            },[])
-            return createNode(exploded, jsx.tag)
+        swapIndexes(focusedChildren, cursorIndex, cursorIndex+offset)
+      }
+      function backspace() {
+        if (cursorIndex === 0) return
+        focusedChildren.splice(cursorIndex - 1, 1)
+      }
+      function del() {
+        if (focusedChildren.length === cursorIndex + 1) return
+        focusedChildren.splice(cursorIndex + 1, 1)
+      }
+      function newCell(args : TNewCellArgs | undefined = undefined) {
+        const newNodeId = createNodeAndRef(args)
+        insertItems(focusedChildren,cursorIndex+1, {i:newNodeId})
+      }
+      function linebreak() {
+        focusedChildren._insertItemsAtMut(cursorIndex, {i:'br'})
+      }
+      function moveLeft() {
+        move(-1)
+      }
+      function moveRight() {
+        move(1)
+      }
+      function search() {
+
+        reactMode = false
+
+        // @ts-ignore
+        const searchJsx = <cell><cell query><cursor/>hi there</cell><br/><cell containsQuery><contains><ref query/></contains></cell><br/><cell row><set visible/><action>yo</action><br/></cell><visible><action>yo2</action><br/></visible></cell>
+        console.log(searchJsx)
+        reactMode=true
+
+        function injectJsxAsNodes(jsx: any) {
+          if (isString(jsx)) {
+            return jsx
           }
-          const newNodeId = injectJsxAsNodes(searchJsx)
-          const node = getNodeById(newNodeId)
-          focusedChildren[cursorIndex] = newNodeId
-        }
-        function insertKey(text: string = key) {
-          insertItems(focusedChildren,cursorIndex, text)
-          //focusedChildren._insertItemsAtMut(cursorIndex, text)
-        }
-        function insertKeys(chars: string[]) {
-          insertItems(focusedChildren,cursorIndex, ...chars)
-        }
-        if (false) { }
-        else if (key.startsWith('{') && key.endsWith('}')) {
-          const command = JSON.parse(key)
-          if (command.tag==='newRef') {
-            const targetId = nodes[command.id] as number
-            const newRefId = createRef(targetId)
-            focusedChildren._insertItemsAtMut(cursorIndex+1,newRefId)
+          if (jsx.tag==='br') {
+            return 'br'
           }
+          if (jsx.tag==='cursor') {
+            return cursorId
+          }
+          const mappedChildren = jsx.children.map(injectJsxAsNodes)
+          const exploded = mappedChildren.reduce((accum: any[], current: string)=>{
+            if (isString(current)) {
+              if (current==='br') return accum.concat(['br'])
+              return accum.concat(...(current._toCharArray()))
+            } else {
+              return accum.concat(current)
+            }
+          },[])
+          return createNode(exploded, jsx.tag)
         }
-        else if (key === 'backspace') {
-          backspace();
-        } else if (key === 'delete') {
-          del();
-        } else if (key === "arrowleft") {
-          moveLeft();
-        } else if (key === "arrowright") {
-          moveRight();
-        } else if (key === "arrowup") {
+        const newNodeId = injectJsxAsNodes(searchJsx)
+        const node = getNodeById(newNodeId)
+        focusedChildren[cursorIndex] = newNodeId
+      }
+      function insertKey(text: string = key) {
+        insertItems(focusedChildren,cursorIndex, {i:text})
+        //focusedChildren._insertItemsAtMut(cursorIndex, text)
+      }
+      function insertKeys(chars: string[]) {
+        insertItems(focusedChildren,cursorIndex, ...chars.map(c=>({i:c})))
+      }
+      if (false) { }
+      else if (tag === 'newRef') {
+        const targetId = nodes[id] as number
+        const newRefId = createRef(targetId)
+        focusedChildren._insertItemsAtMut(cursorIndex+1,{i:newRefId})
+      }
+      else if (key === 'backspace') {
+        backspace();
+      } else if (key === 'delete') {
+        del();
+      } else if (key === "arrowleft") {
+        moveLeft();
+      } else if (key === "arrowright") {
+        moveRight();
+      } else if (key === "arrowup") {
 
-        } else if (key === "arrowdown") {
+      } else if (key === "arrowdown") {
 
-        } else if (key.startsWith('shift+') && key.length===7) {
-          insertKey(key.replace('shift+','').toUpperCase())
-        } else if (key==='shift+arrowleft') {
+      } else if (key.startsWith('shift+') && key.length===7) {
+        insertKey(key.replace('shift+','').toUpperCase())
+      } else if (key==='shift+arrowleft') {
 
-        } else if (key==='shift+arrowright') {
+      } else if (key==='shift+arrowright') {
 
-        } else if (key === ctrlEnter) {
-          newCell();
-        } else if (key === "ctrl+r") {
-          newCell();
-        } else if (key === "ctrl+p") {
-          newCell({ tag: 'pipe'})
-        } else if (key === "ctrl+v") {
-          navigator.clipboard.readText().then(
-            clipText => {
-              const clipChars = clipText.split('')
-              insertKeys(clipChars)
-            });
-        }
-        else if (key === "enter") {
-          linebreak();
-        } else if (key === "`") {
-          search();
-        }
-        else {
-          insertKey();
-        }
+      } else if (key === ctrlEnter) {
+        newCell();
+      } else if (key === "ctrl+r") {
+        newCell();
+      } else if (key === "ctrl+p") {
+        newCell({ tag: 'pipe'})
+      } else if (key === "ctrl+v") {
+        navigator.clipboard.readText().then(
+          clipText => {
+            const clipChars = clipText.split('')
+            insertKeys(clipChars)
+          });
+      }
+      else if (key === "enter") {
+        linebreak();
+      } else if (key === "`") {
+        search();
+      }
+      else {
+        insertKey();
       }
     }
     const value = getStateAsJson()
@@ -372,30 +379,34 @@ export function Machine(state: TState) {
     }
     }>{props.children}</button>
   }
-  function R(n: TNode,id: TChild, path: number[]) {
-    const buttonLabel = isRef(id) ? nodes[id as number] : id
+  function R(n: TNode, child: TChild, path: number[]) {
+    const buttonLabel = isRef(child) ? nodes[child.i as number] : child
     function ActionButton(props: any) {
-      return <button key={"ab_"+id} onClick={()=>{
-        const key = JSON.stringify({ tag: 'newRef', id })
-        input({tag:ioTag, key })
+      return <button key={"ab_"+child} onClick={()=>{
+        const id1 = child.i;
+        if (typeof id1 !== 'number') return;
+        input({ tag: 'newRef', id: id1 })
         blurActiveElement()
       }
       }>{props.children}</button>
     }
-    function mapChild(childId: TChild) {
-      if (typeof childId === 'string') {
-        if (childId === 'br') {
+    function mapChild(childId: TChild): JSX.Element | string {
+      const i = childId.i;
+      if (typeof i === 'string') {
+        if (i === 'br') {
           return <>↵<br/></>
         }
-        if (childId === '\r') {
+        if (i === '\r') {
           return '␍'
         }
-        if (childId === '\n') {
+        if (i === '\n') {
           return <>␤<br/></>
         }
-        return childId
+        return i
       }
+
       const cn = getNodeById(childId)
+
       if (isCursor(cn)) {
         if (!arreq(cn.lastNodeStack || [], path)) {
           //render alternate cursor inside cloned nodes that don't match the cursor's path
@@ -406,11 +417,11 @@ export function Machine(state: TState) {
         return <span className={'blink_me'}>{nbsp}</span>
       }
       const pathClone = [...path]
-      pathClone.push(childId)
+      pathClone.push(i)
       return R(cn, childId, pathClone)
     }
 
-    const showRefButton = id!==rootNodeId;
+    const showRefButton = (child.i as number)!==rootNodeId;
     const verbs = {
       newCell: <Verb value={{tag: ioTag, key: ctrlEnter}}>New Cell</Verb>,
       pipe: <Verb value={{tag: ioTag, key: ctrlP}}>Pipe</Verb>,
@@ -436,7 +447,7 @@ export function Machine(state: TState) {
   }
 
   state.input = input
-  state.Render = watch(()=>R(nodes[1] as TNode,1, [1]))
+  state.Render = watch(()=>R(nodes[rootNodeId] as TNode,{i:rootNodeId}, [rootNodeId]))
 
   return state
 }
