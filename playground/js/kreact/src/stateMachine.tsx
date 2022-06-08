@@ -6,13 +6,21 @@ import hyperactiv from "hyperactiv";
 //const { observe, computed, dispose } = hyperactiv
 
 const rootNodeId = 1
+const rootNodeContainerId = 2
 const cursorId = 0
 const cursorChar = '█'
 const ctrlEnter = "ctrl+enter"
 const ctrlP = "ctrl+p"
 const ctrlV = "ctrl+v"
 const nbsp = "\u00a0"
-
+const syms = {
+  arrows: {
+    up: '↑',
+    down: '↓',
+    right: '→',
+    left: '←'
+  }
+}
 let reactMode = false
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   if (reactMode) return React.createElement(tag,props,...children)
@@ -27,12 +35,16 @@ export type TState = {
   Render: (props: {id: TChild}) => JSX.Element
   input: (data: TData) => void
   nodes: TNodeData[]
-  console: any[]
+  //console: any[]
 }
 
 const ioTag = 'io';
-type TTag = typeof ioTag
-type TData = { tag: TTag, key:string } | { tag: 'newRef', id: number }
+
+
+type TData = { tag: 'io', key:string }
+  | { tag: 'newRef', id: number }
+  | { tag: 'rowBelow', id: number, childIndex: number }
+
 type TChildId = { i: number }
 type TChildStr = { i: string }
 type TChild = TChildId | TChildStr
@@ -56,21 +68,26 @@ type TNewCellArgs = {
 export function getInitialState(): TState {
   return {
     nodes: [
-    {
-      // @ts-ignore
-      id: cursorId,
-      tag: 'cursor',
-      lastNodeStack: [rootNodeId]
-    },
-    {
-      // @ts-ignore
-      id: rootNodeId,
-      root: true,
-      tag: 'cell',
-      children: [{i:cursorId}]
-    },
-    ],
-    console: []
+      {
+        // @ts-ignore
+        id: cursorId,
+        tag: 'cursor',
+        lastNodeStack: [rootNodeId]
+      },
+      {
+        // @ts-ignore
+        id: rootNodeId,
+        root: true,
+        tag: 'cell',
+        children: [{i:cursorId}]
+      },
+      {
+        // @ts-ignore
+        id: rootNodeContainerId,
+        tag: 'cell',
+        children: [{i: rootNodeId}]
+      }
+    ]
   }
 }
 
@@ -82,14 +99,19 @@ export function Machine(state: TState) {
     tag: '',
     children: [],
   }
-
+  const rootPos: TChildPosition = {
+    node: nodes[rootNodeId] as TNode,
+    nodeId: rootNodeId,
+    childIndex: -1,
+    childValue: { i: -1 }
+  }
   function isRef(child: TChild) {
     const i = child.i;
     if (typeof i === 'string') return false
     return typeof nodes[i] === 'number'
   }
-  function getNodeById2(nodeIndex: number):TNode {
-    return getNodeById({i:nodeIndex})
+  function getNodeById2(nodeNum: number):TNode {
+    return getNodeById({i:nodeNum})
   }
   function getNodeById(child: TChild):TNode {
     const i = child.i;
@@ -185,10 +207,8 @@ export function Machine(state: TState) {
   }
   function input(data: TData) {
     let {tag} = data
-    let {key,id} = match(data)
-      .with({tag: 'io'}, ({key})=>({key, id: -1}))
-      .with({tag: 'newRef'}, ({id})=>({key:'', id}))
-      .exhaustive()
+    const def = { key: '', id: -1, childIndex: -1}
+    let {key,id, childIndex} = {...def, ...data}
 
     if (key==='unidentified') return;
 
@@ -379,18 +399,22 @@ export function Machine(state: TState) {
     }
     }>{props.children}</button>
   }
-  function R(n: TNode, child: TChild, path: number[]) {
-    const buttonLabel = isRef(child) ? nodes[child.i as number] : child
-    function ActionButton(props: any) {
-      return <button key={"ab_"+child} onClick={()=>{
-        const id1 = child.i;
-        if (typeof id1 !== 'number') return;
-        input({ tag: 'newRef', id: id1 })
-        blurActiveElement()
-      }
-      }>{props.children}</button>
+  function R(parentNodeId: number, childIndex: number, path: number[]) {
+    const parentNode = getNodeById2(parentNodeId)
+    const nodeId = parentNode.children[childIndex]
+    const n = getNodeById(nodeId)
+    const nodeIdNumber = nodeId.i as number;
+    const buttonLabel = isRef(nodeId) ? nodes[nodeIdNumber] : nodeId
+
+    function newRef() {
+      const id1 = nodeId.i;
+      if (typeof id1 !== 'number') return;
+      input({tag:'newRef', id: id1})
     }
-    function mapChild(childId: TChild): JSX.Element | string {
+    function cellBelow() {
+      input({tag:'rowBelow', id: parentNodeId, childIndex})
+    }
+    function mapChild(childId: TChild, index: number): JSX.Element | string {
       const i = childId.i;
       if (typeof i === 'string') {
         if (i === 'br') {
@@ -418,16 +442,16 @@ export function Machine(state: TState) {
       }
       const pathClone = [...path]
       pathClone.push(i)
-      return R(cn, childId, pathClone)
+      return R(nodeIdNumber, index, pathClone)
     }
 
-    const showRefButton = (child.i as number)!==rootNodeId;
+    const showRefButton = nodeIdNumber!==rootNodeId;
     const verbs = {
       newCell: <Verb value={{tag: ioTag, key: ctrlEnter}}>New Cell</Verb>,
       pipe: <Verb value={{tag: ioTag, key: ctrlP}}>Pipe</Verb>,
       paste: <Verb value={{tag: ioTag, key: ctrlV}}>Paste</Verb>,
     }
-    const jpath = JSON.stringify(path);
+
     const style = {
       display: 'inline-block',
       maxWidth: '120ch',
@@ -436,18 +460,24 @@ export function Machine(state: TState) {
     const rootStyle = {
 
     }
-    //const s = '*'.repeat(1000)
 
+    const mappedChildren = n.children.map((c,i)=>mapChild(c,i));
     if (!showRefButton) {
       return <div className={"ofw"} style={rootStyle}>{[...Object.values(verbs)]}<br/>
-        {n.children.map(mapChild)}</div>
+        {mappedChildren}</div>
     }
-    return <div className={"ofw"} style={style}>{n.tag}<ActionButton>{buttonLabel}</ActionButton>{n.children.map(mapChild)}
+    return <div className={"ofw"} style={style}>
+      {n.tag}
+      <Btn do={newRef}>{buttonLabel}</Btn>
+      <Btn do={cellBelow}>{syms.arrows.down}</Btn>
+      {mappedChildren}
     </div>
   }
 
   state.input = input
-  state.Render = watch(()=>R(nodes[rootNodeId] as TNode,{i:rootNodeId}, [rootNodeId]))
+  state.Render = watch(()=>{
+    return R(rootNodeContainerId, 0, [rootNodeId])
+  })
 
   return state
 }
@@ -469,3 +499,10 @@ function blurActiveElement() {
   document.activeElement?.blur()
 }
 
+function Btn(props: any) {
+  return <button onClick={()=>{
+    props.do()
+    blurActiveElement()
+  }
+  }>{props.children}</button>
+}
