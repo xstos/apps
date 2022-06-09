@@ -366,3 +366,4 @@ MigrationBackup/
 /playground/js/dock/dist/
 /playground/js/kreact/dist/
 /demos/js/drag-drop-html5/dist/
+dist/
