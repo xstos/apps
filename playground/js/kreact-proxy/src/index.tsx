@@ -2,7 +2,7 @@ import './index.css';
 import React from "react";
 import ReactDOM from 'react-dom'
 import {bindkeys} from "./io";
-
+import clonedeep from "lodash.clonedeep"
 declare var v: any
 declare var o: any
 declare var global: any
@@ -41,6 +41,7 @@ const app = <cells>
   <area><pow><radius/><exponent/></pow></area>
 </cells>
 
+const state = []
 function makeProxy(type) {
   let handler = null
   handler = {
@@ -49,17 +50,16 @@ function makeProxy(type) {
         return target[key]
       }
       target._data.push(['get', key])
-      console.log(target._data)
       return newProxy(target, handler)
     },
     apply(target, thisArg, args) {
       target._data.push(['apply',...args.map(a=>a._data ? a._data : a)])
-      console.log(target._data)
       return newProxy(target, handler)
     },
   }
   const f = ()=>{}
   f._data = [type]
+  state.push(f._data)
   return newProxy(f, handler)
 }
 function defProp(key,type) {
@@ -74,6 +74,9 @@ defProp('o','op')
 
 v.a1(123)
 v.b1(o.equals(v.a1))
+
+console.log(JSON.stringify(state,null,2))
+
 
 reactMode=true
 ReactDOM.render(
