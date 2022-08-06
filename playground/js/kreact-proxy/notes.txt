@@ -1,0 +1,24 @@
+https://esbuild.github.io/getting-started/#deno
+
+https://futureofcoding.org/essays/dctp.html
+
+https://kddsky.medium.com/pauseable-observables-in-rxjs-58ce2b8c7dfd
+https://github.com/funkia/hareactive
+https://github.com/funkia/turbine
+https://github.com/stoeffel/awesome-frp-js
+https://www.youtube.com/watch?v=tchjAe0udO0
+https://npm.io/package/tiny-olap
+https://kddsky.medium.com/pauseable-observables-in-rxjs-58ce2b8c7dfd
+https://www.ctnicholas.dev/articles/reactive-framework-in-40-lines
+https://dev.to/ryansolid/building-a-reactive-library-from-scratch-1i0p
+
+https://stackoverflow.com/questions/67759433/typescript-parcel-new-jsx-transform-react-is-not-defined-error
+https://stackoverflow.com/a/68238924/1618433
+https://dev.to/gugadev/use-custom-elements-in-react-using-a-custom-jsx-pragma-3kc
+
+https://github.com/rakannimer/the-dag
+
+js excel: http://jsfiddle.net/ondras/hYfN3/
+https://www.monterail.com/blog/2016/how-to-build-a-reactive-engine-in-javascript-part-1-observable-objects
+https://github.com/handsontable/hyperformula
+https://github.com/pavel-surinin/auto-memoize
