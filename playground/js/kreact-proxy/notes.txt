@@ -22,3 +22,6 @@ js excel: http://jsfiddle.net/ondras/hYfN3/
 https://www.monterail.com/blog/2016/how-to-build-a-reactive-engine-in-javascript-part-1-observable-objects
 https://github.com/handsontable/hyperformula
 https://github.com/pavel-surinin/auto-memoize
+
+Dissecting a completely Functional-Reactive JavaScript app | Netta Bondy
+https://www.youtube.com/watch?v=tchjAe0udO0&t=1166s

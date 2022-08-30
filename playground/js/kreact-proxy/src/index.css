@@ -1,43 +1,15 @@
-html,
-body, .root {
+html, body {
     margin: 0;
     padding: 0;
-    background-color: black;
-    color: whitesmoke;
-
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
 }
-
-/* include border and padding in element width and height */
-* {
-    box-sizing: border-box;
+.root {
+    height: 100%;
+    width: 100%;
 }
-
-/* full-sized  container that fills up the page */
-.root body html {
-    margin: 0px;
-    padding: 0px;
-    width: 98vw;
-    height: 98vh;
-    overflow-wrap: anywhere;
-    /* example padding, font-size, background, etc */
-}
-div {
-    font-family: monospace;
-    vertical-align: top;
-}
-
-.ofw {
-    overflow-wrap: anywhere;
-}
-
-.blink_me {
-    animation: blinker 1s linear infinite;
-    background-color: white;
-    color: black;
-}
-
-@keyframes blinker {
-    50% {
-        opacity: 0;
-    }
+.bcanv {
+    height: 100%;
+    width: 100%;
 }
