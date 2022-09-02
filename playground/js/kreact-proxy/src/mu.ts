@@ -166,7 +166,7 @@ type mu_Context = {
   /* retained state pools */
   container_pool: mu_PoolItem[],
   containers: mu_Container[],
-  treenode_pool: mu_PoolItem,
+  treenode_pool: mu_PoolItem[],
   /* input state */
   mouse_pos: mu_Vec2,
   last_mouse_pos: mu_Vec2,
@@ -183,6 +183,7 @@ type mu_Stack<T> = {
   items: T[]
 }
 type Int = number
+type Real = number
 type mu_Layout = {
   body: mu_Rect,
   next: mu_Rect,
@@ -415,7 +416,7 @@ function mu_get_current_container(ctx: mu_Context) {
   return ctx.container_stack.items[ctx.container_stack.idx - 1]
 }
 
-function get_container(ctx: mu_Context, id: mu_Id, opt: Int) {
+function get_container(ctx: mu_Context, id: mu_Id, opt: Int): mu_Container | null {
   var idx = mu_pool_get(ctx, ctx.container_pool, id)
   if (idx >= 0) {
     if (ctx.containers[idx].open || ~opt & MU_OPT_CLOSED) {
@@ -433,7 +434,7 @@ function get_container(ctx: mu_Context, id: mu_Id, opt: Int) {
   return cnt
 }
 
-function mu_get_container(ctx: mu_Context, name: string) {
+function mu_get_container(ctx: mu_Context, name: string): mu_Container | null {
   const id = mu_get_id(ctx, name)
   return get_container(ctx, id, 0)
 }
@@ -528,9 +529,10 @@ function mu_next_command(ctx: mu_Context) {
   //todo
 }
 
-function push_jump(ctx: mu_Context, dst: mu_Command) {
+function push_jump(ctx: mu_Context, dst: mu_Command): mu_Command {
   let cmd = mu_push_command(ctx, MU_COMMAND_JUMP) as mu_JumpCommand
   cmd.dst = dst
+  return cmd
 }
 
 function mu_set_clip(ctx: mu_Context, rect: mu_Rect) {
@@ -783,7 +785,7 @@ function mu_text(ctx: mu_Context, text: string) {
         p++;
       }
       w += ctx.text_width(font, text.substring(start, p));
-      if (w > r[w] && end != start) {
+      if (w > r[w] && end !== start) {
         break;
       }
       w += ctx.text_width(font, text[p]);
@@ -893,19 +895,22 @@ function mu_textbox_raw(ctx: mu_Context, buf: string, bufsz: Int, id: mu_Id, r: 
   return res;
 }
 
-/*
-function number_textbox(ctx: mu_Context, mu_Real *value, mu_Rect r, id: mu_Id): Int {
-  if (ctx.mouse_pressed===MU_MOUSE_LEFT && ctx.key_down & MU_KEY_SHIFT &&
-  ctx.hover===id
-) {
+
+function number_textbox(ctx: mu_Context, value: Real, r: mu_Rect, id: mu_Id): Int {
+  if (ctx.mouse_pressed === MU_MOUSE_LEFT
+    && ctx.key_down & MU_KEY_SHIFT
+    && ctx.hover === id) {
     ctx.number_edit = id;
-    sprintf(ctx.number_edit_buf, MU_REAL_FMT, *value);
+    ctx.number_edit_buf = value + ""
+    //todo:
+    //sprintf(ctx.number_edit_buf, MU_REAL_FMT, *value);
   }
-  if (ctx.number_edit===id) {
-    int res = mu_textbox_raw(
-      ctx, ctx.number_edit_buf, sizeof(ctx.number_edit_buf), id, r, 0);
-    if (res & MU_RES_SUBMIT || ctx.focus != id) {
-    *value = strtod(ctx.number_edit_buf, NULL);
+  if (ctx.number_edit === id) {
+    let res = mu_textbox_raw(
+      ctx, ctx.number_edit_buf, ctx.number_edit_buf.length, id, r, 0);
+    if (res & MU_RES_SUBMIT || ctx.focus !== id) {
+      //todo:
+      //*value = strtod(ctx.number_edit_buf, NULL);
       ctx.number_edit = 0;
     } else {
       return 1;
@@ -913,7 +918,6 @@ function number_textbox(ctx: mu_Context, mu_Real *value, mu_Rect r, id: mu_Id): 
   }
   return 0;
 }
-*/
 
 function mu_textbox_ex(ctx: mu_Context, buf: string, bufsz: Int, opt: Int) {
   let id: mu_Id = mu_get_id(ctx, buf + "");
@@ -921,140 +925,401 @@ function mu_textbox_ex(ctx: mu_Context, buf: string, bufsz: Int, opt: Int) {
   return mu_textbox_raw(ctx, buf, bufsz, id, r, opt);
 }
 
-//
-// function mu_slider_ex(ctx: mu_Context, mu_Real *value, mu_Real low, mu_Real high,
-//   mu_Real step, const char *fmt, opt: Int)
-// {
-//   char buf[MU_MAX_FMT + 1];
-//   mu_Rect thumb;
-//   int x, w, res = 0;
-//   mu_Real last = *value, v = last;
-//   id: mu_Id = mu_get_id(ctx, &value, sizeof(value));
-//   mu_Rect base = mu_layout_next(ctx);
-//
-//   /* handle text input mode */
-//   if (number_textbox(ctx, &v, base, id)) { return res; }
-//
-//   /* handle normal mode */
-//   mu_update_control(ctx, id, base, opt);
-//
-//   /* handle input */
-//   if (ctx.focus===id &&
-//     (ctx.mouse_down | ctx.mouse_pressed)===MU_MOUSE_LEFT)
-//   {
-//     v = low + (ctx.mouse_pos[x] - base[x]) * (high - low) / base[w];
-//     if (step) { v = (((v + step / 2) / step)) * step; }
-//   }
-//   /* clamp and store value, update res */
-// *value = v = mu_clamp(v, low, high);
-//   if (last != v) { res |= MU_RES_CHANGE; }
-//
-//   /* draw base */
-//   mu_draw_control_frame(ctx, id, base, MU_COLOR_BASE, opt);
-//   /* draw thumb */
-//   w = ctx.style.thumb_size;
-//   x = (v - low) * (base[w] - w) / (high - low);
-//   thumb = mu_rect(base[x] + x, base[y], w, base[h]);
-//   mu_draw_control_frame(ctx, id, thumb, MU_COLOR_BUTTON, opt);
-//   /* draw text  */
-//   sprintf(buf, fmt, v);
-//   mu_draw_control_text(ctx, buf, base, MU_COLOR_TEXT, opt);
-//
-//   return res;
-// }
+function mu_slider_ex(ctx: mu_Context, value: Real, low: Real, high: Real,
+                      step: Real, fmt: string, opt: Int) {
+  let buf: string
+  let thumb: mu_Rect;
+  let x = 0, w = 0, res = 0;
+  let last = value, v = last;
+  let id: mu_Id = mu_get_id(ctx, value + "");
+  let base = mu_layout_next(ctx);
 
-//
-// function mu_number_ex(ctx: mu_Context, mu_Real *value, mu_Real step,
-// const char *fmt, opt: Int)
-// {
-//   char buf[MU_MAX_FMT + 1];
-//   int res = 0;
-//   id: mu_Id = mu_get_id(ctx, &value, sizeof(value));
-//   mu_Rect base = mu_layout_next(ctx);
-//   mu_Real last = *value;
-//
-//   /* handle text input mode */
-//   if (number_textbox(ctx, value, base, id)) { return res; }
-//
-//   /* handle normal mode */
-//   mu_update_control(ctx, id, base, opt);
-//
-//   /* handle input */
-//   if (ctx.focus===id && ctx.mouse_down===MU_MOUSE_LEFT) {
-// *value += ctx.mouse_delta[x] * step;
-// }
-//   /* set flag if value changed */
-//   if (*value != last) { res |= MU_RES_CHANGE; }
-//
-//   /* draw base */
-//   mu_draw_control_frame(ctx, id, base, MU_COLOR_BASE, opt);
-//   /* draw text  */
-//   sprintf(buf, fmt, *value);
-//   mu_draw_control_text(ctx, buf, base, MU_COLOR_TEXT, opt);
-//
-//   return res;
-// }
+  /* handle text input mode */
+  if (number_textbox(ctx, v, base, id)) {
+    return res;
+  }
 
-//
-// function header(ctx: mu_Context, const char *label, int istreenode, opt: Int) :Int {
-//   mu_Rect r;
-//   int active, expanded;
-//   id: mu_Id = mu_get_id(ctx, label, strlen(label));
-//   int idx = mu_pool_get(ctx, ctx.treenode_pool, MU_TREENODEPOOL_SIZE, id);
-//   int width = -1;
-//   mu_layout_row(ctx, 1, &width, 0);
-//
-//   active = (idx >= 0);
-//   expanded = (opt & MU_OPT_EXPANDED) ? !active : active;
-//   r = mu_layout_next(ctx);
-//   mu_update_control(ctx, id, r, 0);
-//
-//   /* handle click */
-//   active ^= (ctx.mouse_pressed===MU_MOUSE_LEFT && ctx.focus===id);
-//
-//   /* update pool ref */
-//   if (idx >= 0) {
-//     if (active) { mu_pool_update(ctx, ctx.treenode_pool, idx); }
-//     else { memset(&ctx.treenode_pool[idx], 0, sizeof(mu_PoolItem)); }
-//   } else if (active) {
-//     mu_pool_init(ctx, ctx.treenode_pool, MU_TREENODEPOOL_SIZE, id);
-//   }
-//
-//   /* draw */
-//   if (istreenode) {
-//     if (ctx[h]over===id) { ctx.draw_frame(ctx, r, MU_COLOR_BUTTONHOVER); }
-//   } else {
-//     mu_draw_control_frame(ctx, id, r, MU_COLOR_BUTTON, 0);
-//   }
-//   mu_draw_icon(
-//     ctx, expanded ? MU_ICON_EXPANDED : MU_ICON_COLLAPSED,
-//     mu_rect(r[x], r[y], r[h], r[h]), ctx.style.colors[MU_COLOR_TEXT]);
-//   r[x] += r[h] - ctx.style.padding;
-//   r[w] -= r[h] - ctx.style.padding;
-//   mu_draw_control_text(ctx, label, r, MU_COLOR_TEXT, 0);
-//
-//   return expanded ? MU_RES_ACTIVE : 0;
-// }
-//
-//
-// function mu_header_ex(ctx: mu_Context, const char *label, opt: Int) {
-//   return header(ctx, label, 0, opt);
-// }
-//
-//
-// function mu_begin_treenode_ex(ctx: mu_Context, const char *label, opt: Int) {
-//   int res = header(ctx, label, 1, opt);
-//   if (res & MU_RES_ACTIVE) {
-//     get_layout(ctx).indent += ctx.style.indent;
-//     push(ctx.id_stack, ctx.last_id);
-//   }
-//   return res;
-// }
-//
-//
-// function mu_end_treenode(ctx: mu_Context) {
-//   get_layout(ctx).indent -= ctx.style.indent;
-//   mu_pop_id(ctx);
-// }
+  /* handle normal mode */
+  mu_update_control(ctx, id, base, opt);
+
+  /* handle input */
+  if (ctx.focus === id &&
+    (ctx.mouse_down | ctx.mouse_pressed) === MU_MOUSE_LEFT) {
+    v = low + (ctx.mouse_pos[x] - base[x]) * (high - low) / base[w];
+    if (step) {
+      v = (((v + step / 2) / step)) * step;
+    }
+  }
+  /* clamp and store value, update res */
+  value = v = mu_clamp(v, low, high);
+  if (last !== v) {
+    res |= MU_RES_CHANGE;
+  }
+
+  /* draw base */
+  mu_draw_control_frame(ctx, id, base, MU_COLOR_BASE, opt);
+  /* draw thumb */
+  w = ctx.style.thumb_size;
+  x = (v - low) * (base[w] - w) / (high - low);
+  thumb = [base[x] + x, base[y], w, base[h]];
+  mu_draw_control_frame(ctx, id, thumb, MU_COLOR_BUTTON, opt);
+  /* draw text  */
+  //sprintf(buf, fmt, v);
+  buf = v + ""
+  mu_draw_control_text(ctx, buf, base, MU_COLOR_TEXT, opt);
+
+  return res;
+}
+
+
+function mu_number_ex(ctx: mu_Context, value: Real, step: Real, fmt: string, opt: Int) {
+  let buf: string
+  let res = 0;
+  let id: mu_Id = mu_get_id(ctx, value + "");
+  let base = mu_layout_next(ctx);
+  let last = value;
+
+  /* handle text input mode */
+  if (number_textbox(ctx, value, base, id)) {
+    return res;
+  }
+
+  /* handle normal mode */
+  mu_update_control(ctx, id, base, opt);
+
+  /* handle input */
+  if (ctx.focus === id && ctx.mouse_down === MU_MOUSE_LEFT) {
+    value += ctx.mouse_delta[x] * step;
+  }
+  /* set flag if value changed */
+  if (value !== last) {
+    res |= MU_RES_CHANGE;
+  }
+
+  /* draw base */
+  mu_draw_control_frame(ctx, id, base, MU_COLOR_BASE, opt);
+  /* draw text  */
+  //sprintf(buf, fmt, *value);
+  buf = value + ""
+  mu_draw_control_text(ctx, buf, base, MU_COLOR_TEXT, opt);
+
+  return res;
+}
+
+function btoi(v: boolean) {
+  return v ? 1 : 0
+}
+
+function header(ctx: mu_Context, label: string, istreenode: Int, opt: Int): Int {
+  let r: mu_Rect;
+  let active, expanded;
+  let id: mu_Id = mu_get_id(ctx, label);
+  let idx = mu_pool_get(ctx, ctx.treenode_pool, id);
+  let width: Int = -1;
+  mu_layout_row(ctx, 1, [width], 0);
+
+  active = btoi(idx >= 0);
+  expanded = (opt & MU_OPT_EXPANDED) ? !active : active;
+  r = mu_layout_next(ctx);
+  mu_update_control(ctx, id, r, 0);
+
+  /* handle click */
+  active ^= btoi(ctx.mouse_pressed === MU_MOUSE_LEFT && ctx.focus === id);
+
+  /* update pool ref */
+  if (idx >= 0) {
+    if (active) {
+      mu_pool_update(ctx, ctx.treenode_pool, idx);
+    } else {
+      ctx.treenode_pool[idx] = {
+        id: 0,
+        last_update: 0
+      }
+      //memset(&ctx.treenode_pool[idx], 0, sizeof(mu_PoolItem));
+    }
+  } else if (active) {
+    mu_pool_init(ctx, ctx.treenode_pool, ctx.treenode_pool.length, id);
+  }
+
+  /* draw */
+  if (istreenode) {
+    if (ctx.hover === id) {
+      ctx.draw_frame(ctx, r, MU_COLOR_BUTTONHOVER);
+    }
+  } else {
+    mu_draw_control_frame(ctx, id, r, MU_COLOR_BUTTON, 0);
+  }
+  mu_draw_icon(
+    ctx, expanded ? MU_ICON_EXPANDED : MU_ICON_COLLAPSED,
+    [r[x], r[y], r[h], r[h]], ctx.style.colors[MU_COLOR_TEXT]);
+  r[x] += r[h] - ctx.style.padding;
+  r[w] -= r[h] - ctx.style.padding;
+  mu_draw_control_text(ctx, label, r, MU_COLOR_TEXT, 0);
+
+  return expanded ? MU_RES_ACTIVE : 0;
+}
+
+function mu_header_ex(ctx: mu_Context, label: string, opt: Int) {
+  return header(ctx, label, 0, opt);
+}
+
+function mu_begin_treenode_ex(ctx: mu_Context, label: string, opt: Int) {
+  let res = header(ctx, label, 1, opt);
+  if (res & MU_RES_ACTIVE) {
+    get_layout(ctx).indent += ctx.style.indent;
+    push(ctx.id_stack, ctx.last_id);
+  }
+  return res;
+}
+
+function mu_end_treenode(ctx: mu_Context) {
+  get_layout(ctx).indent -= ctx.style.indent;
+  mu_pop_id(ctx);
+}
+
+function scrollbar(ctx: mu_Context, cnt: mu_Container, b: mu_Rect, cs: mu_Vec2, size: mu_Rect) {
+  const [_x, _y, _w, _h] = size
+  const maxscroll = cs[y] - b[h]
+  if (maxscroll > 0 && b[h] > 0) {
+    let base: mu_Rect, thumb: mu_Rect
+    const id = mu_get_id(ctx, "!scrollbar" + _y)
+
+    /* get sizing / positioning */
+    base = [...b]
+    base[x] = b[x] + b[w]
+    base[w] = ctx.style.scrollbar_size
+
+    /* handle input */
+    mu_update_control(ctx, id, base, 0)
+    if (ctx.focus === id && ctx.mouse_down === MU_MOUSE_LEFT) {
+      cnt.scroll[y] += ctx.mouse_delta[y] * cs[y] / base[h]
+    }
+
+    /* clamp scroll to limits */
+    cnt.scroll[y] = mu_clamp(cnt.scroll[y], 0, maxscroll)
+
+    /* draw base and thumb */
+    ctx.draw_frame(ctx, base, MU_COLOR_SCROLLBASE)
+    thumb = [...base]
+    thumb[h] = mu_max(ctx.style.thumb_size, base[h] * b[h] / cs[y]);
+    thumb[y] += cnt.scroll[y] * (base[h] - thumb[h]) / maxscroll;
+    ctx.draw_frame(ctx, thumb, MU_COLOR_SCROLLTHUMB);
+
+    /* set this as the scroll_target (will get scrolled on mousewheel) */
+    /* if the mouse is over it */
+    if (mu_mouse_over(ctx, b)) {
+      ctx.scroll_target = cnt;
+    }
+  } else {
+    cnt.scroll[y] = 0
+  }
+}
+
+function scrollbars(ctx: mu_Context, cnt: mu_Container, body: mu_Rect) {
+  let sz = ctx.style.scrollbar_size;
+  let cs = cnt.content_size;
+  cs[x] += ctx.style.padding * 2;
+  cs[y] += ctx.style.padding * 2;
+  mu_push_clip_rect(ctx, body);
+  /* resize body to make room for scrollbars */
+  if (cs[y] > cnt.body[h]) {
+    body[w] -= sz;
+  }
+  if (cs[x] > cnt.body[w]) {
+    body[h] -= sz;
+  }
+  /* to create a horizontal or vertical scrollbar almost-identical code is
+  ** used; only the references to `x|y` `w|h` need to be switched */
+  //todo:
+  //scrollbar(ctx, cnt, body, cs, x, y, w, h);
+  //scrollbar(ctx, cnt, body, cs, y, x, h, w);
+  mu_pop_clip_rect(ctx);
+}
+
+function push_container_body(
+  ctx: mu_Context, cnt: mu_Container, body: mu_Rect, opt: Int
+) {
+  if (~opt & MU_OPT_NOSCROLL) {
+    scrollbars(ctx, cnt, body);
+  }
+  push_layout(ctx, expand_rect(body, -ctx.style.padding), cnt.scroll);
+  cnt.body = body;
+}
+
+function null_jump_command(): mu_JumpCommand {
+  return {type: MU_COMMAND_JUMP, dst: null, index: 0}
+}
+
+function begin_root_container(ctx: mu_Context, cnt: mu_Container) {
+  push(ctx.container_stack, cnt);
+  /* push container to roots list and push head command */
+  push(ctx.root_list, cnt);
+
+  cnt.head = push_jump(ctx, null_jump_command());
+  /* set as hover root if the mouse is overlapping this container and it has a
+  ** higher zindex than the current hover root */
+  if (rect_overlaps_vec2(cnt.rect, ctx.mouse_pos) &&
+    (!ctx.next_hover_root || cnt.zindex > ctx.next_hover_root.zindex)
+  ) {
+    ctx.next_hover_root = cnt;
+  }
+  /* clipping is reset here in case a root-container is made within
+  ** another root-containers's begin/end block; this prevents the inner
+  ** root-container being clipped to the outer */
+  push(ctx.clip_stack, unclipped_rect);
+}
+
+function end_root_container(ctx: mu_Context) {
+  /* push tail 'goto' jump command and set head 'skip' command. the final steps
+  ** on initing these are done in mu_end() */
+  let cnt = mu_get_current_container(ctx);
+  cnt.tail = push_jump(ctx, null_jump_command());
+  const headJump = null_jump_command()
+  headJump.dst = ctx.command_list.items[ctx.command_list.idx]
+  cnt.head = headJump
+  /* pop base clip rect and container */
+  mu_pop_clip_rect(ctx);
+  pop_container(ctx);
+}
+
+
+function mu_begin_window_ex(ctx: mu_Context, title: string, rect: mu_Rect, opt: Int): Int {
+  let body: mu_Rect;
+  let id = mu_get_id(ctx, title);
+  let cnt = get_container(ctx, id, opt);
+  if (!cnt || !cnt.open) {
+    return 0;
+  }
+  push(ctx.id_stack, id);
+
+  if (cnt.rect[w] === 0) {
+    cnt.rect = rect;
+  }
+  begin_root_container(ctx, cnt);
+  rect = body = cnt.rect;
+
+  /* draw frame */
+  if (~opt & MU_OPT_NOFRAME) {
+    ctx.draw_frame(ctx, rect, MU_COLOR_WINDOWBG);
+  }
+
+  /* do title bar */
+  if (~opt & MU_OPT_NOTITLE) {
+    let tr = rect;
+    tr[h] = ctx.style.title_height;
+    ctx.draw_frame(ctx, tr, MU_COLOR_TITLEBG);
+
+    /* do title text */
+    if (~opt & MU_OPT_NOTITLE) {
+      let id = mu_get_id(ctx, "!title");
+      mu_update_control(ctx, id, tr, opt);
+      mu_draw_control_text(ctx, title, tr, MU_COLOR_TITLETEXT, opt);
+      if (id === ctx.focus && ctx.mouse_down === MU_MOUSE_LEFT) {
+        cnt.rect[x] += ctx.mouse_delta[x];
+        cnt.rect[y] += ctx.mouse_delta[y];
+      }
+      body[y] += tr[h];
+      body[h] -= tr[h];
+    }
+
+    /* do `close` button */
+    if (~opt & MU_OPT_NOCLOSE) {
+      let id = mu_get_id(ctx, "!close");
+      let r: mu_Rect = [tr[x] + tr[w] - tr[h], tr[y], tr[h], tr[h]]
+      tr[w] -= r[w];
+      mu_draw_icon(ctx, MU_ICON_CLOSE, r, ctx.style.colors[MU_COLOR_TITLETEXT]);
+      mu_update_control(ctx, id, r, opt);
+      if (ctx.mouse_pressed === MU_MOUSE_LEFT && id === ctx.focus) {
+        cnt.open = 0;
+      }
+    }
+  }
+
+  push_container_body(ctx, cnt, body, opt);
+
+  /* do `resize` handle */
+  if (~opt & MU_OPT_NORESIZE) {
+    let sz: Int = ctx.style.title_height;
+    let id = mu_get_id(ctx, "!resize");
+    let r: mu_Rect = [rect[x] + rect[w] - sz, rect[y] + rect[h] - sz, sz, sz];
+    mu_update_control(ctx, id, r, opt);
+    if (id === ctx.focus && ctx.mouse_down === MU_MOUSE_LEFT) {
+      cnt.rect[w] = mu_max(96, cnt.rect[w] + ctx.mouse_delta[x]);
+      cnt.rect[h] = mu_max(64, cnt.rect[h] + ctx.mouse_delta[y]);
+    }
+  }
+
+  /* resize to content size */
+  if (opt & MU_OPT_AUTOSIZE) {
+    let r = get_layout(ctx).body;
+    cnt.rect[w] = cnt.content_size[x] + (cnt.rect[w] - r[w]);
+    cnt.rect[h] = cnt.content_size[y] + (cnt.rect[h] - r[h]);
+  }
+
+  /* close if this is a popup window and elsewhere was clicked */
+  if (opt & MU_OPT_POPUP && ctx.mouse_pressed && ctx.hover_root !== cnt) {
+    cnt.open = 0;
+  }
+
+  mu_push_clip_rect(ctx, cnt.body);
+  return MU_RES_ACTIVE;
+}
+
+function mu_end_window(ctx: mu_Context) {
+  mu_pop_clip_rect(ctx);
+  end_root_container(ctx);
+}
+
+
+function mu_open_popup(ctx: mu_Context, name: string) {
+  let cnt = mu_get_container(ctx, name);
+  if (cnt === null) {
+    debugger
+    return
+  }
+  /* set as hover root so popup isn't closed in begin_window_ex()  */
+  ctx.hover_root = ctx.next_hover_root = cnt;
+  /* position at mouse cursor, open and bring-to-front */
+  cnt.rect = [ctx.mouse_pos[x], ctx.mouse_pos[y], 1, 1];
+  cnt.open = 1;
+  mu_bring_to_front(ctx, cnt);
+}
+
+function mu_begin_popup(ctx: mu_Context, name: string): Int {
+  let opt: Int = MU_OPT_POPUP | MU_OPT_AUTOSIZE | MU_OPT_NORESIZE |
+    MU_OPT_NOSCROLL | MU_OPT_NOTITLE | MU_OPT_CLOSED;
+  return mu_begin_window_ex(ctx, name, [0, 0, 0, 0], opt);
+}
+
+function mu_end_popup(ctx: mu_Context) {
+  mu_end_window(ctx);
+}
+
+function mu_begin_panel_ex(ctx: mu_Context, name: string, opt: Int) {
+  let cnt: mu_Container | null;
+  mu_push_id(ctx, name);
+  cnt = get_container(ctx, ctx.last_id, opt);
+  if (cnt === null) {
+    debugger
+    return
+  }
+  cnt.rect = mu_layout_next(ctx);
+  if (~opt & MU_OPT_NOFRAME) {
+    ctx.draw_frame(ctx, cnt.rect, MU_COLOR_PANELBG);
+  }
+  push(ctx.container_stack, cnt);
+  push_container_body(ctx, cnt, cnt.rect, opt);
+  mu_push_clip_rect(ctx, cnt.body);
+}
+
+function mu_end_panel(ctx: mu_Context) {
+  mu_pop_clip_rect(ctx);
+  pop_container(ctx);
+}
+
+
+function test_window(ctx: mu_Context) {
+
+}
 
 export const foo = 2
