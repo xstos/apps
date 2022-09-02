@@ -178,6 +178,12 @@ type mu_Context = {
   key_pressed: Int,
   input_text: string
 }
+function newStack(): mu_Stack<any> {
+  return {
+    idx:0,
+    items: []
+  }
+}
 type mu_Stack<T> = {
   idx: Int,
   items: T[]
@@ -525,8 +531,8 @@ function mu_push_command(ctx: mu_Context, type: Int): mu_Command {
   return cmd
 }
 
-function mu_next_command(ctx: mu_Context) {
-  //todo
+function mu_next_command(ctx: mu_Context): Int {
+  //todo:
 }
 
 function push_jump(ctx: mu_Context, dst: mu_Command): mu_Command {
@@ -1320,6 +1326,74 @@ function mu_end_panel(ctx: mu_Context) {
 
 function test_window(ctx: mu_Context) {
 
+}
+
+function process_frame(ctx: mu_Context) {
+  mu_begin(ctx);
+  //style_window(ctx);
+  //log_window(ctx);
+  test_window(ctx);
+  mu_end(ctx);
+}
+function createContext():mu_Context {
+  return {
+    _style: default_style,
+    clip_stack: newStack(),
+    command_list: newStack(),
+    container_pool: [],
+    container_stack: newStack(),
+    containers: [],
+    draw_frame(ctx: mu_Context, rect: mu_Rect, colorid: Int): void {
+    },
+    focus: 0,
+    frame: 0,
+    hover: 0,
+    hover_root: null,
+    id_stack: newStack(),
+    input_text: "",
+    key_down: 0,
+    key_pressed: 0,
+    last_id: 0,
+    last_mouse_pos: [0, 0],
+    last_rect: [0, 0, 0, 0],
+    last_zindex: 0,
+    layout_stack: newStack(),
+    mouse_delta: [0, 0],
+    mouse_down: 0,
+    mouse_pos: [0, 0],
+    mouse_pressed: 0,
+    next_hover_root: null,
+    number_edit: 0,
+    number_edit_buf: "",
+    root_list: newStack(),
+    scroll_delta: [0, 0],
+    scroll_target: null,
+    style: default_style,
+    text_height(font: mu_Font): Int {
+      return 0;
+    },
+    text_width(font: mu_Font, str: string): Int {
+      return 0;
+    },
+    treenode_pool: [],
+    updated_focus: 0
+  }
+}
+
+function main(canvas: HTMLCanvasElement) {
+  const ctx = createContext()
+  mu_init(ctx)
+  ctx.text_width=(font, str) => 12
+  ctx.text_height=font => 12
+  function draw() {
+    const ctx = canvas.getContext('2d');
+    if (ctx===null) return
+    ctx.globalCompositeOperation = 'destination-over';
+    ctx.clearRect(0, 0, 300, 300); // clear canvas
+    let cmd = mu_next_command(ctx)
+
+    window.requestAnimationFrame(draw);
+  }
 }
 
 export const foo = 2
