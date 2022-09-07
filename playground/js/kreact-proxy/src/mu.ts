@@ -334,7 +334,7 @@ function mu_end(ctx: mu_Context) {
       (prev.tail as mu_JumpCommand).dst = cnt.head
     }
     if (i === n - 1) {
-      (cnt.tail as mu_JumpCommand).dst = ctx.command_list.items[ctx.command_list.idx]
+      (cnt.tail as mu_JumpCommand).dst = ctx.command_list.idx
     }
   }
 }
@@ -462,6 +462,7 @@ function mu_pool_init(ctx: mu_Context, items: mu_PoolItem[], len: Int, id: mu_Id
     debugger
   }
   items[n].id = id;
+  debugger
   mu_pool_update(ctx, items, n);
   return n;
 }
@@ -530,9 +531,27 @@ function mu_push_command(ctx: mu_Context, type: Int): mu_Command {
   ctx.command_list.idx++
   return cmd
 }
-
-function mu_next_command(ctx: mu_Context): Int {
+type TWrap<T> = {
+  value: T
+}
+function mu_next_command(ctx: mu_Context, wrap: TWrap<Int | null>) : Int {
   //todo:
+  if (wrap.value===null) {
+    wrap.value=0
+  } else {
+    wrap.value++
+  }
+  while(wrap.value<=ctx.command_list.idx)
+  {
+    const cmd = ctx.command_list.items[wrap.value]
+    if (cmd.type===MU_COMMAND_JUMP) {
+      const jumpcmd = cmd as mu_JumpCommand
+      wrap.value = jumpcmd.dst
+    } else {
+      return 1
+    }
+  }
+  return 0
 }
 
 function push_jump(ctx: mu_Context, dst: mu_Command): mu_Command {
@@ -1181,7 +1200,7 @@ function end_root_container(ctx: mu_Context) {
   let cnt = mu_get_current_container(ctx);
   cnt.tail = push_jump(ctx, null_jump_command());
   const headJump = null_jump_command()
-  headJump.dst = ctx.command_list.items[ctx.command_list.idx]
+  headJump.dst = ctx.command_list.idx
   cnt.head = headJump
   /* pop base clip rect and container */
   mu_pop_clip_rect(ctx);
@@ -1325,6 +1344,7 @@ function mu_end_panel(ctx: mu_Context) {
 
 
 function test_window(ctx: mu_Context) {
+  if (!mu_begin_window_ex(ctx,"main",[0,0,800,600],0)) return
 
 }
 
@@ -1380,20 +1400,35 @@ function createContext():mu_Context {
   }
 }
 
-function main(canvas: HTMLCanvasElement) {
+export function main(canvas: HTMLCanvasElement) {
   const ctx = createContext()
   mu_init(ctx)
   ctx.text_width=(font, str) => 12
   ctx.text_height=font => 12
   function draw() {
-    const ctx = canvas.getContext('2d');
-    if (ctx===null) return
-    ctx.globalCompositeOperation = 'destination-over';
-    ctx.clearRect(0, 0, 300, 300); // clear canvas
-    let cmd = mu_next_command(ctx)
-
+    const canvasCtx = canvas.getContext('2d');
+    if (canvasCtx===null) return
+    canvasCtx.globalCompositeOperation = 'destination-over';
+    canvasCtx.clearRect(0, 0, 300, 300); // clear canvas
+    const wrap: TWrap<null | Int> = {
+      value: null
+    }
+    process_frame(ctx)
+    while(mu_next_command(ctx,wrap)>0) {
+      const cmdi = wrap.value
+      const cmd = ctx.command_list.items[cmdi]
+      switch (cmd.type) {
+        case MU_COMMAND_TEXT:
+          const tcmd = cmd as mu_TextCommand
+          const [r,g,b,a] = tcmd.color
+          canvasCtx.strokeStyle=`rgba(${r},${g},${b},${a})`
+          canvasCtx.fillText(tcmd.str,tcmd.pos[x],tcmd.pos[y])
+          break;
+      }
+    }
     window.requestAnimationFrame(draw);
   }
+  window.requestAnimationFrame(draw);
 }
 
 export const foo = 2

@@ -6,6 +6,7 @@ import {bindkeys} from "./io";
 import clonedeep from "lodash.clonedeep"
 import {derp} from "./dag"
 import {babdemo} from "./babdemo"
+import {main} from "./mu"
 
 declare var v: any
 declare var o: any
@@ -218,16 +219,12 @@ function createCanvas() {
   ctx.scale(10,10)
 
   ctx.font="20px Consolas"
-  ctx.fillRect(0,0,2000,2000)
-  ctx.fillStyle="yellow"
-
-  ctx.fillRect(0,0,1,1)
 
 
   let metrics = ctx.measureText("W");
   let fontHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
   let actualHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-  ctx.fillText("W",0,actualHeight)
+  main(canvas)
   console.log(metrics)
   return canvas
 }
