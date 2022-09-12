@@ -105,7 +105,9 @@ type mu_Container = {
   zindex: Int,
   open: Int
 }
+type mu_Command_Index = Int
 type mu_Command = mu_BaseCommand | mu_JumpCommand | mu_ClipCommand | mu_RectCommand | mu_TextCommand | mu_IconCommand
+
 type mu_BaseCommand = {
   type: number,
   index: number,
@@ -138,6 +140,10 @@ type mu_PoolItem = {
   id: mu_Id,
   last_update: Int
 }
+type mu_PoolItems = {
+  _length: number
+} & any
+
 type mu_Context = {
   text_width: (font: mu_Font, str: string) => Int,
   text_height: (font: mu_Font) => Int,
@@ -164,9 +170,9 @@ type mu_Context = {
   id_stack: mu_Stack<mu_Id>
   layout_stack: mu_Stack<mu_Layout>
   /* retained state pools */
-  container_pool: mu_PoolItem[],
+  container_pool: mu_PoolItems,
   containers: mu_Container[],
-  treenode_pool: mu_PoolItem[],
+  treenode_pool: mu_PoolItems,
   /* input state */
   mouse_pos: mu_Vec2,
   last_mouse_pos: mu_Vec2,
@@ -298,7 +304,9 @@ function mu_end(ctx: mu_Context) {
   if (ctx.container_stack.idx !== 0
     || ctx.clip_stack.idx !== 0
     || ctx.id_stack.idx !== 0
-    || ctx.layout_stack.idx !== 0) debugger
+    || ctx.layout_stack.idx !== 0) {
+    debugger
+  }
 
   if (ctx.scroll_target) {
     ctx.scroll_target.scroll[x] += ctx.scroll_delta[x]
@@ -380,6 +388,9 @@ function mu_pop_clip_rect(ctx: mu_Context) {
 }
 
 function mu_get_clip_rect(ctx: mu_Context) {
+  if (ctx.clip_stack.idx<1) {
+    debugger
+  }
   return ctx.clip_stack.items[ctx.clip_stack.idx - 1]
 }
 
@@ -405,7 +416,7 @@ function push_layout(ctx: mu_Context, body: mu_Rect, scroll: mu_Vec2) {
 }
 
 function get_layout(ctx: mu_Context) {
-  return ctx.layout_stack.items[ctx.layout_stack.idx]
+  return ctx.layout_stack.items[ctx.layout_stack.idx - 1]
 }
 
 function pop_container(ctx: mu_Context) {
@@ -423,18 +434,19 @@ function mu_get_current_container(ctx: mu_Context) {
 }
 
 function get_container(ctx: mu_Context, id: mu_Id, opt: Int): mu_Container | null {
-  var idx = mu_pool_get(ctx, ctx.container_pool, id)
+  const containerPool = ctx.container_pool
+  var idx = mu_pool_get(ctx, containerPool, id)
   if (idx >= 0) {
     if (ctx.containers[idx].open || ~opt & MU_OPT_CLOSED) {
-      mu_pool_update(ctx, ctx.container_pool, idx)
+      mu_pool_update(ctx, containerPool, idx)
     }
     return ctx.containers[idx]
   }
   if (opt & MU_OPT_CLOSED) {
     return null;
   }
-  idx = mu_pool_init(ctx, ctx.container_pool, ctx.container_pool.length, id)
-  const cnt = ctx.containers[idx]
+  idx = mu_pool_init(ctx, containerPool, id)
+  const cnt = ctx.containers[idx] = makeContainer()
   cnt.open = 1
   mu_bring_to_front(ctx, cnt)
   return cnt
@@ -450,7 +462,11 @@ function mu_bring_to_front(ctx: mu_Context, cnt: mu_Container) {
 }
 
 //pool
-function mu_pool_init(ctx: mu_Context, items: mu_PoolItem[], len: Int, id: mu_Id) {
+function mu_pool_init(ctx: mu_Context, items: mu_PoolItems, id: mu_Id): Int {
+  const len = items._length
+  items[id]=len
+  items._length = len+1
+  return len
   let i, n = -1, f = ctx.frame;
   for (i = 0; i < len; i++) {
     if (items[i].last_update < f) {
@@ -467,16 +483,21 @@ function mu_pool_init(ctx: mu_Context, items: mu_PoolItem[], len: Int, id: mu_Id
   return n;
 }
 
-function mu_pool_get(ctx: mu_Context, items: mu_PoolItem[], id: mu_Id) {
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].id === id) {
-      return i;
-    }
+function mu_pool_get(ctx: mu_Context, items: mu_PoolItems, id: mu_Id) {
+  if (id in items) {
+    return items[id]
   }
-  return -1;
+  return -1
+  //
+  // for (let i = 0; i < items.length; i++) {
+  //   if (items[i].id === id) {
+  //     return i;
+  //   }
+  // }
+  // return -1;
 }
 
-function mu_pool_update(ctx: mu_Context, items: mu_PoolItem[], idx: Int) {
+function mu_pool_update(ctx: mu_Context, items: mu_PoolItems, idx: Int) {
   items[idx].last_update = ctx.frame;
 }
 
@@ -526,7 +547,12 @@ function mu_input_text(ctx: mu_Context, text: string) {
 //commandlist
 
 function mu_push_command(ctx: mu_Context, type: Int): mu_Command {
-  let cmd = ctx.command_list.items[ctx.command_list.idx]
+  const index = ctx.command_list.idx
+  let cmd = ctx.command_list.items[index]
+  if (!cmd) {
+    cmd = ctx.command_list.items[index] = {}
+  }
+  cmd.index = index
   cmd.type = type
   ctx.command_list.idx++
   return cmd
@@ -1063,7 +1089,7 @@ function header(ctx: mu_Context, label: string, istreenode: Int, opt: Int): Int 
       //memset(&ctx.treenode_pool[idx], 0, sizeof(mu_PoolItem));
     }
   } else if (active) {
-    mu_pool_init(ctx, ctx.treenode_pool, ctx.treenode_pool.length, id);
+     mu_pool_init(ctx, ctx.treenode_pool, id);
   }
 
   /* draw */
@@ -1345,7 +1371,7 @@ function mu_end_panel(ctx: mu_Context) {
 
 function test_window(ctx: mu_Context) {
   if (!mu_begin_window_ex(ctx,"main",[0,0,800,600],0)) return
-
+  mu_end_window(ctx)
 }
 
 function process_frame(ctx: mu_Context) {
@@ -1355,12 +1381,25 @@ function process_frame(ctx: mu_Context) {
   test_window(ctx);
   mu_end(ctx);
 }
+function makeContainer() {
+  const ret: mu_Container = {
+    head: {type: -1, index: -1},
+    tail: {type: -1, index: -1},
+    rect: [0, 0, 0, 0],
+    body: [0, 0, 0, 0],
+    content_size: [0, 0],
+    scroll: [0, 0],
+    zindex: -1,
+    open: 0,
+  }
+  return ret
+}
 function createContext():mu_Context {
   return {
     _style: default_style,
     clip_stack: newStack(),
     command_list: newStack(),
-    container_pool: [],
+    container_pool: {},
     container_stack: newStack(),
     containers: [],
     draw_frame(ctx: mu_Context, rect: mu_Rect, colorid: Int): void {
@@ -1399,7 +1438,11 @@ function createContext():mu_Context {
     updated_focus: 0
   }
 }
-
+function makePoolArray(ctor: ()=>any):  mu_PoolItems {
+  let ret: any[] = []
+  ret._ctor = ctor
+  return ret
+}
 export function main(canvas: HTMLCanvasElement) {
   const ctx = createContext()
   mu_init(ctx)
