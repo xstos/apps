@@ -1,12 +1,11 @@
 import './index.css';
 import React from "react";
 import ReactDOM from 'react-dom'
-
-import {bindkeys} from "./io";
-import clonedeep from "lodash.clonedeep"
+import hyperactiv from 'hyperactiv'
+import { stringify } from "javascript-stringify";
+const { observe, computed } = hyperactiv
 import {derp} from "./dag"
-import {babdemo} from "./babdemo"
-import {main} from "./mu"
+
 
 declare var v: any
 declare var o: any
@@ -15,7 +14,8 @@ declare var global: any
 derp()
 
 export const cursorBlock = '█'
-
+document.body.style.color="grey"
+document.body.style.backgroundColor="rgb(28,28,28)"
 let seed=0
 
 let reactMode = false
@@ -49,9 +49,9 @@ const state = {
   nodes: [],
   dirty: [],
 }
-function defProp(key,type) {
+function defGlobalProp(key,get) {
   Object.defineProperty(global, key, {
-    get: () => makeProxy(type)
+    get
   })
 }
 function addNode() {
@@ -85,6 +85,7 @@ function calculate() {
     
   }
 }
+
 function getCreateNode(key, type) {
   let node, nodeId
   const {vars, nodes}=state
@@ -158,6 +159,7 @@ function makeProxy(type) {
       if (key.startsWith('_')) {
         return target[key]
       }
+
       const data = target._data
       const nodeId = getCreateNode(key, data.type)
       data.id = nodeId
@@ -177,57 +179,174 @@ function makeProxy(type) {
 
   return newProxy(f, handler)
 }
-defProp('v','var')
-defProp('o','op')
 
-v.a(2)
+let nodes = []
+function nodeBuilder(type) {
+  let handler = null
+  handler = {
+    get(target, key) {
+      if (key.startsWith('_')) {
+        return target[key]
+      }
+      const data = target._data
+      //data.verb='get'
+      data.key=key
+      return new Proxy(target, handler)
+    },
+    apply(target, thisArg, args) {
+      const data = target._data
+      //data.verb='apply'
+      data.args=args.map(a=>{
+        if (a._data) {
+          a._data.root = false
+        }
+        return a._data ? a._data : a
+      })
+      return new Proxy(target, handler)
+    },
+  }
+
+  const f = ()=>{}
+  const data = {
+    type
+  }
+  f._data = data
+  nodes.push(data)
+  return new Proxy(f, handler)
+}
+const getNodeBuilder = (type) => () => nodeBuilder(type)
+defGlobalProp('v',getNodeBuilder('var'))
+defGlobalProp('o',getNodeBuilder('op'))
+
+const cells = observe({},{
+  bubble: true,
+  deep: true
+})
+cells.__handler = (keys, value, oldValue, observedObject) => {
+  console.log({key: keys[0] ,value,oldValue})
+}
+function getOp(name) {
+  switch (name) {
+    case 'plus':
+      return function (...args) {
+        return args.reduce((accum,current) => {
+          //console.log({accum,current})
+          return accum + current
+        },0)
+      }
+  }
+  return null
+}
+v.a(1)
 v.b(v.a)
-v.d(100)
-v.c(o.plus(v.a,v.a,v.b,v.d, 10))
+v.d(10)
+v.c(o.plus(o.plus(v.d,v.d),v.a,v.b,v.d, 100))
+
+nodes=nodes.filter(n => !(n.root===false))
+console.log(JSON.stringify(nodes,null,2))
+function processNode(n) {
+  const { type, key, args} = n
+  if (type==='var') {
+    if (args) {
+      const [arg] = args
+      if (typeof arg === "object" && "type" in arg) {
+        const argNode = processNode(arg)
+        computed(()=>{
+          cells[key] = cells[argNode.key]
+        })
+        return { key }
+      } else {
+        const argKey = stringify(arg)
+        cells[argKey]=arg
+        computed(()=>{
+          cells[key]=cells[argKey]
+        })
+        return { key: argKey }
+      }
+    } else {
+      return { key }
+    }
+  } else if (type==='op') {
+    if (args) {
+      const mappedArgs = args.map(maparg)
+
+      function maparg(arg) {
+        if (typeof arg === "object" && "type" in arg) {
+          const n = processNode(arg)
+          return n
+        }
+        const argKey = stringify(arg)
+        cells[argKey]=arg
+        return {key:argKey}
+      }
+
+      const opFun = getOp(key)
+
+      const argKey = stringify({ op: key, args: mappedArgs })
+
+      computed(()=>{
+        const ma2 = mappedArgs.map(a=>cells[a.key])
+        cells[argKey]=opFun(...ma2)
+      })
+
+      return {key: argKey}
+    }
+  }
+}
+
+nodes.forEach(processNode)
+cells['a']=2
 
 
-console.log(JSON.stringify(state,null,2))
 
-reactMode=true
 function RRender() {
+  reactMode=true
   ReactDOM.render(
     <div></div>,
     document.getElementById('root')
   )
+  reactMode=false
 }
-document.getElementById('root').appendChild(createCanvas())
-function getWindowSize() {
-  const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)
-  const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
-  return [vw,vh]
-}
-function createCanvas() {
-  const canvas = document.createElement("canvas")
-  const [vw,vh] = getWindowSize()
-  //canvas.style.width="100vw"
-  //canvas.style.height="100vh"
-  canvas.width=vw
-  canvas.height=vh
-  window.addEventListener("resize",(e)=>{
-    const [vw,vh] = getWindowSize()
-    canvas.width=vw
-    canvas.height=vh
-  })
 
-  const ctx = canvas.getContext("2d")
-  ctx.imageSmoothingEnabled=false
-  ctx.scale(10,10)
-
-  ctx.font="20px Consolas"
+const app2 = <root>
+  <cursor></cursor>
+ <div>hi</div>
+  <div>there</div>
+</root>
+const cursor = <div>X</div>
+reactMode=true
 
 
-  let metrics = ctx.measureText("W");
-  let fontHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-  let actualHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
-  main(canvas)
-  console.log(metrics)
-  return canvas
+function render(app) {
+  document.body.style.backgroundColor="black"
+  document.body.style.color="white"
+  const CE = React.createElement
+  function box() {
+    const el = document.createElement("div")
+
+  }
+  const tagMap = {
+    root
+  }
+  const {tag, children}=app
+
+  function render2(node) {
+    const {tag,props,children} = node
+    const mappedChildren = (children || []).map(c=>{
+      const {tag,props,children} = c
+      if (tag==='cursor') {
+        return CE("div",null, cursor.children)
+      }
+      return CE(tag, props,children)
+
+    })
+    return CE(tag,props,mappedChildren)
+  }
+  const renderMe = render2({tag:'div',children})
+  ReactDOM.render(
+    renderMe,
+    document.getElementById('root')
+  )
 }
-function randomColor() {
-  return `rgb(${Math.floor(Math.random()*256)},${Math.floor(Math.random()*256)},${Math.floor(Math.random()*256)})`
-}
+//render(app2)
+
