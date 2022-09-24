@@ -237,6 +237,7 @@ function getOp(name) {
   }
   return null
 }
+
 v.a(1)
 v.b(v.a)
 v.d(10)
@@ -244,23 +245,24 @@ v.c(o.plus(o.plus(v.d,v.d),v.a,v.b,v.d, 100))
 
 nodes=nodes.filter(n => !(n.root===false))
 console.log(JSON.stringify(nodes,null,2))
+function isNode(o) {
+  return typeof o === "object" && "type" in o
+}
+
 function processNode(n) {
   const { type, key, args} = n
   if (type==='var') {
     if (args) {
       const [arg] = args
-      if (typeof arg === "object" && "type" in arg) {
+      if (isNode(arg)) {
         const argNode = processNode(arg)
-        computed(()=>{
-          cells[key] = cells[argNode.key]
-        })
+        const argKey = argNode.key
+        assignCell(key, argKey)
         return { key }
       } else {
         const argKey = stringify(arg)
-        cells[argKey]=arg
-        computed(()=>{
-          cells[key]=cells[argKey]
-        })
+        setCellValue(argKey,arg)
+        assignCell(key, argKey)
         return { key: argKey }
       }
     } else {
@@ -271,7 +273,7 @@ function processNode(n) {
       const mappedArgs = args.map(maparg)
 
       function maparg(arg) {
-        if (typeof arg === "object" && "type" in arg) {
+        if (isNode(arg)) {
           const n = processNode(arg)
           return n
         }
@@ -281,23 +283,50 @@ function processNode(n) {
       }
 
       const opFun = getOp(key)
+      const argKey = nodeToString(n)
 
-      const argKey = stringify({ op: key, args: mappedArgs })
-
-      computed(()=>{
-        const ma2 = mappedArgs.map(a=>cells[a.key])
-        cells[argKey]=opFun(...ma2)
-      })
+      assignCellOperator(mappedArgs, argKey, opFun)
 
       return {key: argKey}
     }
   }
 }
 
+type TOpFun = (...args) => any
+
+function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
+  computed(() => {
+    const argCells = mappedArgs.map(a => cells[a.key])
+    cells[argKey] = opFun(...argCells)
+  })
+}
+
+function assignCell(a, b) {
+  computed(() => {
+    cells[a] = cells[b]
+  })
+}
+function setCellValue(key, value) {
+  cells[key]=value
+}
+
+function mapArgToString(a) {
+  if (isNode(a)) {
+    return nodeToString(a)
+  } else {
+    return stringify(a)
+  }
+}
+function nodeToString(n) {
+  const { type, key, args} = n
+  if (type==='var') {
+    return `v.${key}${args ? args.map(mapArgToString) : ''}`
+  } else if (type==='op') {
+    return `o.${key}(${args.map(mapArgToString)})`
+  }
+}
 nodes.forEach(processNode)
-cells['a']=2
-
-
+cells.a=2
 
 function RRender() {
   reactMode=true
