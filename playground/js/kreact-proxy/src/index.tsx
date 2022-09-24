@@ -1,5 +1,5 @@
 import './index.css';
-import React from "react";
+import React, {useEffect, useState} from "react";
 import ReactDOM from 'react-dom'
 import hyperactiv from 'hyperactiv'
 import { stringify } from "javascript-stringify";
@@ -243,12 +243,38 @@ v.b(v.a)
 v.d(10)
 v.c(o.plus(o.plus(v.d,v.d),v.a,v.b,v.d, 100))
 
+const rdom = {}
+
 nodes=nodes.filter(n => !(n.root===false))
 console.log(JSON.stringify(nodes,null,2))
 function isNode(o) {
   return typeof o === "object" && "type" in o
 }
 
+function Cell(props) {
+  let { name, value, readonly } = props
+  if (readonly) {
+    value=cells[name]
+  }
+  const [v,setV] = useState(value)
+  if (readonly) {
+    useEffect(() => {
+      computed(()=>{
+        setV(cells[name])
+      })
+    });
+  }
+  const ctor = Object.getPrototypeOf(value).constructor
+
+  return <div>{name} <input readOnly={readonly} style={{color: 'white', backgroundColor:'black'}} value={v} onChange={!readonly ? onChange : undefined}/></div>
+
+  function onChange(e) {
+    const value1 = e.target.value
+    console.log(value1)
+    setV(value1)
+    setCellValue(name,ctor(value1))
+  }
+}
 function processNode(n) {
   const { type, key, args} = n
   if (type==='var') {
@@ -258,11 +284,14 @@ function processNode(n) {
         const argNode = processNode(arg)
         const argKey = argNode.key
         assignCell(key, argKey)
+        rdom[key]={ name:key, value:null, readonly:true}
         return { key }
       } else {
         const argKey = stringify(arg)
         setCellValue(argKey,arg)
         assignCell(key, argKey)
+        const foo = { name:key, value:arg, readonly:false}
+        rdom[key]=foo
         return { key: argKey }
       }
     } else {
@@ -279,12 +308,14 @@ function processNode(n) {
         }
         const argKey = stringify(arg)
         cells[argKey]=arg
+
+
         return {key:argKey}
       }
 
       const opFun = getOp(key)
       const argKey = nodeToString(n)
-
+      rdom[argKey]={ name:argKey, value:null, readonly:true}
       assignCellOperator(mappedArgs, argKey, opFun)
 
       return {key: argKey}
@@ -300,7 +331,6 @@ function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
     cells[argKey] = opFun(...argCells)
   })
 }
-
 function assignCell(a, b) {
   computed(() => {
     cells[a] = cells[b]
@@ -309,7 +339,6 @@ function assignCell(a, b) {
 function setCellValue(key, value) {
   cells[key]=value
 }
-
 function mapArgToString(a) {
   if (isNode(a)) {
     return nodeToString(a)
@@ -326,56 +355,21 @@ function nodeToString(n) {
   }
 }
 nodes.forEach(processNode)
+console.log(rdom)
 cells.a=2
-
-function RRender() {
-  reactMode=true
-  ReactDOM.render(
-    <div></div>,
-    document.getElementById('root')
-  )
-  reactMode=false
-}
-
-const app2 = <root>
-  <cursor></cursor>
- <div>hi</div>
-  <div>there</div>
-</root>
-const cursor = <div>X</div>
+console.log(rdom)
 reactMode=true
 
 
-function render(app) {
-  document.body.style.backgroundColor="black"
-  document.body.style.color="white"
-  const CE = React.createElement
-  function box() {
-    const el = document.createElement("div")
-
-  }
-  const tagMap = {
-    root
-  }
-  const {tag, children}=app
-
-  function render2(node) {
-    const {tag,props,children} = node
-    const mappedChildren = (children || []).map(c=>{
-      const {tag,props,children} = c
-      if (tag==='cursor') {
-        return CE("div",null, cursor.children)
-      }
-      return CE(tag, props,children)
-
-    })
-    return CE(tag,props,mappedChildren)
-  }
-  const renderMe = render2({tag:'div',children})
+function render() {
+  const v = Object.values(rdom)
+  console.log(v)
   ReactDOM.render(
-    renderMe,
+    <div>{
+      v.map((o) => <Cell {...o}></Cell>)
+    }</div>,
     document.getElementById('root')
   )
 }
-//render(app2)
+render()
 
