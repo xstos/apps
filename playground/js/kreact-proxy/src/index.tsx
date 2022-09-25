@@ -17,9 +17,12 @@ document.body.style.backgroundColor = "rgb(28,28,28)"
 let seed = 0
 
 let reactMode = false
-
+let jsxCallback = customJsx
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
-  if (reactMode) return React.createElement(tag, props, ...children)
+  return jsxCallback(tag,props,...children)
+}
+
+function customJsx(tag: any, props: Record<string, any>, ...children: any[]) {
   //console.log({type,props,children})
   if (props) {
     return {type: tag, props, children}
@@ -27,9 +30,7 @@ export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   //console.log(arguments)
   return {tag, children}
 }
-function rmode(value) {
-  reactMode = value
-}
+
 export const intellisense = <menu>
   <item selected>foo</item>
   <item>bar</item>
@@ -114,12 +115,41 @@ function getOp(name) {
   }
   return null
 }
+jsxCallback = myCallback
+function JsonPretty(o) {
+  return JSON.stringify(o,null,2)
+}
+function LogJsonPretty(...items) {
+  console.log(...items.map(JsonPretty))
+}
+function myCallback(type, props, ...children) {
+  const d = type._data
+  if (d) {
+    const {type, key} = d
+    if (children.length<1) {
+      return { type, key }
+    }
+    return {
+      type,
+      key,
+      args: children.map(c=>{
+        if (c._data) {
+          return c._data
+        }
+        return c
+      })
+    }
+  } else {
+    debugger
+  }
+}
 
+//console.log(JSON.stringify(foo,null,2))
 v.a(1)
 v.b(v.a)
 v.d(10)
-v.c(o.plus(o.plus(v.d, v.d), v.a, v.b, v.d, 100))
-//todo: allow intermix of react and proxies
+v.c(o.plus(<o.plus>{v.d}{v.d}</o.plus>, v.a, v.b, v.d, 100))
+
 nodes = nodes.filter(n => !(n.root === false))
 //console.log(JSON.stringify(nodes, null, 2))
 
@@ -238,7 +268,7 @@ nodes.forEach(processNode)
 
 cells.a = 2
 
-reactMode = true
+jsxCallback = React.createElement
 
 
 function render() {
