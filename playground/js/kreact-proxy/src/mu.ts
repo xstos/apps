@@ -1442,7 +1442,7 @@ function makePoolArray(ctor: ()=>any):  mu_PoolItems {
   let ret: any[] = []
   ret._ctor = ctor
   return ret
-}
+  }
 export function main(canvas: HTMLCanvasElement) {
   const ctx = createContext()
   mu_init(ctx)
@@ -1474,4 +1474,45 @@ export function main(canvas: HTMLCanvasElement) {
   window.requestAnimationFrame(draw);
 }
 
-export const foo = 2
+export function microUiTest() {
+
+  document.getElementById('root').appendChild(createCanvas())
+
+  function getWindowSize() {
+    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0)
+    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0)
+    return [vw, vh]
+  }
+
+  function createCanvas() {
+    const canvas = document.createElement("canvas")
+    const [vw, vh] = getWindowSize()
+    //canvas.style.width="100vw"
+    //canvas.style.height="100vh"
+    canvas.width = vw
+    canvas.height = vh
+    window.addEventListener("resize", (e) => {
+      const [vw, vh] = getWindowSize()
+      canvas.width = vw
+      canvas.height = vh
+    })
+
+    const ctx = canvas.getContext("2d")
+    ctx.imageSmoothingEnabled = false
+    ctx.scale(10, 10)
+
+    ctx.font = "20px Consolas"
+
+
+    let metrics = ctx.measureText("W");
+    let fontHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
+    let actualHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+    main(canvas)
+    console.log(metrics)
+    return canvas
+  }
+
+  function randomColor() {
+    return `rgb(${Math.floor(Math.random() * 256)},${Math.floor(Math.random() * 256)},${Math.floor(Math.random() * 256)})`
+  }
+}

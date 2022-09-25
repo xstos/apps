@@ -21,6 +21,6 @@ while (!currentNode.done) {
   orderedNodes.push(currentNode.value);
   currentNode = nodeIterator.next();
 }
-console.log({orderedNodes})
+//console.log({orderedNodes})
 
 export function derp() {}
