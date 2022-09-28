@@ -3,10 +3,10 @@ import React, {useEffect, useState} from "react";
 import ReactDOM from 'react-dom'
 import hyperactiv from 'hyperactiv'
 import {stringify} from "javascript-stringify";
+import {cellx, Cell as CX} from "cellx"
 
 const {observe, computed} = hyperactiv
-//import {derp} from "./dag"
-//derp()
+
 declare var v: any
 declare var o: any
 declare var global: any
@@ -14,9 +14,7 @@ declare var global: any
 export const cursorBlock = '█'
 document.body.style.color = "grey"
 document.body.style.backgroundColor = "rgb(28,28,28)"
-let seed = 0
 
-let reactMode = false
 let jsxCallback = customJsx
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(tag,props,...children)
@@ -115,14 +113,14 @@ function getOp(name) {
   }
   return null
 }
-jsxCallback = myCallback
+jsxCallback = myJSX
 function JsonPretty(o) {
   return JSON.stringify(o,null,2)
 }
 function LogJsonPretty(...items) {
   console.log(...items.map(JsonPretty))
 }
-function myCallback(type, props, ...children) {
+function myJSX(type, props, ...children) {
   const d = type._data
   if (d) {
     const {type, key} = d
@@ -132,12 +130,8 @@ function myCallback(type, props, ...children) {
     return {
       type,
       key,
-      args: children.map(c=>{
-        if (c._data) {
-          return c._data
-        }
-        return c
-      })
+      args: children.map(
+        c => c._data ? c._data : c)
     }
   } else {
     debugger
@@ -148,7 +142,12 @@ function myCallback(type, props, ...children) {
 v.a(1)
 v.b(v.a)
 v.d(10)
-v.c(o.plus(<o.plus>{v.d}{v.d}</o.plus>, v.a, v.b, v.d, 100))
+var x = <o.plus>
+  <v.d/>
+  <v.d/>
+</o.plus>
+var x2 = o.plus(v.d,v.d)
+v.c(o.plus(x, v.a, v.b, v.d, 100))
 
 nodes = nodes.filter(n => !(n.root === false))
 //console.log(JSON.stringify(nodes, null, 2))
