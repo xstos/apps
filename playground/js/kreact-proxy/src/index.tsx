@@ -28,7 +28,7 @@ function customJsx(tag: any, props: Record<string, any>, ...children: any[]) {
   //console.log(arguments)
   return {tag, children}
 }
-
+/*
 export const intellisense = <menu>
   <item selected>foo</item>
   <item>bar</item>
@@ -45,7 +45,7 @@ const app = <cells>
     </pow>
   </area>
 </cells>
-
+*/
 
 function defGlobalProp(key, get) {
   Object.defineProperty(global, key, {
@@ -92,14 +92,7 @@ defGlobalProp('v', getNodeBuilder('var'))
 defGlobalProp('o', getNodeBuilder('op'))
 
 const rdom = {}
-const cells = observe({}, {
-  bubble: true,
-  deep: true
-})
-
-cells.__handler = (keys, value, oldValue, observedObject) => {
-  console.log({key: keys[0], value, oldValue})
-}
+const cells = {}
 
 function getOp(name) {
   switch (name) {
@@ -158,15 +151,17 @@ function isNode(o) {
 
 function Cell(props) {
   let {name, value, readonly} = props
+  const cell = cells[name]
   if (readonly) {
-    value = cells[name]
+    value = cell()
   }
   const [v, setV] = useState(value)
   if (readonly) {
     useEffect(() => {
-      computed(() => {
-        setV(cells[name])
+      cell.onChange((evt) => {
+        setV(evt.data.value)
       })
+      setV(cell())
     });
   }
   const ctor = Object.getPrototypeOf(value).constructor
@@ -213,7 +208,7 @@ function processNode(n) {
           return n
         }
         const argKey = stringify(arg)
-        cells[argKey] = arg
+        cells[argKey] = cellx(arg)
         return {key: argKey}
       }
 
@@ -228,22 +223,28 @@ function processNode(n) {
 }
 
 type TOpFun = (...args) => any
-
+function onChange(v) {
+  console.log('onchange',JSON.stringify(v))
+}
 function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
-  computed(() => {
-    const argCells = mappedArgs.map(a => cells[a.key])
-    cells[argKey] = opFun(...argCells)
+  const f = cellx(()=> {
+    const argCells = mappedArgs.map(a => cells[a.key]())
+    return opFun(...argCells)
   })
+  cells[argKey] = f
+  f.onChange( (evt)=> onChange({ key: argKey, ...evt.data }))
 }
 
 function assignCell(a, b) {
-  computed(() => {
-    cells[a] = cells[b]
-  })
+  cells[a] = cellx(()=>cells[b]())
 }
 
 function setCellValue(key, value) {
-  cells[key] = value
+  if (key in cells) {
+    cells[key](value)
+  } else {
+    cells[key]=cellx(value)
+  }
 }
 
 function mapArgToString(a) {
@@ -265,7 +266,7 @@ function nodeToString(n) {
 
 nodes.forEach(processNode)
 
-cells.a = 2
+cells.a(2)
 
 jsxCallback = React.createElement
 
@@ -283,3 +284,13 @@ function render() {
 
 render()
 
+/*
+const cells = observe({}, {
+  bubble: true,
+  deep: true
+})
+
+cells.__handler = (keys, value, oldValue, observedObject) => {
+  console.log({key: keys[0], value, oldValue})
+}
+ */
