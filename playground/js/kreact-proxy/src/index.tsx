@@ -1,5 +1,5 @@
 import './index.css';
-import React, {useEffect, useState} from "react";
+import React, {useEffect, useRef, useState} from "react";
 import ReactDOM from 'react-dom'
 import hyperactiv from 'hyperactiv'
 import {stringify} from "javascript-stringify";
@@ -16,18 +16,18 @@ document.body.style.color = "grey"
 document.body.style.backgroundColor = "rgb(28,28,28)"
 
 let jsxCallback = customJsx
+
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
-  return jsxCallback(tag,props,...children)
+  return jsxCallback(tag, props, ...children)
 }
 
 function customJsx(tag: any, props: Record<string, any>, ...children: any[]) {
-  //console.log({type,props,children})
   if (props) {
     return {type: tag, props, children}
   }
-  //console.log(arguments)
   return {tag, children}
 }
+
 /*
 export const intellisense = <menu>
   <item selected>foo</item>
@@ -78,7 +78,8 @@ function nodeBuilder(type) {
     },
   }
 
-  const f = () => {  }
+  const f = () => {
+  }
   const data = {
     type
   }
@@ -99,26 +100,21 @@ function getOp(name) {
     case 'plus':
       return function (...args) {
         return args.reduce((accum, current) => {
-          //console.log({accum,current})
           return accum + current
         }, 0)
       }
   }
   return null
 }
+
 jsxCallback = myJSX
-function JsonPretty(o) {
-  return JSON.stringify(o,null,2)
-}
-function LogJsonPretty(...items) {
-  console.log(...items.map(JsonPretty))
-}
+
 function myJSX(type, props, ...children) {
   const d = type._data
   if (d) {
     const {type, key} = d
-    if (children.length<1) {
-      return { type, key }
+    if (children.length < 1) {
+      return {type, key}
     }
     return {
       type,
@@ -131,19 +127,14 @@ function myJSX(type, props, ...children) {
   }
 }
 
-//console.log(JSON.stringify(foo,null,2))
 v.a(1)
 v.b(v.a)
 v.d(10)
-var x = <o.plus>
-  <v.d/>
-  <v.d/>
-</o.plus>
-var x2 = o.plus(v.d,v.d)
+var x = <o.plus><v.d/><v.d/></o.plus>
+var x2 = o.plus(v.d, v.d)
 v.c(o.plus(x, v.a, v.b, v.d, 100))
 
 nodes = nodes.filter(n => !(n.root === false))
-//console.log(JSON.stringify(nodes, null, 2))
 
 function isNode(o) {
   return typeof o === "object" && "type" in o
@@ -151,28 +142,42 @@ function isNode(o) {
 
 function Cell(props) {
   let {name, value, readonly} = props
-  const cell = cells[name]
-  if (readonly) {
-    value = cell()
-  }
-  const [v, setV] = useState(value)
-  if (readonly) {
-    useEffect(() => {
-      cell.onChange((evt) => {
-        setV(evt.data.value)
-      })
-      setV(cell())
-    });
-  }
-  const ctor = Object.getPrototypeOf(value).constructor
+  const mydiv = useRef(null);
+  let onChangeTrigger = null
 
-  return <div>{name} <input readOnly={readonly} style={{color: 'white', backgroundColor: 'black'}} value={v}
+  const cell = cells[name]
+  value = cell().value
+  //debugger
+  const [v, setV] = useState(value)
+
+  useEffect(() => {
+    cell.onChange((evt) => {
+      const { prevValue, value } = evt.data
+      //console.log('onchg',name,`${prevValue}=>${value}`)
+      const test = mydiv.current === onChangeTrigger
+      onChangeTrigger = null
+      if (test) {
+        //console.log('skip', mydiv.current)
+        return
+      }
+      const newVal = evt.data.value
+      if (v !== newVal) {
+        setV(newVal.value)
+      }
+    })
+    setV(cell().value)
+
+  },[]);
+
+
+  return <div>{name} <input ref={mydiv} readOnly={readonly} style={{color: 'white', backgroundColor: 'black'}} value={v}
                             onChange={!readonly ? onChange : undefined}/></div>
 
   function onChange(e) {
     const value1 = e.target.value
+    onChangeTrigger = e.target
     setV(value1)
-    setCellValue(name, ctor(value1))
+    setCellValue(name, value1)
   }
 }
 
@@ -208,7 +213,8 @@ function processNode(n) {
           return n
         }
         const argKey = stringify(arg)
-        cells[argKey] = cellx(arg)
+        const ctor=getCtor(arg)
+        cells[argKey] = cellx({value:arg,ctor})
         return {key: argKey}
       }
 
@@ -223,27 +229,42 @@ function processNode(n) {
 }
 
 type TOpFun = (...args) => any
+
 function onChange(v) {
-  console.log('onchange',JSON.stringify(v))
+  //console.log('onchange', JSON.stringify(v))
 }
+
 function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
-  const f = cellx(()=> {
-    const argCells = mappedArgs.map(a => cells[a.key]())
-    return opFun(...argCells)
+
+  const f = cellx(() => {
+    const argCells = mappedArgs.map(a => {
+      const cell = cells[a.key]
+      const {value,ctor} = cell()
+      return ctor(value)
+    })
+    console.log(mappedArgs.map(a =>[a.key,cells[a.key]]))
+    const ret = opFun(...argCells)
+
+    return { value: ret, ctor: getCtor(ret) }
   })
   cells[argKey] = f
-  f.onChange( (evt)=> onChange({ key: argKey, ...evt.data }))
+  f.onChange((evt) => onChange({key: argKey, ...evt.data}))
 }
 
 function assignCell(a, b) {
-  cells[a] = cellx(()=>cells[b]())
+  cells[a] = cellx(() => cells[b]())
 }
-
+function getCtor(value) {
+  return Object.getPrototypeOf(value).constructor
+}
 function setCellValue(key, value) {
   if (key in cells) {
-    cells[key](value)
+    const cell = cells[key]
+    const ctor=cell().ctor
+    cells[key]({value,ctor})
+    console.log(cells)
   } else {
-    cells[key]=cellx(value)
+    cells[key] = cellx({value, ctor: getCtor(value)})
   }
 }
 
@@ -266,7 +287,6 @@ function nodeToString(n) {
 
 nodes.forEach(processNode)
 
-cells.a(2)
 
 jsxCallback = React.createElement
 
@@ -277,13 +297,16 @@ function render() {
   ReactDOM.render(
     <div>{
       v.map((o) => <Cell {...o}></Cell>)
-    }</div>,
+    }
+      {
+        v.map((o) => <Cell {...o}></Cell>)
+      }</div>,
     document.getElementById('root')
   )
 }
 
 render()
-
+cells.a({value: 2, ctor: getCtor(2)})
 /*
 const cells = observe({}, {
   bubble: true,
@@ -291,6 +314,6 @@ const cells = observe({}, {
 })
 
 cells.__handler = (keys, value, oldValue, observedObject) => {
-  console.log({key: keys[0], value, oldValue})
+
 }
  */
