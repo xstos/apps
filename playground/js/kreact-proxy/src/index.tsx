@@ -10,6 +10,11 @@ const {observe, computed} = hyperactiv
 declare var v: any
 declare var o: any
 declare var global: any
+type TOpFun = (...args) => any
+
+function notimpl() {
+  throw new Error("not implemented")
+}
 
 export const cursorBlock = '█'
 document.body.style.color = "grey"
@@ -20,7 +25,6 @@ let jsxCallback = customJsx
 export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(tag, props, ...children)
 }
-
 function customJsx(tag: any, props: Record<string, any>, ...children: any[]) {
   if (props) {
     return {type: tag, props, children}
@@ -123,7 +127,7 @@ function myJSX(type, props, ...children) {
         c => c._data ? c._data : c)
     }
   } else {
-    debugger
+    notimpl()
   }
 }
 
@@ -133,13 +137,12 @@ v.d(10)
 var x = <o.plus><v.d/><v.d/></o.plus>
 var x2 = o.plus(v.d, v.d)
 v.c(o.plus(x, v.a, v.b, v.d, 100))
-
+v.a(2)
 nodes = nodes.filter(n => !(n.root === false))
 
 function isNode(o) {
   return typeof o === "object" && "type" in o
 }
-
 function Cell(props) {
   let {name, value, readonly} = props
   const mydiv = useRef(null);
@@ -147,7 +150,6 @@ function Cell(props) {
 
   const cell = cells[name]
   value = cell().value
-  //debugger
   const [v, setV] = useState(value)
 
   useEffect(() => {
@@ -170,7 +172,7 @@ function Cell(props) {
   },[]);
 
 
-  return <div>{name} <input ref={mydiv} readOnly={readonly} style={{color: 'white', backgroundColor: 'black'}} value={v}
+  return <div>{name} <input ref={mydiv} readOnly={readonly} style={{color: 'white', backgroundColor: 'black', width:"50px"}} value={v}
                             onChange={!readonly ? onChange : undefined}/></div>
 
   function onChange(e) {
@@ -180,7 +182,6 @@ function Cell(props) {
     setCellValue(name, value1)
   }
 }
-
 function processNode(n) {
   const {type, key, args} = n
   if (type === 'var') {
@@ -227,22 +228,17 @@ function processNode(n) {
     }
   }
 }
-
-type TOpFun = (...args) => any
-
 function onChange(v) {
   //console.log('onchange', JSON.stringify(v))
 }
-
 function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
-
   const f = cellx(() => {
     const argCells = mappedArgs.map(a => {
       const cell = cells[a.key]
       const {value,ctor} = cell()
       return ctor(value)
     })
-    console.log(mappedArgs.map(a =>[a.key,cells[a.key]]))
+    //console.log(mappedArgs.map(a =>[a.key,cells[a.key]]))
     const ret = opFun(...argCells)
 
     return { value: ret, ctor: getCtor(ret) }
@@ -250,12 +246,8 @@ function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
   cells[argKey] = f
   f.onChange((evt) => onChange({key: argKey, ...evt.data}))
 }
-
 function assignCell(a, b) {
   cells[a] = cellx(() => cells[b]())
-}
-function getCtor(value) {
-  return Object.getPrototypeOf(value).constructor
 }
 function setCellValue(key, value) {
   if (key in cells) {
@@ -267,7 +259,6 @@ function setCellValue(key, value) {
     cells[key] = cellx({value, ctor: getCtor(value)})
   }
 }
-
 function mapArgToString(a) {
   if (isNode(a)) {
     return nodeToString(a)
@@ -275,7 +266,6 @@ function mapArgToString(a) {
     return stringify(a)
   }
 }
-
 function nodeToString(n) {
   const {type, key, args} = n
   if (type === 'var') {
@@ -287,26 +277,25 @@ function nodeToString(n) {
 
 nodes.forEach(processNode)
 
-
 jsxCallback = React.createElement
-
 
 function render() {
   const v = Object.values(rdom)
 
   ReactDOM.render(
-    <div>{
-      v.map((o) => <Cell {...o}></Cell>)
-    }
-      {
-        v.map((o) => <Cell {...o}></Cell>)
-      }</div>,
+    <div>
+      {v.map((o) => <Cell {...o}/>)}
+      {v.map((o) => <Cell {...o}/>)}
+    </div>,
     document.getElementById('root')
   )
 }
-
 render()
-cells.a({value: 2, ctor: getCtor(2)})
+
+function getCtor(value) {
+  return Object.getPrototypeOf(value).constructor
+}
+
 /*
 const cells = observe({}, {
   bubble: true,
