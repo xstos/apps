@@ -3,8 +3,11 @@ import React, {useEffect, useRef, useState} from "react";
 import ReactDOM from 'react-dom'
 import hyperactiv from 'hyperactiv'
 import {stringify} from "javascript-stringify";
-import {cellx, Cell as CX} from "cellx"
+import {cellx} from "cellx"
+import {bindkeys} from "./io"
+import {insertBefore} from "./domutil"
 
+const log=console.log
 const {observe, computed} = hyperactiv
 
 declare var v: any
@@ -21,15 +24,61 @@ document.body.style.color = "grey"
 document.body.style.backgroundColor = "rgb(28,28,28)"
 
 let jsxCallback = customJsx
-
-export function jsx(tag: any, props: Record<string, any>, ...children: any[]) {
-  return jsxCallback(tag, props, ...children)
+export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
+  return jsxCallback(type, props, ...children)
 }
-function customJsx(tag: any, props: Record<string, any>, ...children: any[]) {
-  if (props) {
-    return {type: tag, props, children}
+
+function svelteLikeExperiment() {
+
+  const myJsx = <div>
+    <k-cursor/>
+  </div>
+  const cursorJsx = <span>{cursorBlock}</span>
+  function getJsxByType(type) {
+    let ret = null
+    if (type==='k-cursor') {
+      ret = cursorJsx
+    }
+    ret.props.id = type
+    return ret
   }
-  return {tag, children}
+  const keyCell = bindkeys(cellx({type:'io', 'key': ''}))
+  keyCell.onChange(e=>{
+    const el = document.querySelector("#k-cursor")
+    const text = document.createTextNode(e.data.value.key)
+
+    insertBefore(text,el)
+  })
+  function customRender(jsx) {
+    if (typeof jsx === 'string') {
+      return document.createTextNode(jsx)
+    }
+    const {type, children } = jsx
+
+    if (type.startsWith('k-')) {
+      const j = getJsxByType(type)
+      return customRender(j)
+    }
+    const el = document.createElement(type)
+    if (children) {
+      el.append(...children.map(customRender))
+    }
+    if ("props" in jsx) {
+      const props = jsx.props
+      if ("id" in props) {
+        el.setAttribute("id", props.id)
+      }
+    }
+    return el
+  }
+  const customNodes = customRender(myJsx)
+  log('customNodes',customNodes)
+  document.body.insertBefore(customNodes, document.getElementById("root"))
+}
+
+
+function customJsx(type: any, props: Record<string, any>, ...children: any[]) {
+  return {type, props: props || [], children}
 }
 
 /*
@@ -127,61 +176,62 @@ function myJSX(type, props, ...children) {
         c => c._data ? c._data : c)
     }
   } else {
-    notimpl()
+    return {
+      type
+    }
   }
 }
 
-v.a(1)
-v.b(v.a)
-v.d(10)
-var x = <o.plus><v.d/><v.d/></o.plus>
-var x2 = o.plus(v.d, v.d)
-v.c(o.plus(x, v.a, v.b, v.d, 100))
-v.a(2)
-nodes = nodes.filter(n => !(n.root === false))
 
 function isNode(o) {
   return typeof o === "object" && "type" in o
 }
 function Cell(props) {
-  let {name, value, readonly} = props
-  const mydiv = useRef(null);
+  let {name, readonly} = props
+  const myRef = useRef(null);
   let onChangeTrigger = null
 
   const cell = cells[name]
-  value = cell().value
-  const [v, setV] = useState(value)
 
+  const [v, setV] = useState(cell().value)
+  function setState(val) {
+    log('setState',name,val)
+    setV(val)
+  }
   useEffect(() => {
-    cell.onChange((evt) => {
-      const { prevValue, value } = evt.data
-      //console.log('onchg',name,`${prevValue}=>${value}`)
-      const test = mydiv.current === onChangeTrigger
+    cell.onChange(cellOnChange)
+
+    function cellOnChange(evt) {
+      const {prevValue, value} = evt.data
+      console.log('onc hg', name, `${prevValue.value}=>${value.value}`)
+      const test = myRef.current === onChangeTrigger
       onChangeTrigger = null
-      if (test) {
+      if (false) {
         //console.log('skip', mydiv.current)
         return
       }
-      const newVal = evt.data.value
+      const newVal = cell().value
+      setState(newVal)
       if (v !== newVal) {
-        setV(newVal.value)
+
       }
-    })
-    setV(cell().value)
+    }
+
+    setState(cell().value)
 
   },[]);
 
 
-  return <div>{name} <input ref={mydiv} readOnly={readonly} style={{color: 'white', backgroundColor: 'black', width:"50px"}} value={v}
+  return <div>{name} <input ref={myRef} readOnly={readonly} style={{color: 'white', backgroundColor: 'black', width:"50px"}} value={v}
                             onChange={!readonly ? onChange : undefined}/></div>
 
   function onChange(e) {
     const value1 = e.target.value
     onChangeTrigger = e.target
-    setV(value1)
     setCellValue(name, value1)
   }
 }
+
 function processNode(n) {
   const {type, key, args} = n
   if (type === 'var') {
@@ -229,7 +279,7 @@ function processNode(n) {
   }
 }
 function onChange(v) {
-  //console.log('onchange', JSON.stringify(v))
+  console.log('onchange', JSON.stringify(v))
 }
 function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
   const f = cellx(() => {
@@ -238,7 +288,7 @@ function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
       const {value,ctor} = cell()
       return ctor(value)
     })
-    //console.log(mappedArgs.map(a =>[a.key,cells[a.key]]))
+    console.log('formula',argKey)
     const ret = opFun(...argCells)
 
     return { value: ret, ctor: getCtor(ret) }
@@ -247,14 +297,17 @@ function assignCellOperator(mappedArgs, argKey: string, opFun: TOpFun) {
   f.onChange((evt) => onChange({key: argKey, ...evt.data}))
 }
 function assignCell(a, b) {
+  const old = cells[a]
+  if (old) {
+    old.dispose()
+  }
   cells[a] = cellx(() => cells[b]())
 }
 function setCellValue(key, value) {
   if (key in cells) {
     const cell = cells[key]
     const ctor=cell().ctor
-    cells[key]({value,ctor})
-    console.log(cells)
+    cell({value,ctor})
   } else {
     cells[key] = cellx({value, ctor: getCtor(value)})
   }
@@ -275,7 +328,27 @@ function nodeToString(n) {
   }
 }
 
+
+v.a(1)
+v.b(v.a)
+v.d(10)
+//var x = <o.plus><v.d/><v.d/></o.plus>
+var x2 = o.plus(v.d, v.d)
+v.c(o.plus(x2, v.a, v.b, v.d, 100))
+v.d(2)
+/*
+var uitest=<v.one><cursor></cursor>
+  <v.two></v.two>
+  <v.two></v.two>
+</v.one>
+log(uitest)
+*/
+
+nodes = nodes.filter(n => !(n.root === false))
+
 nodes.forEach(processNode)
+log({nodes})
+
 
 jsxCallback = React.createElement
 
@@ -284,7 +357,6 @@ function render() {
 
   ReactDOM.render(
     <div>
-      {v.map((o) => <Cell {...o}/>)}
       {v.map((o) => <Cell {...o}/>)}
     </div>,
     document.getElementById('root')
