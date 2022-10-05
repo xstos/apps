@@ -22,6 +22,7 @@
     "babylonjs-gui": "^5.21.0",
     "buffer": "^6.0.3",
     "cellx": "^1.10.29",
+    "cellx-collections": "^1.0.3",
     "hyperactiv": "^0.11.2",
     "javascript-stringify": "^2.1.0",
     "keyboardjs": "^2.6.4",

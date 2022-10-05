@@ -6,6 +6,8 @@ import {stringify} from "javascript-stringify";
 import {cellx} from "cellx"
 import {bindkeys} from "./io"
 import {insertBefore} from "./domutil"
+import {jsxifyState, push} from "./stateStore"
+import {customJsx} from "./reactUtil"
 
 const log=console.log
 const {observe, computed} = hyperactiv
@@ -27,6 +29,20 @@ let jsxCallback = customJsx
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
 }
+
+const keyCell = bindkeys(cellx({type:'io', 'key': ''}))
+keyCell.onChange(e=>{
+  const state = push(e.data.value.key)
+  document.getElementById("foo").innerHTML=JSON.stringify(state)
+
+  function renderState() {
+    const renderTarget=document.getElementById("foo2")
+    jsxCallback = React.createElement
+    const j = jsxifyState()
+    ReactDOM.render(<div>yo</div>, renderTarget)
+  }
+  renderState()
+})
 
 function svelteLikeExperiment() {
 
@@ -76,10 +92,6 @@ function svelteLikeExperiment() {
   document.body.insertBefore(customNodes, document.getElementById("root"))
 }
 
-
-function customJsx(type: any, props: Record<string, any>, ...children: any[]) {
-  return {type, props: props || [], children}
-}
 
 /*
 export const intellisense = <menu>
@@ -357,6 +369,8 @@ function render() {
 
   ReactDOM.render(
     <div>
+      <div id={"foo"}></div>
+      <div id={"foo2"}></div>
       {v.map((o) => <Cell {...o}/>)}
     </div>,
     document.getElementById('root')

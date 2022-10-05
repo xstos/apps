@@ -23,6 +23,7 @@ export function bindkeys(onkey) {
       .filter(v=>v)
 
     const foo = [...mod, key].join("+")
+    if (foo === "ctrl+c") return
     if (foo in prevDef) {
       event.preventDefault()
     }
