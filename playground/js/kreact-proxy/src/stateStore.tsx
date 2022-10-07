@@ -43,16 +43,21 @@ export function push(item) {
 }
 export function jsxifyState() {
   const len = state.length
-  const ids = []
-  const ret =[]
+  const containerStack = []
+  const ret = []
 
   for (let i = 0; i < len; i++) {
     const el=state[i]
-    if (typeof el === "string") continue
+    if (typeof el === "string") {
+      ret.push(el)
+    }
+    const type = el.type
     if ('props' in el) {
       const id = el.props.id
-      if (!ids[i]) ids[i]=[id]
-      else ids[i].push(id)
+      const isStart = !type.endsWith('_')
+      if (isStart) {
+
+      }
     } else {
 
     }

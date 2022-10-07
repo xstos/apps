@@ -25,3 +25,8 @@ https://github.com/pavel-surinin/auto-memoize
 
 Dissecting a completely Functional-Reactive JavaScript app | Netta Bondy
 https://www.youtube.com/watch?v=tchjAe0udO0&t=1166s
+
+https://dev.to/retronav/reactivity-anywhere-without-virtual-dom-377d
+http://meiosis.js.org/docs/toc.html
+https://github.com/paldepind/flyd
+https://github.com/grammarly/focal

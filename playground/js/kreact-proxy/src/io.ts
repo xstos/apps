@@ -35,5 +35,24 @@ export function bindkeys(onkey) {
     const o = { tag: "io",  key: e.key.toLowerCase() }
     onkey(o)
   }
+  document.addEventListener('click', (event)=> {
+    console.log('emitting click events');
+  })
+
+  document.addEventListener('dblclick',(event)=>{
+    console.log('emitting double click events');
+  } )
+
+  document.addEventListener('contextmenu', (event)=>{
+    console.log('emitting right click events');
+  })
+
+  document.addEventListener('mouseenter',(event)=> {
+    console.log("mouse enter, hovering started")
+  })
+
+  document.addEventListener('mouseleave', (event)=> {
+    console.log("hovering finished")
+  })
   return onkey
 }
