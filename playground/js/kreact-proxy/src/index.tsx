@@ -6,9 +6,11 @@ import {stringify} from "javascript-stringify";
 import {cellx} from "cellx"
 import {bindkeys} from "./io"
 import {insertBefore} from "./domutil"
-import {jsxifyState, push} from "./stateStore"
-import {customJsx} from "./reactUtil"
 
+import {customJsx} from "./reactUtil"
+import {getAllIndexes} from "./util"
+import clonedeep from "lodash.clonedeep"
+let jsxCallback = customJsx
 const log=console.log
 const {observe, computed} = hyperactiv
 
@@ -25,23 +27,90 @@ export const cursorBlock = '█'
 document.body.style.color = "grey"
 document.body.style.backgroundColor = "rgb(28,28,28)"
 
-let jsxCallback = customJsx
+
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
+}
+let id = 0
+let elements = [<cursor/>]
+
+function ofType(o,type) {
+  return o.type===type
+}
+
+function push(item) {
+  jsxCallback = customJsx
+  if (typeof item === "string") {
+    if (item==='ctrl+enter') {
+      const newId = id++
+      insert(1,<cell id={newId}/>,<cursor/>, <cell_ id={newId}/>)
+      return elements
+    }
+    if (item==="ctrl+c") {
+      return elements
+    }
+    const chars = item.split('')
+    console.log({chars})
+    function insert(delCount: number,...items) {
+      const cursors = getCursors()
+      cursors.forEach(i=>{
+        elements.splice(i,delCount,...items)
+      })
+    }
+    function getCursors() {
+      const cursors = getAllIndexes(elements,o=>ofType(o,'cursor'))
+      cursors.reverse()
+      return cursors
+    }
+    insert(0,...chars)
+  }
+  console.log(elements)
+  return elements
+}
+function elementsToJSX() {
+  jsxCallback = customJsx
+  const len = elements.length
+  const root = <root/>
+  const containerStack = [root]
+
+  const topChildren = ()=>containerStack[containerStack.length-1].children
+
+  for (let i = 0; i < len; i++) {
+    const el=clonedeep(elements[i])
+    if (typeof el === "string") {
+      topChildren().push(el)
+      continue
+    }
+    const {type,props} = el
+
+    if ('id' in props) {
+      const isStart = !type.endsWith('_')
+      if (isStart) {
+        topChildren().push(el)
+        containerStack.push(el)
+      } else {
+        containerStack.pop()
+      }
+    } else {
+
+    }
+  }
+  return root
 }
 
 const keyCell = bindkeys(cellx({type:'io', 'key': ''}))
 keyCell.onChange(e=>{
-  const state = push(e.data.value.key)
-  document.getElementById("foo").innerHTML=JSON.stringify(state)
+  jsxCallback = customJsx
+  push(e.data.value.key)
+  const j = elementsToJSX()
+  document.getElementById("foo").innerHTML=`<div>${JSON.stringify(elements,null,2)}</div>`
+  const renderTarget=document.getElementById("foo2")
 
-  function renderState() {
-    const renderTarget=document.getElementById("foo2")
-    jsxCallback = React.createElement
-    const j = jsxifyState()
-    ReactDOM.render(<div>yo</div>, renderTarget)
-  }
-  renderState()
+  jsxCallback = React.createElement
+
+  const s = JSON.stringify(j,null,2)
+  //renderTarget.innerHTML=''
+  ReactDOM.render(<pre><br/>{s}</pre>, renderTarget)
 })
 
 function svelteLikeExperiment() {
@@ -369,8 +438,8 @@ function render() {
 
   ReactDOM.render(
     <div>
-      <div id={"foo"}></div>
-      <div id={"foo2"}></div>
+      <pre id={"foo"}></pre>
+      <pre id={"foo2"}></pre>
       {v.map((o) => <Cell {...o}/>)}
     </div>,
     document.getElementById('root')

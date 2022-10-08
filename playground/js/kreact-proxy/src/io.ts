@@ -35,6 +35,7 @@ export function bindkeys(onkey) {
     const o = { tag: "io",  key: e.key.toLowerCase() }
     onkey(o)
   }
+  /*
   document.addEventListener('click', (event)=> {
     console.log('emitting click events');
   })
@@ -54,5 +55,6 @@ export function bindkeys(onkey) {
   document.addEventListener('mouseleave', (event)=> {
     console.log("hovering finished")
   })
+  */
   return onkey
 }
