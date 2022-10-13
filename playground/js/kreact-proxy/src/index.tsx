@@ -10,6 +10,7 @@ import {insertBefore} from "./domutil"
 import {customJsx} from "./reactUtil"
 import {getAllIndexes} from "./util"
 import clonedeep from "lodash.clonedeep"
+import {BoxComponent, DragDropDemo} from "./dragdrop"
 let jsxCallback = customJsx
 const log=console.log
 const {observe, computed} = hyperactiv
@@ -437,11 +438,13 @@ function render() {
   const v = Object.values(rdom)
 
   ReactDOM.render(
-    <div>
+    <>
+      <BoxComponent></BoxComponent>
+      <DragDropDemo/>
       <pre id={"foo"}></pre>
       <pre id={"foo2"}></pre>
       {v.map((o) => <Cell {...o}/>)}
-    </div>,
+    </>,
     document.getElementById('root')
   )
 }
