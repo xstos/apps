@@ -2,7 +2,7 @@ import React, {useEffect} from "react"
 import {cellx} from "cellx"
 import ReactDOM from "react-dom"
 import {ObservableList} from "cellx-collections"
-
+//https://betterprogramming.pub/perfecting-drag-and-drop-in-pure-vanilla-javascript-a761184b797a
 export const jsx = React.createElement
 const ol = new ObservableList([0, 0, 100, 100])
 const boxCell = cellx(ol)
@@ -73,16 +73,13 @@ document.addEventListener('mousedown', (e) => {
   console.log(e)
   mouse.down.state = true
   const [x, y] = [e.clientX, e.clientY]
-  //ol.set(0, 0)
-  //ol.set(1, 0)
-  //ol.setRange(0,[0,0,0,0])
   mouse.down.coords = [x, y]
   mouse.down.el = e.currentTarget
   e.target.style.color = "red"
 })
 document.addEventListener('mousemove', (e) => {
   const [x, y] = [e.clientX, e.clientY]
-  console.log('move', x, y)
+  //console.log('move', x, y)
 
   if (!mouse.down.state) return
   e.preventDefault()

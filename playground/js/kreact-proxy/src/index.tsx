@@ -11,10 +11,11 @@ import {customJsx} from "./reactUtil"
 import {getAllIndexes} from "./util"
 import clonedeep from "lodash.clonedeep"
 import {BoxComponent, DragDropDemo} from "./dragdrop"
+import {makeGLRenderer} from "./render/wgl"
 let jsxCallback = customJsx
 const log=console.log
 const {observe, computed} = hyperactiv
-
+makeGLRenderer()
 declare var v: any
 declare var o: any
 declare var global: any
