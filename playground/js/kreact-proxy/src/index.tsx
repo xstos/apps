@@ -440,8 +440,8 @@ function render() {
 
   ReactDOM.render(
     <>
-      <BoxComponent></BoxComponent>
-      <DragDropDemo/>
+      {false && <BoxComponent></BoxComponent>}
+      {false && <DragDropDemo/>}
       <pre id={"foo"}></pre>
       <pre id={"foo2"}></pre>
       {v.map((o) => <Cell {...o}/>)}

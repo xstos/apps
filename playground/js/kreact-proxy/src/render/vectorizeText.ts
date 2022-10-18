@@ -6,11 +6,16 @@ export function vectxt(text) {
   return spl.map(vt).flat()
 
 }
-function vt(text) {
-  var graph = vectorizeText(text, {
-    width: 1,
+function opts() {
+  return {
+    width: 250,
     textBaseline: "hanging",
-  })
+    font: "'Consolas', sans-serif",
+    size: 32
+  }
+}
+function vt(text) {
+  var graph = vectorizeText(text, opts())
   /*
   var svg = ['<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"  width="500"  height="80" >']
   graph.edges.forEach(function(e) {
@@ -30,4 +35,17 @@ function vt(text) {
     console.log(x1,y1,x2,y2)
     return [x1,y1,x2,y2]
   })
+}
+export function vectxttris(text) {
+  const complex = vectorizeText(text, {...opts(), triangles: true})
+  const ret = []
+  complex.cells.forEach(function(c) {
+    debugger
+    for(var j=0; j<3; ++j) {
+      var [x1,y1] = complex.positions[c[j]]
+      var [x2,y2] = complex.positions[c[(j+1)%3]]
+      ret.push(x1,y1,x2,y2)
+    }
+  })
+  return ret
 }
