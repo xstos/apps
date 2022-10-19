@@ -1,8 +1,8 @@
 import * as THREE from 'three'
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import {vectxt, vectxttris} from "./vectorizeText"
 import {InteractionManager} from "three.interactive"
 import {Line2, LineGeometry, LineMaterial} from "three-fatline"
+
 export function makeGLRenderer() {
   const scene = new THREE.Scene()
 
@@ -45,10 +45,19 @@ export function makeGLRenderer() {
 
   }
   function makeTriangleStrip() {
-    const points = []
     const o = vectxttris('O')
+    const geometry = new THREE.BufferGeometry();
+    let vertices = o.map(triplet=>{
+      const [[x1,y1],[x2,y2],[x3,y3]]=triplet
+      return [x1,y1,0,x2,y2,0,x3,y3,0]
+    }).flat()
+    vertices = new Float32Array(vertices)
+    geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+
+    return new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({
+      color: 0xffffff
+    }))
   }
-  makeTriangleStrip()
   function makeFatLine() {
     const geometry = new LineGeometry();
     geometry.fromLineSegments(makeRegularLine()); // [ x1, y1, z1,  x2, y2, z2, ... ] format
@@ -65,7 +74,7 @@ export function makeGLRenderer() {
     //myLine.computeLineDistances();
     return myLine
   }
-  const line = makeRegularLine()
+  const line = makeTriangleStrip()
   function hookupEvents(line) {
     line.addEventListener('mouseover', (event) => {
       console.log(event);
@@ -77,7 +86,7 @@ export function makeGLRenderer() {
     line.addEventListener('mouseout', (event) => {
       console.log(event);
 
-      event.target.material.color.set(0x000000);
+      event.target.material.color.set(0xffffff);
 
       document.body.style.cursor = 'default';
     });

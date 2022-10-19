@@ -37,15 +37,6 @@ function vt(text) {
   })
 }
 export function vectxttris(text) {
-  const complex = vectorizeText(text, {...opts(), triangles: true})
-  const ret = []
-  complex.cells.forEach(function(c) {
-    debugger
-    for(var j=0; j<3; ++j) {
-      var [x1,y1] = complex.positions[c[j]]
-      var [x2,y2] = complex.positions[c[(j+1)%3]]
-      ret.push(x1,y1,x2,y2)
-    }
-  })
-  return ret
+  const {cells,positions} = vectorizeText(text, {...opts(), triangles: true})
+  return cells.map(([a,b,c])=>[positions[a],positions[b],positions[c]])
 }
