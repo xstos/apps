@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import {vectxt, vectxttris} from "./vectorizeText"
 import {InteractionManager} from "three.interactive"
 import {Line2, LineGeometry, LineMaterial} from "three-fatline"
+import {OrbitControls} from "three/examples/jsm/controls/OrbitControls"
+import {fitCameraToCenteredObject} from "./fitcamera2obj"
 
 export function makeGLRenderer() {
   const scene = new THREE.Scene()
@@ -11,7 +13,7 @@ export function makeGLRenderer() {
     window.innerWidth / window.innerHeight,
     0.1,
     50000)
-  camera.position.z = 500
+
   const renderer = new THREE.WebGLRenderer({
     alpha: true,
     antialias: true,
@@ -27,7 +29,7 @@ export function makeGLRenderer() {
     undefined
   );
 
-  //const controls = new OrbitControls(camera, renderer.domElement)
+  const controls = new OrbitControls(camera, renderer.domElement)
 
   const material = new THREE.LineBasicMaterial({
     color: 0xffffff
@@ -51,12 +53,19 @@ export function makeGLRenderer() {
       const [[x1,y1],[x2,y2],[x3,y3]]=triplet
       return [x1,y1,0,x2,y2,0,x3,y3,0]
     }).flat()
+
     vertices = new Float32Array(vertices)
     geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
 
-    return new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({
+
+    const mesh = new THREE.Mesh(geometry,new THREE.MeshBasicMaterial({
       color: 0xffffff
     }))
+    mesh.geometry.computeBoundingBox()
+
+    //const foo = mesh.geometry.boundingBox
+
+    return mesh
   }
   function makeFatLine() {
     const geometry = new LineGeometry();
@@ -75,6 +84,12 @@ export function makeGLRenderer() {
     return myLine
   }
   const line = makeTriangleStrip()
+
+  const box2 = new THREE.Box3().setFromObject(line)
+  const sz = new THREE.Vector3()
+  box2.getSize(sz)
+  line.geometry.translate(-sz.x/2,-sz.y/2,0)
+  const box = new THREE.BoxHelper(line, 0xffff00);
   function hookupEvents(line) {
     line.addEventListener('mouseover', (event) => {
       console.log(event);
@@ -111,9 +126,15 @@ export function makeGLRenderer() {
     });
   }
 
+
+
   hookupEvents(line)
-  scene.add( line );
+  var grid = new THREE.GridHelper(1000, 10);
+  grid.geometry.rotateX(Math.PI / 2)
+  scene.add( line, box, grid );
   interactionManager.add(line);
+  fitCameraToCenteredObject(camera,line,0,controls)
+  console.log(camera.position)
   window.addEventListener('resize', onWindowResize, false)
   function onWindowResize() {
     const width = window.innerWidth
@@ -126,19 +147,26 @@ export function makeGLRenderer() {
 
   function animate() {
     requestAnimationFrame(animate)
-
     interactionManager.update();
+
     //cube.rotation.x += 0.01
-    //cube.rotation.y += 0.01
-
-    //controls.update()
-
+    controls.update()
     render()
   }
 
   function render() {
+    /*
+    //https://discourse.threejs.org/t/can-i-only-re-render-a-few-object-in-the-scene-and-keep-others-as-they-already-rendered-in-the-previous-step/14517
+    renderer.clear();
+    renderer.render( scene1, camera );
+    renderer.clearDepth(); // optional
+    renderer.render( scene.2, camera );
+     */
     renderer.render(scene, camera)
   }
   animate()
 }
 
+function boundingBox(x,y,z) {
+
+}

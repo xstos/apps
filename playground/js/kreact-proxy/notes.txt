@@ -30,3 +30,6 @@ https://dev.to/retronav/reactivity-anywhere-without-virtual-dom-377d
 http://meiosis.js.org/docs/toc.html
 https://github.com/paldepind/flyd
 https://github.com/grammarly/focal
+
+sussman propagators:
+https://groups.csail.mit.edu/mac/users/gjs/propagators/revised-html.html#SECTION00030000000000000000
