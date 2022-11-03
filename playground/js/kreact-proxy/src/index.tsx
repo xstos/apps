@@ -9,7 +9,6 @@ import  * as jsondiffpatch from 'jsondiffpatch'
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 const {observe, computed} = hyperactiv
 let jsxCallback = customJsx
-
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
 }
@@ -78,10 +77,11 @@ function cx(o) {
 }
 type Pred<T> = (value: T) => boolean
 type Callback<T> = (value: T) => any
-function transitioned(o,a,b) {
-  return o && o[0] === a && o[1] === b
-}
+//todo box dragger https://codepen.io/knobo/pen/WNeMYjO
 function hookupEventHandlersFRP() {
+  type TState = typeof initialState
+  const history: TState[] = []
+  const stateCell = cellx(0)
   const initialStateSansDiff = {
     mouseState: 'unknown',
     startX: 0,
@@ -89,7 +89,7 @@ function hookupEventHandlersFRP() {
     x: 0,
     y: 0,
     dragging: false,
-    el: null
+    el: null,
   }
   const actions = {
     onClick(s: TState) {
@@ -97,21 +97,25 @@ function hookupEventHandlersFRP() {
     },
     dragStart(s: TState) {
 
+    },
+    dragEnd(s: TState) {
+
     }
   }
+
   const initialState = {
     ...initialStateSansDiff,
     diff: jsondiffpatch.diff({},initialStateSansDiff)
   }
-  type TState = typeof initialState
-  const history: TState[] = [initialState]
-  const stateCell = cellx(0)
+
+  history.push(initialState)
+
   function state(o?: Partial<TState>): TState {
     const prev = history[stateCell()]
     if (typeof o === 'undefined') {
       return prev
     }
-    const l = history.length
+    const historyLength = history.length
     const ret = { ...prev, ...o }
     const diff = jsondiffpatch.diff(prev,ret)
     if (diff === undefined) {
@@ -119,53 +123,111 @@ function hookupEventHandlersFRP() {
     }
     ret.diff = diff
     history.push(ret)
-    console.log(JSON.stringify(ret), new Date() + '')
-    stateCell(l)
+
+    console.log(JSON.stringify(ret.diff), (historyLength) + '')
+    stateCell(historyLength)
     return ret
   }
-  function isClick(s:TState): boolean {
+  function checkIfDragging(s:TState): boolean {
     const delta = 6
     const diffX = Math.abs(s.x - s.startX)
     const diffY = Math.abs(s.y - s.startY)
     return diffX < delta && diffY < delta
   }
-  const setDrag = cellx(()=>{
-    const s = state()
-    if (s.mouseState !== 'down' || isClick(s)) return
-    const ret = state({ dragging: true})
-    actions.dragStart(s)
-    return ret
-  }).onChange(()=> {})
-
-  const whileDragging = cellx(() => {
-    const s = state()
-    if (!s.dragging) return
-
-  })
-  const wasClicked = cellx(() => {
-    const s = state()
-    if (s.dragging) return
-    if (!transitioned(s.diff.mouseState,'down','up')) return
-    actions.onClick(s)
-  }).onChange(()=> {})
-  const dragDone = cellx(() => {
-    const s = state()
-    if (!s.dragging) return
-    if (transitioned(s.diff.mouseState,'down', 'up')) {
-      state({dragging: false})
+  function complement(value) {
+    return (compareValue) => value!==compareValue
+  }
+  function any() { return ()=>true  }
+  function funcify(value) {
+    if (typeof value === 'function') {
+      return value
     }
-  }).onChange(()=> {})
+    return (compareValue) => compareValue === value
+  }
+  function rule(statePattern, stateTransform) {
+    const predicates = Object.entries(statePattern).map(([key,value])=>{
+      const [a,b] = value.map(funcify)
+      function result(s: TState) {
+        const diff = s.diff
 
+        if (!(key in diff)) return false
+        const pair = diff[key]
+        if (pair.length<2) {
+          return false
+        }
+        const [sa,sb] = pair
+
+        const ret = a(sa) && b(sb)
+        return ret
+      }
+      return result
+    })
+    function result(s: TState) {
+      const applyRule = predicates.some(p=>p(s))
+      if (!applyRule) return null
+      const newStates = Object.entries(stateTransform).map(([key,value])=> {
+        return [key, value(s)]
+      })
+      const ret = Object.fromEntries(newStates)
+      return ret
+    }
+    return result
+  }
+  function rules(statePattern, stateTransform) {
+    const ruleList = [rule(statePattern,stateTransform)]
+    const pushRule = (statePattern, stateTransform) => {
+      ruleList.push(rule(statePattern,stateTransform))
+      return pushRule
+    }
+    function run() {
+      const len = ruleList.length
+      let i = 0
+      let numIter = 0
+      while(true) {
+        numIter ++
+        if (numIter>10000) {
+          debugger
+        }
+        for (i; i < len; i++) {
+          const rule = ruleList[i]
+          const ruleResult = rule(state())
+          if (ruleResult === null) continue
+          state(ruleResult)
+          break
+        }
+        if (i>=len) {
+          break
+        }
+      }
+    }
+    pushRule.run = run
+    return pushRule
+  }
+  const machine = rules({
+    mouseState: [any(),'down'],
+    dragging:  [any(),complement(true)],
+  },{
+    dragging: checkIfDragging
+  })
+  const derp = cellx(() => {
+
+    console.log('run')
+  }).onChange(()=> {})
   document.addEventListener('pointerdown', (e)=> {
-    state({ mouseState: 'down', startX: e.clientX, startY: e.clientY})
+    const [x,y] = [e.clientX,e.clientY]
+    state({ mouseState: 'down', startX: x, startY: y, x,y})
+    machine.run()
   })
   document.addEventListener('pointermove',(e)=>{
-    state({x: e.clientX, y: e.clientY})
+    const [x,y] = [e.clientX,e.clientY]
+    state({x, y})
+    machine.run()
   })
   document.addEventListener('pointerup',(e)=>{
     let el = e.path[0]
     el = el === rootEL ? document.createElement('div') : el
     state({mouseState: 'up', el})
+    machine.run()
   })
 }
 function hookupEventHandlers() {
