@@ -190,9 +190,11 @@ function hookupEventHandlersFRP() {
         }
         for (i; i < len; i++) {
           const rule = ruleList[i]
-          const ruleResult = rule(state())
+          const prev = state()
+          const ruleResult = rule(prev)
           if (ruleResult === null) continue
-          state(ruleResult)
+          const newState = state(ruleResult)
+          if (prev === newState) continue
           break
         }
         if (i>=len) {
