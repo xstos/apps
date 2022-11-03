@@ -5,7 +5,8 @@ import ReactDOM from "react-dom"
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import {cellx} from "cellx"
-import  * as jsondiffpatch from 'jsondiffpatch'
+import * as jsondiffpatch from 'jsondiffpatch'
+import {toggleClass} from "./domutil"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 const {observe, computed} = hyperactiv
 let jsxCallback = customJsx
@@ -132,19 +133,12 @@ function hookupEventHandlersFRP() {
     const delta = 6
     const diffX = Math.abs(s.x - s.startX)
     const diffY = Math.abs(s.y - s.startY)
-    return diffX < delta && diffY < delta
+
+    const ret = diffX < delta && diffY < delta
+    console.log('checkIfDrag', ret)
+    return ret
   }
-  function complement(value) {
-    return (compareValue) => value!==compareValue
-  }
-  function any() { return ()=>true  }
-  function funcify(value) {
-    if (typeof value === 'function') {
-      return value
-    }
-    return (compareValue) => compareValue === value
-  }
-  function rule(statePattern, stateTransform) {
+  function rule(statePattern, stateMutator) {
     const predicates = Object.entries(statePattern).map(([key,value])=>{
       const [a,b] = value.map(funcify)
       function result(s: TState) {
@@ -165,7 +159,7 @@ function hookupEventHandlersFRP() {
     function result(s: TState) {
       const applyRule = predicates.some(p=>p(s))
       if (!applyRule) return null
-      const newStates = Object.entries(stateTransform).map(([key,value])=> {
+      const newStates = Object.entries(stateMutator).map(([key,value])=> {
         return [key, value(s)]
       })
       const ret = Object.fromEntries(newStates)
@@ -173,10 +167,10 @@ function hookupEventHandlersFRP() {
     }
     return result
   }
-  function rules(statePattern, stateTransform) {
-    const ruleList = [rule(statePattern,stateTransform)]
-    const pushRule = (statePattern, stateTransform) => {
-      ruleList.push(rule(statePattern,stateTransform))
+  function rules(statePattern, stateMutator) {
+    const ruleList = [rule(statePattern,stateMutator)]
+    const pushRule = (statePattern, stateMutator) => {
+      ruleList.push(rule(statePattern,stateMutator))
       return pushRule
     }
     function run() {
@@ -205,32 +199,31 @@ function hookupEventHandlersFRP() {
     pushRule.run = run
     return pushRule
   }
+
   const machine = rules({
     mouseState: [any(),'down'],
     dragging:  [any(),complement(true)],
   },{
     dragging: checkIfDragging
   })
-  const derp = cellx(() => {
 
-    console.log('run')
-  }).onChange(()=> {})
   document.addEventListener('pointerdown', (e)=> {
     const [x,y] = [e.clientX,e.clientY]
     state({ mouseState: 'down', startX: x, startY: y, x,y})
-    machine.run()
   })
   document.addEventListener('pointermove',(e)=>{
     const [x,y] = [e.clientX,e.clientY]
     state({x, y})
-    machine.run()
   })
   document.addEventListener('pointerup',(e)=>{
     let el = e.path[0]
     el = el === rootEL ? document.createElement('div') : el
     state({mouseState: 'up', el})
-    machine.run()
   })
+
+  const derp = cellx(() => {
+    machine.run()
+  }).onChange(()=> {})
 }
 function hookupEventHandlers() {
   const emptyHandler = e => false
@@ -289,11 +282,15 @@ function hookupEventHandlers() {
     isClick = emptyHandler
   },{passive: true})
 }
-function toggleClass(el,cls) {
-  if (el.classList.contains(cls)) {
-    el.classList.remove(cls)
-  } else {
-    el.classList.add(cls)
-  }
-}
 hookupEventHandlersFRP()
+
+function complement(value) {
+  return (compareValue) => value!==compareValue
+}
+function any() { return ()=>true  }
+function funcify(value) {
+  if (typeof value === 'function') {
+    return value
+  }
+  return (compareValue) => compareValue === value
+}
