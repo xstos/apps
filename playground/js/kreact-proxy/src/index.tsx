@@ -130,11 +130,10 @@ function hookupEventHandlersFRP() {
     return ret
   }
   function checkIfDragging(s:TState): boolean {
-    const delta = 6
+    const delta = 5
     const diffX = Math.abs(s.x - s.startX)
     const diffY = Math.abs(s.y - s.startY)
-
-    const ret = diffX < delta && diffY < delta
+    const ret = Math.sqrt(diffX*diffX+diffY*diffY) > delta
     console.log('checkIfDrag', ret)
     return ret
   }
@@ -143,9 +142,9 @@ function hookupEventHandlersFRP() {
       const [a,b] = value.map(funcify)
       function result(s: TState) {
         const diff = s.diff
+        const hasDiff = key in diff
 
-        if (!(key in diff)) return false
-        const pair = diff[key]
+        const pair = hasDiff ? diff[key] : [s[key],s[key]]
         if (pair.length<2) {
           return false
         }
@@ -157,7 +156,7 @@ function hookupEventHandlersFRP() {
       return result
     })
     function result(s: TState) {
-      const applyRule = predicates.some(p=>p(s))
+      const applyRule = predicates.every(p=>p(s))
       if (!applyRule) return null
       const newStates = Object.entries(stateMutator).map(([key,value])=> {
         return [key, value(s)]
@@ -218,7 +217,7 @@ function hookupEventHandlersFRP() {
   document.addEventListener('pointerup',(e)=>{
     let el = e.path[0]
     el = el === rootEL ? document.createElement('div') : el
-    state({mouseState: 'up', el})
+    state({mouseState: 'up', el, dragging: false})
   })
 
   const derp = cellx(() => {
