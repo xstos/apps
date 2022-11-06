@@ -7,8 +7,10 @@ import {customJsx} from "./reactUtil"
 import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
 import {toggleClass} from "./domutil"
+import {ObservableList} from "cellx-collections"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 const {observe, computed} = hyperactiv
+let elIds=1
 let jsxCallback = customJsx
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
@@ -40,6 +42,7 @@ function render(jsx) {
   if (jsx.type==='span') {
     ret.tabIndex=0
     ret.classList.add('drg')
+    ret.id=elIds++
   }
   if (jsx.children) {
     const children = jsx.children.map(c=>{
@@ -79,19 +82,36 @@ function cx(o) {
 type Pred<T> = (value: T) => boolean
 type Callback<T> = (value: T) => any
 //todo box dragger https://codepen.io/knobo/pen/WNeMYjO
+const initialStateSansDiff = {
+  mouseState: 'unknown',
+  startX: 0,
+  startY: 0,
+  x: 0,
+  y: 0,
+  dragging: false,
+  el: null,
+}
+
+const initialState = {
+  ...initialStateSansDiff,
+  diff: jsondiffpatch.diff({},initialStateSansDiff)
+}
 function hookupEventHandlersFRP() {
+  type TMutator = { [key:string]: Function }
+  type TStatePatternMatcher = Function | string | number
+  type TStatePattern = { [key:string]: [TStatePatternMatcher, TStatePatternMatcher] }
   type TState = typeof initialState
-  const history: TState[] = []
-  const stateCell = cellx(0)
-  const initialStateSansDiff = {
-    mouseState: 'unknown',
-    startX: 0,
-    startY: 0,
-    x: 0,
-    y: 0,
-    dragging: false,
-    el: null,
+  const history = new ObservableList<TState>([])
+  const stateCell = cellx(()=>history)
+  function pushState(s: TState) {
+    console.log(JSON.stringify(s.diff), (history.length) + '')
+    history.add(s)
   }
+  function getState(): TState {
+    const index = history.length-1
+    return history.get(index) || initialState
+  }
+
   const actions = {
     onClick(s: TState) {
       toggleClass(s.el,'sel')
@@ -104,29 +124,20 @@ function hookupEventHandlersFRP() {
     }
   }
 
-  const initialState = {
-    ...initialStateSansDiff,
-    diff: jsondiffpatch.diff({},initialStateSansDiff)
-  }
-
-  history.push(initialState)
+  pushState(initialState)
 
   function state(o?: Partial<TState>): TState {
-    const prev = history[stateCell()]
+    const prev = getState()
     if (typeof o === 'undefined') {
       return prev
     }
-    const historyLength = history.length
     const ret = { ...prev, ...o }
     const diff = jsondiffpatch.diff(prev,ret)
     if (diff === undefined) {
       return prev
     }
     ret.diff = diff
-    history.push(ret)
-
-    console.log(JSON.stringify(ret.diff), (historyLength) + '')
-    stateCell(historyLength)
+    pushState(ret)
     return ret
   }
   function checkIfDragging(s:TState): boolean {
@@ -134,41 +145,51 @@ function hookupEventHandlersFRP() {
     const diffX = Math.abs(s.x - s.startX)
     const diffY = Math.abs(s.y - s.startY)
     const ret = Math.sqrt(diffX*diffX+diffY*diffY) > delta
-    console.log('checkIfDrag', ret)
     return ret
   }
-  function rule(statePattern, stateMutator) {
-    const predicates = Object.entries(statePattern).map(([key,value])=>{
+  function createPredicate(statePattern: TStatePattern) {
+    const predicates = Object.entries(statePattern).map((pair)=>{
+      const [key,value] = pair
       const [a,b] = value.map(funcify)
       function result(s: TState) {
         const diff = s.diff
         const hasDiff = key in diff
-
         const pair = hasDiff ? diff[key] : [s[key],s[key]]
         if (pair.length<2) {
           return false
         }
         const [sa,sb] = pair
-
         const ret = a(sa) && b(sb)
         return ret
       }
       return result
     })
-    function result(s: TState) {
-      const applyRule = predicates.every(p=>p(s))
-      if (!applyRule) return null
-      const newStates = Object.entries(stateMutator).map(([key,value])=> {
-        return [key, value(s)]
-      })
-      const ret = Object.fromEntries(newStates)
+    function ret(s: TState): boolean {
+      return predicates.every(p=>p(s))
+    }
+    return ret
+  }
+  function mutate(s:TState, stateMutator: TMutator) {
+    const newStates = Object.entries(stateMutator).map((pair)=> {
+      const [key,value] = pair
+      return [key, value(s)]
+    })
+    const ret = Object.fromEntries(newStates)
+    return ret
+  }
+  function rule(statePattern: TStatePattern, stateMutator: TMutator) {
+    const predicate = createPredicate(statePattern)
+    function result(s: TState): Partial<TState> | null {
+      const shouldApplyRule = predicate(s)
+      if (!shouldApplyRule) return null
+      const ret = mutate(s,stateMutator)
       return ret
     }
     return result
   }
-  function rules(statePattern, stateMutator) {
+  function rules(statePattern: TStatePattern, stateMutator: TMutator) {
     const ruleList = [rule(statePattern,stateMutator)]
-    const pushRule = (statePattern, stateMutator) => {
+    const pushRule = (statePattern: TStatePattern, stateMutator: TMutator) => {
       ruleList.push(rule(statePattern,stateMutator))
       return pushRule
     }
@@ -200,15 +221,15 @@ function hookupEventHandlersFRP() {
   }
 
   const machine = rules({
-    mouseState: [any(),'down'],
-    dragging:  [any(),complement(true)],
+    mouseState: [any,'down'],
+    dragging:  [any,complement(true)],
   },{
     dragging: checkIfDragging
   })
 
   document.addEventListener('pointerdown', (e)=> {
     const [x,y] = [e.clientX,e.clientY]
-    state({ mouseState: 'down', startX: x, startY: y, x,y})
+    state({ mouseState: 'down', startX: x, startY: y, x, y})
   })
   document.addEventListener('pointermove',(e)=>{
     const [x,y] = [e.clientX,e.clientY]
@@ -221,6 +242,8 @@ function hookupEventHandlersFRP() {
   })
 
   const derp = cellx(() => {
+    const dummy = stateCell()
+    console.log('run')
     machine.run()
   }).onChange(()=> {})
 }
@@ -286,7 +309,7 @@ hookupEventHandlersFRP()
 function complement(value) {
   return (compareValue) => value!==compareValue
 }
-function any() { return ()=>true  }
+function any() { return true  }
 function funcify(value) {
   if (typeof value === 'function') {
     return value
