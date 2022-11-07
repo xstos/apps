@@ -1,6 +1,6 @@
 import './index.css';
 import React from "react";
-import hyperactiv from 'hyperactiv'
+//import hyperactiv from 'hyperactiv'
 import ReactDOM from "react-dom"
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
@@ -9,7 +9,13 @@ import * as jsondiffpatch from 'jsondiffpatch'
 import {toggleClass} from "./domutil"
 import {ObservableList} from "cellx-collections"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
-const {observe, computed} = hyperactiv
+//const {observe, computed} = hyperactiv
+type Pred<T> = (value: T) => boolean
+type Callback<T> = (value: T) => any
+type TMutator = { [key:string]: Function }
+type TStatePatternMatcher = Function | string | number | boolean
+type TStatePattern = { [key:string]: [TStatePatternMatcher, TStatePatternMatcher] }
+
 let elIds=1
 let jsxCallback = customJsx
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
@@ -58,29 +64,6 @@ function render(jsx) {
   return ret
 }
 
-function cx(o) {
-  const cell = cellx({
-    current: o,
-   })
-  function accessor(arg, data) {
-    if (arguments.length===0) {
-      return cell()
-    }
-    const obj = cell()
-    const {current} = obj
-    if (arg===current) return obj
-    const ret = {
-      last: current,
-      current: arg,
-      data
-    }
-    cellx(ret)
-    return ret
-  }
-  return accessor
-}
-type Pred<T> = (value: T) => boolean
-type Callback<T> = (value: T) => any
 //todo box dragger https://codepen.io/knobo/pen/WNeMYjO
 const initialStateSansDiff = {
   mouseState: 'unknown',
@@ -96,20 +79,20 @@ const initialState = {
   ...initialStateSansDiff,
   diff: jsondiffpatch.diff({},initialStateSansDiff)
 }
+
 function hookupEventHandlersFRP() {
-  type TMutator = { [key:string]: Function }
-  type TStatePatternMatcher = Function | string | number
-  type TStatePattern = { [key:string]: [TStatePatternMatcher, TStatePatternMatcher] }
+
   type TState = typeof initialState
-  const history = new ObservableList<TState>([])
-  const stateCell = cellx(()=>history)
+  const history: TState[] = []
+  const stateCell = cellx(initialState)
   function pushState(s: TState) {
     console.log(JSON.stringify(s.diff), (history.length) + '')
-    history.add(s)
+    history.push(s)
+    stateCell(s)
   }
   function getState(): TState {
     const index = history.length-1
-    return history.get(index) || initialState
+    return history[index]
   }
 
   const actions = {
@@ -125,7 +108,7 @@ function hookupEventHandlersFRP() {
   }
 
   pushState(initialState)
-
+  type TCreateEvent<T> = (TState) => T
   function state(o?: Partial<TState>): TState {
     const prev = getState()
     if (typeof o === 'undefined') {
@@ -144,7 +127,8 @@ function hookupEventHandlersFRP() {
     const delta = 5
     const diffX = Math.abs(s.x - s.startX)
     const diffY = Math.abs(s.y - s.startY)
-    const ret = Math.sqrt(diffX*diffX+diffY*diffY) > delta
+    const magnitude = Math.sqrt(diffX*diffX+diffY*diffY)
+    const ret = magnitude > delta
     return ret
   }
   function createPredicate(statePattern: TStatePattern) {
@@ -219,14 +203,31 @@ function hookupEventHandlersFRP() {
     pushRule.run = run
     return pushRule
   }
-
+  function effect<T>(statePattern: TStatePattern, createEvent: TCreateEvent<T>) {
+    const effectCell = cellx(createEvent(getState()))
+    const pred = createPredicate(statePattern)
+    cellx(()=>{
+      const state = stateCell()
+      const shouldBroadcast = pred(state)
+      if (!shouldBroadcast) return
+      const e = createEvent(state)
+      effectCell(e)
+    }).onChange(()=>{})
+    return effectCell
+  }
   const machine = rules({
     mouseState: [any,'down'],
     dragging:  [any,complement(true)],
   },{
     dragging: checkIfDragging
   })
-
+  effect({
+    mouseState: ['down','up'],
+    dragging: [false,false]
+  },(s)=> ({type: "click", x: s.x, y:s.y}))
+  .onChange((e)=>{
+    console.log((e.data.value))
+  })
   document.addEventListener('pointerdown', (e)=> {
     const [x,y] = [e.clientX,e.clientY]
     state({ mouseState: 'down', startX: x, startY: y, x, y})
@@ -242,7 +243,8 @@ function hookupEventHandlersFRP() {
   })
 
   const derp = cellx(() => {
-    const dummy = stateCell()
+    const s = stateCell()
+
     console.log('run')
     machine.run()
   }).onChange(()=> {})
