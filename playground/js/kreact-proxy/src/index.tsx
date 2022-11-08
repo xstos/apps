@@ -79,18 +79,27 @@ const initialState = {
   ...initialStateSansDiff,
   diff: jsondiffpatch.diff({},initialStateSansDiff)
 }
+function checkIfDragging(s:TState): boolean {
+  const delta = 5
+  const diffX = Math.abs(s.x - s.startX)
+  const diffY = Math.abs(s.y - s.startY)
+  const magnitude = Math.sqrt(diffX*diffX+diffY*diffY)
+  const ret = magnitude > delta
+  return ret
+}
+type TState = typeof initialState
+type TCreateEvent<T> = (s:TState) => T
 
 function hookupEventHandlersFRP() {
 
-  type TState = typeof initialState
   const history: TState[] = []
   const stateCell = cellx(initialState)
-  function pushState(s: TState) {
+  function pushHistory(s: TState) {
     console.log(JSON.stringify(s.diff), (history.length) + '')
     history.push(s)
     stateCell(s)
   }
-  function getState(): TState {
+  function peekHistory(): TState {
     const index = history.length-1
     return history[index]
   }
@@ -107,10 +116,10 @@ function hookupEventHandlersFRP() {
     }
   }
 
-  pushState(initialState)
-  type TCreateEvent<T> = (TState) => T
+  pushHistory(initialState)
+
   function state(o?: Partial<TState>): TState {
-    const prev = getState()
+    const prev = peekHistory()
     if (typeof o === 'undefined') {
       return prev
     }
@@ -120,15 +129,7 @@ function hookupEventHandlersFRP() {
       return prev
     }
     ret.diff = diff
-    pushState(ret)
-    return ret
-  }
-  function checkIfDragging(s:TState): boolean {
-    const delta = 5
-    const diffX = Math.abs(s.x - s.startX)
-    const diffY = Math.abs(s.y - s.startY)
-    const magnitude = Math.sqrt(diffX*diffX+diffY*diffY)
-    const ret = magnitude > delta
+    pushHistory(ret)
     return ret
   }
   function createPredicate(statePattern: TStatePattern) {
@@ -204,7 +205,7 @@ function hookupEventHandlersFRP() {
     return pushRule
   }
   function effect<T>(statePattern: TStatePattern, createEvent: TCreateEvent<T>) {
-    const effectCell = cellx(createEvent(getState()))
+    const effectCell = cellx(createEvent(peekHistory()))
     const pred = createPredicate(statePattern)
     cellx(()=>{
       const state = stateCell()
@@ -215,19 +216,24 @@ function hookupEventHandlersFRP() {
     }).onChange(()=>{})
     return effectCell
   }
+
   const machine = rules({
     mouseState: [any,'down'],
     dragging:  [any,complement(true)],
   },{
     dragging: checkIfDragging
   })
+
   effect({
     mouseState: ['down','up'],
     dragging: [false,false]
-  },(s)=> ({type: "click", x: s.x, y:s.y}))
-  .onChange((e)=>{
+  },(s) => ({type: "click", x: s.x, y:s.y}))
+  .onChange(eventHandler)
+
+  function eventHandler(e) {
     console.log((e.data.value))
-  })
+  }
+
   document.addEventListener('pointerdown', (e)=> {
     const [x,y] = [e.clientX,e.clientY]
     state({ mouseState: 'down', startX: x, startY: y, x, y})
