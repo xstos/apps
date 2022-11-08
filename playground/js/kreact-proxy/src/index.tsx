@@ -47,6 +47,7 @@ function render(jsx) {
   const ret = document.createElement(jsx.type)
   if (jsx.type==='span') {
     ret.tabIndex=0
+    ret.style.cursor='pointer'
     ret.classList.add('drg')
     ret.id=elIds++
   }
@@ -72,7 +73,7 @@ const initialStateSansDiff = {
   x: 0,
   y: 0,
   dragging: false,
-  el: null,
+  el: -1,
 }
 
 const initialState = {
@@ -222,36 +223,53 @@ function hookupEventHandlersFRP() {
     dragging:  [any,complement(true)],
   },{
     dragging: checkIfDragging
-  })
+  })(
+    {
+      dragging: [any,true]
+    },{
+      deltaX(s: TState) {
+        return s.x-s.startX
+      },
+      deltaY(s: TState) {
+        return s.y-s.startY
+      }
+    }
+  )
 
   effect({
     mouseState: ['down','up'],
     dragging: [false,false]
-  },(s) => ({type: "click", x: s.x, y:s.y}))
-  .onChange(eventHandler)
+  },(s) => ({type: "click", x: s.x, y:s.y, el:s.el}))
+  .onChange(onClick)
 
-  function eventHandler(e) {
-    console.log((e.data.value))
+  function onClick(e) {
+    const evt = e.data.value
+    let { el } =evt
+    el =document.getElementById(el)
+    toggleClass(el,'sel')
+    console.log(evt)
   }
 
   document.addEventListener('pointerdown', (e)=> {
+    e.preventDefault()
     const [x,y] = [e.clientX,e.clientY]
-    state({ mouseState: 'down', startX: x, startY: y, x, y})
+    let el = e.path[0]
+    state({ mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
   })
   document.addEventListener('pointermove',(e)=>{
+    e.preventDefault()
     const [x,y] = [e.clientX,e.clientY]
     state({x, y})
   })
   document.addEventListener('pointerup',(e)=>{
+    e.preventDefault()
     let el = e.path[0]
-    el = el === rootEL ? document.createElement('div') : el
-    state({mouseState: 'up', el, dragging: false})
+    state({mouseState: 'up', dragging: false})
   })
 
-  const derp = cellx(() => {
+  cellx(() => {
     const s = stateCell()
-
-    console.log('run')
+    //console.log('run')
     machine.run()
   }).onChange(()=> {})
 }
