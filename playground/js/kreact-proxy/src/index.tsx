@@ -83,14 +83,6 @@ const initialState = {
   diff: jsondiffpatch.diff({}, initialStateSansDiff)
 }
 
-function checkIfDragging(s: TState): boolean {
-  const delta = 5
-  const diffX = Math.abs(s.x - s.startX)
-  const diffY = Math.abs(s.y - s.startY)
-  const magnitude = Math.sqrt(diffX * diffX + diffY * diffY)
-  const ret = magnitude > delta
-  return ret
-}
 type TStateSansDiff = typeof initialStateSansDiff
 type TState = typeof initialState
 type TCreateEvent<T> = (s: TState) => T
@@ -230,12 +222,20 @@ function makeStateHistory() {
 }
 
 function hookupEventHandlersFRP() {
+  function dragTest(s: TState): boolean {
+    const delta = 5
+    const diffX = Math.abs(s.x - s.startX)
+    const diffY = Math.abs(s.y - s.startY)
+    const magnitude = Math.sqrt(diffX * diffX + diffY * diffY)
+    const ret = magnitude > delta
+    return ret
+  }
   const machine = rules(makeStateHistory())
   ({
     mouseState: [any, 'down'],
-    dragging: [anythingBut(true),anythingBut(true)],
+    dragging: [false,false],
   }, {
-    dragging: checkIfDragging
+    dragging: dragTest
   })
   ({
     dragging: [any, true]
@@ -275,22 +275,25 @@ function hookupEventHandlersFRP() {
     console.log('click')
   }
 
-  document.addEventListener('pointerdown', (e) => {
+  document.addEventListener('pointerdown', onPointerDown)
+  document.addEventListener('pointermove', onPointerMove)
+  document.addEventListener('pointerup', onPointerUp)
+  function onPointerDown(e) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
     let el = e.path[0]
     state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
-  })
-  document.addEventListener('pointermove', (e) => {
+  }
+  function onPointerMove(e) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
     state({x, y})
-  })
-  document.addEventListener('pointerup', (e) => {
+  }
+  function onPointerUp(e) {
     e.preventDefault()
     let el = e.path[0]
     state({mouseState: 'up', dragging: false})
-  })
+  }
 }
 
 function hookupEventHandlers() {
