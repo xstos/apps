@@ -198,7 +198,8 @@ function stateDiff(prev: TState, o: Partial<TState>) {
   const next = { diff, ...nextSansDiff}
   return {next, changed: diff!==undefined}
 }
-function hookupEventHandlersFRP() {
+
+function makeStateHistory() {
   const history: TState[] = []
 
   function pushHistory(s: TState) {
@@ -225,8 +226,11 @@ function hookupEventHandlersFRP() {
     push && pushHistory(next)
     return next
   }
+  return state
+}
 
-  const machine = rules(state)
+function hookupEventHandlersFRP() {
+  const machine = rules(makeStateHistory())
   ({
     mouseState: [any, 'down'],
     dragging: [anythingBut(true),anythingBut(true)],
@@ -242,9 +246,7 @@ function hookupEventHandlersFRP() {
   (
     {dragging: [false, true]},
     {
-      selectedItemIds(s: TState) {
-        return Array.from(document.querySelectorAll('.sel')).map(el=>el.id)
-      }
+      selectedItemIds: (s: TState) => Array.from(document.querySelectorAll('.sel')).map(el => el.id)
     }
   )
     .effects
@@ -256,6 +258,7 @@ function hookupEventHandlersFRP() {
       dragging: [any, true]
   },onDrag)
 
+  const {state} = machine
 
   function onDrag(s) {
     const selected = s.selectedItemIds.map((id)=>document.getElementById(id))
@@ -276,17 +279,17 @@ function hookupEventHandlersFRP() {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
     let el = e.path[0]
-    machine.state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
+    state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
   })
   document.addEventListener('pointermove', (e) => {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    machine.state({x, y})
+    state({x, y})
   })
   document.addEventListener('pointerup', (e) => {
     e.preventDefault()
     let el = e.path[0]
-    machine.state({mouseState: 'up', dragging: false})
+    state({mouseState: 'up', dragging: false})
   })
 }
 
