@@ -6,6 +6,7 @@ import {customJsx} from "./reactUtil"
 import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
 import {toggleClass} from "./domutil"
+import clonedeep from "lodash.clonedeep"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 type Pred<T> = (value: T) => boolean
@@ -90,10 +91,10 @@ function checkIfDragging(s: TState): boolean {
   const ret = magnitude > delta
   return ret
 }
-
+type TStateSansDiff = typeof initialStateSansDiff
 type TState = typeof initialState
 type TCreateEvent<T> = (s: TState) => T
-type TStateFunc = (o?: Partial<TState>) => TState
+type TStateFunc = (o?: Partial<TState>, push?: boolean) => TState
 type TRule = (s: TState) => (Partial<TState> | null)
 
 function createPredicate(statePattern: TPattern) {
@@ -150,27 +151,24 @@ function rules(state: TStateFunc) {
   }
   function run() {
     const len = ruleList.length
-    let i = 0
-    let numIter = 0
-    while (true) {
-      numIter++
-      if (numIter > 10000) {
-        debugger
+    let dirty = false
+    let currentState = clonedeep(state())
+
+    for (let i=0; i < len; i++) {
+      const rule = ruleList[i]
+      const ruleResult = rule(currentState)
+      if (ruleResult === null) continue
+      const {next, changed} = stateDiff(currentState,ruleResult)
+      if (!changed) {
+        continue
       }
-      for (i; i < len; i++) {
-        const rule = ruleList[i]
-        const prev = state()
-        const ruleResult = rule(prev)
-        if (ruleResult === null) continue
-        const newState = state(ruleResult)
-        if (prev === newState) continue
-        effectList.forEach(r=>r(newState))
-        break
-      }
-      if (i >= len) {
-        break
-      }
+      dirty = true
+      Object.assign(currentState,ruleResult)
+      Object.assign(currentState.diff, next.diff)
     }
+    if (!dirty) return
+    state(currentState)
+    effectList.forEach(r=>r(currentState))
   }
   function wrappedState(o?: Partial<TState>): TState {
     const ret = state(o)
@@ -193,7 +191,13 @@ function rules(state: TStateFunc) {
   effects.state = wrappedState
   return pushRule
 }
-
+function stateDiff(prev: TState, o: Partial<TState>) {
+  let { diff, ...prevSansDiff} = prev
+  const nextSansDiff = {...prevSansDiff, ...o}
+  diff = jsondiffpatch.diff(prevSansDiff, nextSansDiff)
+  const next = { diff, ...nextSansDiff}
+  return {next, changed: diff!==undefined}
+}
 function hookupEventHandlersFRP() {
   const history: TState[] = []
 
@@ -208,25 +212,24 @@ function hookupEventHandlersFRP() {
 
   pushHistory(initialState)
 
-  function state(o?: Partial<TState>): TState {
+  function state(o?: Partial<TState>, push: boolean = true): TState {
     const prev = peekHistory()
     if (!o) {
       return prev
     }
-    const ret = {...prev, ...o}
-    const diff = jsondiffpatch.diff(prev, ret)
-    if (diff === undefined) {
+    const {next, changed} = stateDiff(prev, o)
+    if (!changed) {
       return prev
     }
-    ret.diff = diff
-    pushHistory(ret)
-    return ret
+
+    push && pushHistory(next)
+    return next
   }
 
   const machine = rules(state)
   ({
     mouseState: [any, 'down'],
-    dragging: [any, complement(true)],
+    dragging: [anythingBut(true),anythingBut(true)],
   }, {
     dragging: checkIfDragging
   })
@@ -235,7 +238,16 @@ function hookupEventHandlersFRP() {
   }, {
     deltaX: (s: TState) => s.x - s.startX,
     deltaY: (s: TState) => s.y - s.startY
-  }).effects
+  })
+  (
+    {dragging: [false, true]},
+    {
+      selectedItemIds(s: TState) {
+        return Array.from(document.querySelectorAll('.sel')).map(el=>el.id)
+      }
+    }
+  )
+    .effects
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false]
@@ -244,8 +256,9 @@ function hookupEventHandlersFRP() {
       dragging: [any, true]
   },onDrag)
 
+
   function onDrag(s) {
-    const selected = Array.from(document.querySelectorAll('.sel'))
+    const selected = s.selectedItemIds.map((id)=>document.getElementById(id))
     selected.forEach((n, i) => {
       n.style.position = 'absolute'
       n.style.transform = `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`;
@@ -337,7 +350,7 @@ function hookupEventHandlers() {
 
 hookupEventHandlersFRP()
 
-function complement(value) {
+function anythingBut(value) {
   return (compareValue) => value !== compareValue
 }
 
