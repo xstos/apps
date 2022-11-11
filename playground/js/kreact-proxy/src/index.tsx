@@ -93,6 +93,8 @@ function checkIfDragging(s: TState): boolean {
 
 type TState = typeof initialState
 type TCreateEvent<T> = (s: TState) => T
+type TStateFunc = (o?: Partial<TState>) => TState
+type TRule = (s: TState) => (Partial<TState> | null)
 
 function createPredicate(statePattern: TPattern) {
   const predicates = Object.entries(statePattern).map((pair) => {
@@ -107,7 +109,7 @@ function createPredicate(statePattern: TPattern) {
         return false
       }
       const [sa, sb] = pair
-      const ret = a(sa) && b(sb)
+      const ret = a(sa,sb) && b(sb)
       return ret
     }
 
@@ -128,20 +130,20 @@ function mutate(s: TState, stateMutator: TMutator) {
   const ret = Object.fromEntries(newStates)
   return ret
 }
-function rule(statePattern: TPattern, stateMutator: TMutator) {
-  const predicate = createPredicate(statePattern)
 
+function rule(statePattern: TPattern, stateMutator: TMutator): TRule {
+  const predicate = createPredicate(statePattern)
   function result(s: TState): Partial<TState> | null {
     const shouldApplyRule = predicate(s)
     if (!shouldApplyRule) return null
     const ret = mutate(s, stateMutator)
     return ret
   }
-
   return result
 }
-function rules(state: TStateFunc, ...mutators: [TPattern, TMutator][]) {
-  const ruleList = mutators.map(([p, m]) => rule(p, m))
+function rules(state: TStateFunc) {
+  const ruleList: TRule[] = []
+  const effectList = []
   function pushRule(statePattern: TPattern, stateMutator: TMutator) {
     ruleList.push(rule(statePattern, stateMutator))
     return pushRule
@@ -162,6 +164,7 @@ function rules(state: TStateFunc, ...mutators: [TPattern, TMutator][]) {
         if (ruleResult === null) continue
         const newState = state(ruleResult)
         if (prev === newState) continue
+        effectList.forEach(r=>r(newState))
         break
       }
       if (i >= len) {
@@ -169,22 +172,35 @@ function rules(state: TStateFunc, ...mutators: [TPattern, TMutator][]) {
       }
     }
   }
-  pushRule.run = run
+  function wrappedState(o?: Partial<TState>): TState {
+    const ret = state(o)
+    effectList.forEach(r=>r(ret))
+    run()
+    return ret
+  }
+  function effects(statePattern: TPattern, callback: (s: TState)=>void) {
+    const pred = createPredicate(statePattern)
+    function ret(s: TState) {
+      const shouldBroadcast = pred(s)
+      if (!shouldBroadcast) return
+      callback(s)
+    }
+    effectList.push(ret)
+    return effects
+  }
+  pushRule.state = wrappedState
+  pushRule.effects = effects
+  effects.state = wrappedState
   return pushRule
 }
-type TStateFunc = (o?: Partial<TState>) => TState
 
 function hookupEventHandlersFRP() {
-
   const history: TState[] = []
-  const stateCell = cellx(initialState)
 
   function pushHistory(s: TState) {
     console.log(JSON.stringify(s.diff), (history.length) + '')
     history.push(s)
-    stateCell(s)
   }
-
   function peekHistory(): TState {
     const index = history.length - 1
     return history[index]
@@ -206,20 +222,6 @@ function hookupEventHandlersFRP() {
     pushHistory(ret)
     return ret
   }
-  
-  function effect<T>(statePattern: TPattern, createEvent: TCreateEvent<T>) {
-    const effectCell = cellx(createEvent(peekHistory()))
-    const pred = createPredicate(statePattern)
-    cellx(() => {
-      const state = stateCell()
-      const shouldBroadcast = pred(state)
-      if (!shouldBroadcast) return
-      const e = createEvent(state)
-      effectCell(e)
-    }).onChange(() => {
-    })
-    return effectCell
-  }
 
   const machine = rules(state)
   ({
@@ -231,60 +233,47 @@ function hookupEventHandlersFRP() {
   ({
     dragging: [any, true]
   }, {
-    deltaX(s: TState) {
-      return s.x - s.startX
-    },
-    deltaY(s: TState) {
-      return s.y - s.startY
-    }
-  })
-
-  effect({
+    deltaX: (s: TState) => s.x - s.startX,
+    deltaY: (s: TState) => s.y - s.startY
+  }).effects
+  ({
     mouseState: ['down', 'up'],
     dragging: [false, false]
-  }, (s) => ({type: 'click', el: s.el}))
-    .onChange(e => {
-      const eventData = e.data.value
-      let {el} = eventData
-      el = document.getElementById(el)
-      toggleClass(el, 'sel')
-      console.log(eventData)
-    })
+  },onClick)
+  ({
+      dragging: [any, true]
+  },onDrag)
 
-
-  effect({
-    dragging: [any, true]
-  }, (s) => s).onChange(e => {
-    const s = e.data.value
+  function onDrag(s) {
     const selected = Array.from(document.querySelectorAll('.sel'))
     selected.forEach((n, i) => {
       n.style.position = 'absolute'
       n.style.transform = `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`;
     })
-  })
+  }
+
+  function onClick(s) {
+    let {el} = s
+    el = document.getElementById(el)
+    toggleClass(el, 'sel')
+    console.log('click')
+  }
 
   document.addEventListener('pointerdown', (e) => {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
     let el = e.path[0]
-    state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
+    machine.state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
   })
   document.addEventListener('pointermove', (e) => {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    state({x, y})
+    machine.state({x, y})
   })
   document.addEventListener('pointerup', (e) => {
     e.preventDefault()
     let el = e.path[0]
-    state({mouseState: 'up', dragging: false})
-  })
-
-  cellx(() => {
-    const s = stateCell()
-    //console.log('run')
-    machine.run()
-  }).onChange(() => {
+    machine.state({mouseState: 'up', dragging: false})
   })
 }
 
@@ -355,7 +344,9 @@ function complement(value) {
 function any() {
   return true
 }
-
+function changed(a,b) {
+  return [a!==b,true]
+}
 function funcify(value) {
   if (typeof value === 'function') {
     return value
