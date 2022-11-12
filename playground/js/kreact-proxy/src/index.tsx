@@ -76,7 +76,12 @@ const initialStateSansDiff = {
   y: 0,
   dragging: false,
   el: '',
-  hoverElId: ''
+  hoverElId: '',
+  hoverBounds: {
+    left:0,
+    right:0,
+    width:0
+  }
 }
 
 const initialState = {
@@ -273,15 +278,14 @@ function hookupEventHandlersFRP() {
     hoverBounds: (s: TState) => {
       const el = elById(s.hoverElId)
       const {left, right, width} = el.getBoundingClientRect()
-      return {left, right, width}
+      return {left, width}
     },
   })
   ({
     dragging: [any, true],
   }, {
     hoverBefore: (s: TState) => {
-      if (!s.hoverBounds) return true
-      const {left, right, width} = s.hoverBounds
+      const {left, width} = s.hoverBounds
       const mid = left + width * 0.5
       return s.x <= mid
     },
