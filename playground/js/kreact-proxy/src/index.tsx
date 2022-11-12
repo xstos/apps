@@ -7,13 +7,14 @@ import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
 import {hasClass, toggleClass} from "./domutil"
 import clonedeep from "lodash.clonedeep"
+import {filter} from "./util"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 type Pred<T> = (value: T) => boolean
 type Callback<T> = (value: T) => any
 type TMutator = { [key: string]: Function }
 type TStatePatternMatcher = Function | string | number | boolean
-type TPattern = { [key: string]: [TStatePatternMatcher, TStatePatternMatcher] }
+type TPattern = { [key: string]: [TStatePatternMatcher, TStatePatternMatcher] | Function }
 
 let elIds = 1
 let jsxCallback = customJsx
@@ -97,7 +98,10 @@ type TRule = (s: TState) => (Partial<TState> | null)
 
 function createPredicate(statePattern: TPattern) {
   const predicates = Object.entries(statePattern).map((pair) => {
-    const [key, value] = pair
+    let [key, value] = pair
+    if (typeof value === "function") {
+      value = [value,any]
+    }
     const [a, b] = value.map(funcify)
 
     function result(s: TState) {
@@ -213,11 +217,18 @@ function stateDiff(prev: TState, o: Partial<TState>) {
   return {next, changed: diff !== undefined}
 }
 
+function logHist(s: TState, historyLen) {
+  const fd = filter(s.diff || {}, (k, v) => {
+    return ["x", "y", "deltaX", "deltaY"].every((s) => s !== k)
+  })
+  fd && console.log(JSON.stringify(fd), (historyLen) + '')
+}
+
 function makeStateHistory() {
   const history: TState[] = []
 
   function pushHistory(s: TState) {
-    console.log(JSON.stringify(s.diff), (history.length) + '')
+    logHist(s, history.length)
     history.push(s)
   }
 
@@ -273,7 +284,7 @@ function hookupEventHandlersFRP() {
   })
   ({
     dragging: [any, true],
-    hoverElId: [neq, any]
+    hoverElId: changed
   }, {
     hoverBounds: (s: TState) => {
       const el = elById(s.hoverElId)
@@ -310,7 +321,7 @@ function hookupEventHandlersFRP() {
   }, onDrag)
   ({
     dragging: [any, true],
-    hoverElId: [neq, any]
+    hoverElId: [changed, any]
   }, hoverChanged)
 
   function hoverChanged(s, ps) {
@@ -443,7 +454,7 @@ function any() {
   return true
 }
 
-function neq(a, b) {
+function changed(a, b) {
   return a !== b
 }
 
