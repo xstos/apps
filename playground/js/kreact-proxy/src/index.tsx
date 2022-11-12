@@ -22,7 +22,7 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
 }
 
-const rootEL = document.getElementById('root')
+const rootEL = elById('root')
 document.body.style.fontFamily = "monospace, sans-serif"
 document.body.style.fontSize = "24pt"
 document.body.style.color = "grey"
@@ -75,8 +75,8 @@ const initialStateSansDiff = {
   x: 0,
   y: 0,
   dragging: false,
-  el: -1,
-  hoverElId: -1
+  el: '',
+  hoverElId: ''
 }
 
 const initialState = {
@@ -178,7 +178,9 @@ function rules(state: TStateFunc) {
     run()
     return ret
   }
+
   wrappedState.getPrevious = state.getPrevious
+
   function effects(statePattern: TPattern, callback: (s: TState, prevState: TState) => void) {
     const pred = createPredicate(statePattern)
 
@@ -234,28 +236,29 @@ function makeStateHistory() {
     push && pushHistory(next)
     return next
   }
+
   function getPrevious() {
-    return history[history.length-2] || initialState
+    return history[history.length - 2] || initialState
   }
+
   state.getPrevious = getPrevious
   return state
 }
 
 function hookupEventHandlersFRP() {
-  function dragTest(s: TState): boolean {
-    const delta = 5
-    const diffX = Math.abs(s.x - s.startX)
-    const diffY = Math.abs(s.y - s.startY)
-    const magnitude = Math.sqrt(diffX * diffX + diffY * diffY)
-    return magnitude > delta
-  }
   const hist = makeStateHistory()
   const machine = rules(hist)
   ({
     mouseState: [any, 'down'],
     dragging: [false, false],
   }, {
-    dragging: dragTest
+    dragging: (s: TState): boolean => {
+      const delta = 5
+      const diffX = Math.abs(s.x - s.startX)
+      const diffY = Math.abs(s.y - s.startY)
+      const magnitude = Math.sqrt(diffX * diffX + diffY * diffY)
+      return magnitude > delta
+    }
   })
   ({
     dragging: [any, true]
@@ -268,7 +271,7 @@ function hookupEventHandlersFRP() {
     hoverElId: [neq, any]
   }, {
     hoverBounds: (s: TState) => {
-      const el = document.getElementById(s.hoverElId)
+      const el = elById(s.hoverElId)
       const {left, right, width} = el.getBoundingClientRect()
       return {left, right, width}
     },
@@ -283,8 +286,9 @@ function hookupEventHandlersFRP() {
       return s.x <= mid
     },
   })
-  (
-    {dragging: [false, true]},
+  ({
+      dragging: [false, true]
+    },
     {
       selectedItemIds: (s: TState) => {
         return Array.from(document.querySelectorAll('.sel'))
@@ -303,24 +307,23 @@ function hookupEventHandlersFRP() {
   ({
     dragging: [any, true],
     hoverElId: [neq, any]
-  }, function hoverChanged(s,ps) {
-    const prevEl = byId(ps.hoverElId)
+  }, hoverChanged)
+
+  function hoverChanged(s, ps) {
+    const prevEl = elById(ps.hoverElId)
     prevEl.style.borderLeft = ""
     prevEl.style.borderRight = ""
-    //const previousHoverId =
-  })
+  }
 
-  const {state} = machine
-
-  function onDrag(s) {
-    const selected = s.selectedItemIds.map((id) => document.getElementById(id))
+  function onDrag(s, ps) {
+    const selected = s.selectedItemIds.map(elById)
     selected.forEach((n, i) => {
       n.style.pointerEvents = 'none'
       n.style.position = 'absolute'
       n.style.transform = `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`;
     })
-    const hEl = document.getElementById(s.hoverElId)
-    if (!hasClass(hEl,'drg')) return
+    const hEl = elById(s.hoverElId)
+    if (!hasClass(hEl, 'drg')) return
     if (s.hoverBefore) {
       hEl.style.borderLeft = "3px dashed red"
       hEl.style.borderRight = ""
@@ -330,9 +333,9 @@ function hookupEventHandlersFRP() {
     }
   }
 
-  function onClick(s) {
+  function onClick(s, ps) {
     let {el} = s
-    el = document.getElementById(el)
+    el = elById(el)
     if (!hasClass(el, 'drg')) return
     toggleClass(el, 'sel')
     console.log('click')
@@ -341,6 +344,7 @@ function hookupEventHandlersFRP() {
   document.addEventListener('pointerdown', onPointerDown)
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
+  const {state} = machine
 
   function onPointerDown(e) {
     e.preventDefault()
@@ -352,7 +356,7 @@ function hookupEventHandlersFRP() {
   function onPointerMove(e) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    let hoverElId = e.path[0].id
+    let hoverElId = e.path[0].id || "root"
     state({x, y, hoverElId})
   }
 
@@ -362,9 +366,11 @@ function hookupEventHandlersFRP() {
     state({mouseState: 'up', dragging: false})
   }
 }
-function byId(id) {
+
+function elById(id) {
   return document.getElementById(id)
 }
+
 function hookupEventHandlers() {
   const emptyHandler = e => false
   let isClick = emptyHandler
