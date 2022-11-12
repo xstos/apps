@@ -5,7 +5,7 @@ import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
-import {toggleClass} from "./domutil"
+import {hasClass, toggleClass} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
@@ -49,7 +49,7 @@ function render(jsx) {
   const ret = document.createElement(jsx.type)
   if (jsx.type === 'span') {
     ret.tabIndex = 0
-    ret.style.cursor = 'pointer'
+    ret.style.cursor = 'default'
     ret.classList.add('drg')
     ret.id = elIds++
   }
@@ -76,6 +76,7 @@ const initialStateSansDiff = {
   y: 0,
   dragging: false,
   el: -1,
+  hoverElId: -1
 }
 
 const initialState = {
@@ -102,7 +103,7 @@ function createPredicate(statePattern: TPattern) {
         return false
       }
       const [sa, sb] = pair
-      const ret = a(sa,sb) && b(sb)
+      const ret = a(sa, sb) && b(sb)
       return ret
     }
 
@@ -115,6 +116,7 @@ function createPredicate(statePattern: TPattern) {
 
   return ret
 }
+
 function mutate(s: TState, stateMutator: TMutator) {
   const newStates = Object.entries(stateMutator).map((pair) => {
     const [key, value] = pair
@@ -126,69 +128,82 @@ function mutate(s: TState, stateMutator: TMutator) {
 
 function rule(statePattern: TPattern, stateMutator: TMutator): TRule {
   const predicate = createPredicate(statePattern)
+
   function result(s: TState): Partial<TState> | null {
     const shouldApplyRule = predicate(s)
     if (!shouldApplyRule) return null
     const ret = mutate(s, stateMutator)
     return ret
   }
+
   return result
 }
+
 function rules(state: TStateFunc) {
   const ruleList: TRule[] = []
   const effectList = []
+
   function pushRule(statePattern: TPattern, stateMutator: TMutator) {
     ruleList.push(rule(statePattern, stateMutator))
     return pushRule
   }
+
   function run() {
     const len = ruleList.length
     let dirty = false
     let currentState = clonedeep(state())
 
-    for (let i=0; i < len; i++) {
+    for (let i = 0; i < len; i++) {
       const rule = ruleList[i]
       const ruleResult = rule(currentState)
       if (ruleResult === null) continue
-      const {next, changed} = stateDiff(currentState,ruleResult)
+      const {next, changed} = stateDiff(currentState, ruleResult)
       if (!changed) {
         continue
       }
       dirty = true
-      Object.assign(currentState,ruleResult)
+      Object.assign(currentState, ruleResult)
       Object.assign(currentState.diff, next.diff)
     }
     if (!dirty) return
     state(currentState)
-    effectList.forEach(r=>r(currentState))
+    const prevState = state.getPrevious()
+    effectList.forEach(r => r(currentState, prevState))
   }
+
   function wrappedState(o?: Partial<TState>): TState {
     const ret = state(o)
-    effectList.forEach(r=>r(ret))
+    const prevState = state.getPrevious()
+    effectList.forEach(r => r(ret, prevState))
     run()
     return ret
   }
-  function effects(statePattern: TPattern, callback: (s: TState)=>void) {
+  wrappedState.getPrevious = state.getPrevious
+  function effects(statePattern: TPattern, callback: (s: TState, prevState: TState) => void) {
     const pred = createPredicate(statePattern)
-    function ret(s: TState) {
+
+    function ret(s: TState, prevState: TState) {
       const shouldBroadcast = pred(s)
       if (!shouldBroadcast) return
-      callback(s)
+      callback(s, prevState)
     }
+
     effectList.push(ret)
     return effects
   }
+
   pushRule.state = wrappedState
   pushRule.effects = effects
   effects.state = wrappedState
   return pushRule
 }
+
 function stateDiff(prev: TState, o: Partial<TState>) {
-  let { diff, ...prevSansDiff} = prev
+  let {diff, ...prevSansDiff} = prev
   const nextSansDiff = {...prevSansDiff, ...o}
   diff = jsondiffpatch.diff(prevSansDiff, nextSansDiff)
-  const next = { diff, ...nextSansDiff}
-  return {next, changed: diff!==undefined}
+  const next = {diff, ...nextSansDiff}
+  return {next, changed: diff !== undefined}
 }
 
 function makeStateHistory() {
@@ -198,6 +213,7 @@ function makeStateHistory() {
     console.log(JSON.stringify(s.diff), (history.length) + '')
     history.push(s)
   }
+
   function peekHistory(): TState {
     const index = history.length - 1
     return history[index]
@@ -218,6 +234,10 @@ function makeStateHistory() {
     push && pushHistory(next)
     return next
   }
+  function getPrevious() {
+    return history[history.length-2] || initialState
+  }
+  state.getPrevious = getPrevious
   return state
 }
 
@@ -227,13 +247,13 @@ function hookupEventHandlersFRP() {
     const diffX = Math.abs(s.x - s.startX)
     const diffY = Math.abs(s.y - s.startY)
     const magnitude = Math.sqrt(diffX * diffX + diffY * diffY)
-    const ret = magnitude > delta
-    return ret
+    return magnitude > delta
   }
-  const machine = rules(makeStateHistory())
+  const hist = makeStateHistory()
+  const machine = rules(hist)
   ({
     mouseState: [any, 'down'],
-    dragging: [false,false],
+    dragging: [false, false],
   }, {
     dragging: dragTest
   })
@@ -241,36 +261,79 @@ function hookupEventHandlersFRP() {
     dragging: [any, true]
   }, {
     deltaX: (s: TState) => s.x - s.startX,
-    deltaY: (s: TState) => s.y - s.startY
+    deltaY: (s: TState) => s.y - s.startY,
+  })
+  ({
+    dragging: [any, true],
+    hoverElId: [neq, any]
+  }, {
+    hoverBounds: (s: TState) => {
+      const el = document.getElementById(s.hoverElId)
+      const {left, right, width} = el.getBoundingClientRect()
+      return {left, right, width}
+    },
+  })
+  ({
+    dragging: [any, true],
+  }, {
+    hoverBefore: (s: TState) => {
+      if (!s.hoverBounds) return true
+      const {left, right, width} = s.hoverBounds
+      const mid = left + width * 0.5
+      return s.x <= mid
+    },
   })
   (
     {dragging: [false, true]},
     {
-      selectedItemIds: (s: TState) => Array.from(document.querySelectorAll('.sel')).map(el => el.id)
+      selectedItemIds: (s: TState) => {
+        return Array.from(document.querySelectorAll('.sel'))
+          .filter(el => hasClass(el, 'drg'))
+          .map(el => el.id)
+      }
     }
-  )
-    .effects
+  ).effects
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false]
-  },onClick)
+  }, onClick)
   ({
-      dragging: [any, true]
-  },onDrag)
+    dragging: [any, true]
+  }, onDrag)
+  ({
+    dragging: [any, true],
+    hoverElId: [neq, any]
+  }, function hoverChanged(s,ps) {
+    const prevEl = byId(ps.hoverElId)
+    prevEl.style.borderLeft = ""
+    prevEl.style.borderRight = ""
+    //const previousHoverId =
+  })
 
   const {state} = machine
 
   function onDrag(s) {
-    const selected = s.selectedItemIds.map((id)=>document.getElementById(id))
+    const selected = s.selectedItemIds.map((id) => document.getElementById(id))
     selected.forEach((n, i) => {
+      n.style.pointerEvents = 'none'
       n.style.position = 'absolute'
       n.style.transform = `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`;
     })
+    const hEl = document.getElementById(s.hoverElId)
+    if (!hasClass(hEl,'drg')) return
+    if (s.hoverBefore) {
+      hEl.style.borderLeft = "3px dashed red"
+      hEl.style.borderRight = ""
+    } else {
+      hEl.style.borderLeft = ""
+      hEl.style.borderRight = "3px dashed red"
+    }
   }
 
   function onClick(s) {
     let {el} = s
     el = document.getElementById(el)
+    if (!hasClass(el, 'drg')) return
     toggleClass(el, 'sel')
     console.log('click')
   }
@@ -278,24 +341,30 @@ function hookupEventHandlersFRP() {
   document.addEventListener('pointerdown', onPointerDown)
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
+
   function onPointerDown(e) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
     let el = e.path[0]
     state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
   }
+
   function onPointerMove(e) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    state({x, y})
+    let hoverElId = e.path[0].id
+    state({x, y, hoverElId})
   }
+
   function onPointerUp(e) {
     e.preventDefault()
     let el = e.path[0]
     state({mouseState: 'up', dragging: false})
   }
 }
-
+function byId(id) {
+  return document.getElementById(id)
+}
 function hookupEventHandlers() {
   const emptyHandler = e => false
   let isClick = emptyHandler
@@ -363,9 +432,11 @@ function anythingBut(value) {
 function any() {
   return true
 }
-function changed(a,b) {
-  return [a!==b,true]
+
+function neq(a, b) {
+  return a !== b
 }
+
 function funcify(value) {
   if (typeof value === 'function') {
     return value
