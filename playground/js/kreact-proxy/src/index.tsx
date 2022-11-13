@@ -5,7 +5,7 @@ import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
-import {hasClass, toggleClass} from "./domutil"
+import {hasClass, insertAfter, insertBefore, toggleClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {filter} from "./util"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
@@ -18,7 +18,7 @@ type TPattern = { [key: string]: [TStatePatternMatcher, TStatePatternMatcher] | 
 
 let elIds = 1
 let jsxCallback = customJsx
-
+const dummyEl = document.createElement('div')
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
 }
@@ -288,7 +288,7 @@ function hookupEventHandlersFRP() {
   }, {
     hoverBounds: (s: TState) => {
       const el = elById(s.hoverElId)
-      const {left, right, width} = el.getBoundingClientRect()
+      const {left, width} = el.getBoundingClientRect()
       return {left, width}
     },
   })
@@ -305,9 +305,9 @@ function hookupEventHandlersFRP() {
       dragging: [false, true]
     },
     {
-      selectedItemIds: (s: TState) => {
+      selectedItemIds: (s: TState): string[] => {
         return Array.from(document.querySelectorAll('.sel'))
-          .filter(el => hasClass(el, 'drg'))
+          .filter((el) => hasClass(el, 'drg'))
           .map(el => el.id)
       }
     }
@@ -317,19 +317,49 @@ function hookupEventHandlersFRP() {
     dragging: [false, false]
   }, onClick)
   ({
+    dragging: [false, true],
+  }, onStartDrag)
+  ({
     dragging: [any, true]
   }, onDrag)
   ({
     dragging: [any, true],
     hoverElId: [changed, any]
   }, hoverChanged)
+  ({
+    dragging: [true, false],
+  }, onDrop)
+  function onDrop(s,ps) {
+    const selected: HTMLElement[] = s.selectedItemIds.map(elById)
+    selected.forEach(s=>s.__cleanup())
+    const hoverElement = elById(s.hoverElId)
+    if (!hasClass(hoverElement, 'drg')) return
+    hoverElement.style.borderLeft=hoverElement.style.borderRight = ""
+    //todo: we don't want transitory UI stuff like selections lost. need to keep history for repeatability.
+    unmount(...selected)
+    const before = s.hoverBefore
+    selected.reverse().forEach(sEL=>{
+      before ? insertBefore(sEL,hoverElement) : insertAfter(sEL, hoverElement)
+    })
+  }
 
   function hoverChanged(s, ps) {
     const prevEl = elById(ps.hoverElId)
     prevEl.style.borderLeft = ""
     prevEl.style.borderRight = ""
   }
-
+  function onStartDrag(s,ps) {
+    console.log('startdrag')
+    const selected = s.selectedItemIds.map(elById)
+    selected.forEach((n, i) => {
+      const { pointerEvents, position, transform } = n.style
+      n.__cleanup = ()=> {
+        n.style.pointerEvents = pointerEvents
+        n.style.position = position
+        n.style.transform = transform
+      }
+    })
+  }
   function onDrag(s, ps) {
     const selected = s.selectedItemIds.map(elById)
     selected.forEach((n, i) => {
@@ -382,8 +412,8 @@ function hookupEventHandlersFRP() {
   }
 }
 
-function elById(id) {
-  return document.getElementById(id)
+function elById(id: string): HTMLElement {
+  return document.getElementById(id) || dummyEl
 }
 
 function hookupEventHandlers() {
