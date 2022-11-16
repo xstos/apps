@@ -32,13 +32,14 @@ document.body.style.backgroundColor = "rgb(28,28,28)"
 //makeGLRenderer()
 //proxyWrapperDemo()
 
-bindkeys((data) => {
+bindkeys((data: { key: any; }) => {
   const {key} = data
   addKey(key)
 })
 
-function addKey(key) {
+function addKey(key: string) {
   const myjsx = <span>{key}</span>
+  // @ts-ignore
   const el2 = render(myjsx)
   rootEL.appendChild(el2)
   console.log(myjsx)
@@ -46,13 +47,13 @@ function addKey(key) {
 
 'hello'.split('').map(addKey)
 
-function render(jsx) {
+function render(jsx: { type: string; children: any[]; }) {
   const ret = document.createElement(jsx.type)
   if (jsx.type === 'span') {
     ret.tabIndex = 0
     ret.style.cursor = 'default'
     ret.classList.add('drg')
-    ret.id = elIds++
+    ret.id = ''+elIds++
   }
   if (jsx.children) {
     const children = jsx.children.map(c => {
@@ -73,16 +74,20 @@ const initialStateSansDiff = {
   mouseState: 'unknown',
   startX: 0,
   startY: 0,
+  deltaX: 0,
+  deltaY: 0,
   x: 0,
   y: 0,
   dragging: false,
   el: '',
   hoverElId: '',
   hoverBounds: {
-    left:0,
-    right:0,
-    width:0
-  }
+    left: 0,
+    right: 0,
+    width: 0
+  },
+  hoverBefore: true,
+  selectedItemIds: []
 }
 
 const initialState = {
@@ -93,21 +98,30 @@ const initialState = {
 type TStateSansDiff = typeof initialStateSansDiff
 type TState = typeof initialState
 type TCreateEvent<T> = (s: TState) => T
-type TStateFunc = (o?: Partial<TState>, push?: boolean) => TState
+type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: ()=>TState }
 type TRule = (s: TState) => (Partial<TState> | null)
 
 function createPredicate(statePattern: TPattern) {
   const predicates = Object.entries(statePattern).map((pair) => {
     let [key, value] = pair
     if (typeof value === "function") {
-      value = [value,any]
+      value = [value, any]
     }
     const [a, b] = value.map(funcify)
 
     function result(s: TState) {
       const diff = s.diff
+      if (!diff) {
+        throw new Error("wtf")
+      }
       const hasDiff = key in diff
-      const pair = hasDiff ? diff[key] : [s[key], s[key]]
+      let pair: any
+      if (hasDiff) {
+        pair = diff[key]
+      } else {
+        // @ts-ignore
+        pair = [s[key], s[key]]
+      }
       if (pair.length < 2) {
         return false
       }
@@ -125,7 +139,6 @@ function createPredicate(statePattern: TPattern) {
 
   return ret
 }
-
 function mutate(s: TState, stateMutator: TMutator) {
   const newStates = Object.entries(stateMutator).map((pair) => {
     const [key, value] = pair
@@ -134,7 +147,6 @@ function mutate(s: TState, stateMutator: TMutator) {
   const ret = Object.fromEntries(newStates)
   return ret
 }
-
 function rule(statePattern: TPattern, stateMutator: TMutator): TRule {
   const predicate = createPredicate(statePattern)
 
@@ -147,10 +159,10 @@ function rule(statePattern: TPattern, stateMutator: TMutator): TRule {
 
   return result
 }
-
 function rules(state: TStateFunc) {
   const ruleList: TRule[] = []
-  const effectList = []
+  type TStateTransitionCallback = (curState: TState, prevState: TState) => void
+  const effectList: TStateTransitionCallback[] = []
 
   function pushRule(statePattern: TPattern, stateMutator: TMutator) {
     ruleList.push(rule(statePattern, stateMutator))
@@ -193,10 +205,10 @@ function rules(state: TStateFunc) {
   function effects(statePattern: TPattern, callback: (s: TState, prevState: TState) => void) {
     const pred = createPredicate(statePattern)
 
-    function ret(s: TState, prevState: TState) {
-      const shouldBroadcast = pred(s)
+    function ret(curState: TState, prevState: TState): void {
+      const shouldBroadcast = pred(curState)
       if (!shouldBroadcast) return
-      callback(s, prevState)
+      callback(curState, prevState)
     }
 
     effectList.push(ret)
@@ -208,7 +220,6 @@ function rules(state: TStateFunc) {
   effects.state = wrappedState
   return pushRule
 }
-
 function stateDiff(prev: TState, o: Partial<TState>) {
   let {diff, ...prevSansDiff} = prev
   const nextSansDiff = {...prevSansDiff, ...o}
@@ -216,14 +227,12 @@ function stateDiff(prev: TState, o: Partial<TState>) {
   const next = {diff, ...nextSansDiff}
   return {next, changed: diff !== undefined}
 }
-
-function logHist(s: TState, historyLen) {
+function logHist(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
     return ["x", "y", "deltaX", "deltaY"].every((s) => s !== k)
   })
   fd && console.log(JSON.stringify(fd), (historyLen) + '')
 }
-
 function makeStateHistory() {
   const history: TState[] = []
 
@@ -329,38 +338,40 @@ function hookupEventHandlersFRP() {
   ({
     dragging: [true, false],
   }, onDrop)
-  function onDrop(s,ps) {
+
+  function onDrop(s: TState, ps: TState) {
     const selected: HTMLElement[] = s.selectedItemIds.map(elById)
-    selected.forEach(s=>s.__cleanup())
+    // @ts-ignore
+    selected.forEach(s => s.__cleanup())
     const hoverElement = elById(s.hoverElId)
     if (!hasClass(hoverElement, 'drg')) return
-    hoverElement.style.borderLeft=hoverElement.style.borderRight = ""
+    hoverElement.style.borderLeft = hoverElement.style.borderRight = ""
     //todo: we don't want transitory UI stuff like selections lost. need to keep history for repeatability.
     unmount(...selected)
     const before = s.hoverBefore
-    selected.reverse().forEach(sEL=>{
-      before ? insertBefore(sEL,hoverElement) : insertAfter(sEL, hoverElement)
+    selected.reverse().forEach(sEL => {
+      before ? insertBefore(sEL, hoverElement) : insertAfter(sEL, hoverElement)
     })
   }
-
-  function hoverChanged(s, ps) {
+  function hoverChanged(s: TState, ps: TState) {
     const prevEl = elById(ps.hoverElId)
     prevEl.style.borderLeft = ""
     prevEl.style.borderRight = ""
   }
-  function onStartDrag(s,ps) {
+  function onStartDrag(s: TState, ps: TState) {
     console.log('startdrag')
     const selected = s.selectedItemIds.map(elById)
     selected.forEach((n, i) => {
-      const { pointerEvents, position, transform } = n.style
-      n.__cleanup = ()=> {
+      const {pointerEvents, position, transform} = n.style
+      // @ts-ignore
+      n.__cleanup = () => {
         n.style.pointerEvents = pointerEvents
         n.style.position = position
         n.style.transform = transform
       }
     })
   }
-  function onDrag(s, ps) {
+  function onDrag(s: TState, ps: TState) {
     const selected = s.selectedItemIds.map(elById)
     selected.forEach((n, i) => {
       n.style.pointerEvents = 'none'
@@ -377,10 +388,8 @@ function hookupEventHandlersFRP() {
       hEl.style.borderRight = "3px dashed red"
     }
   }
-
-  function onClick(s, ps) {
-    let {el} = s
-    el = elById(el)
+  function onClick(s: TState, ps: TState) {
+    const el = elById(s.el)
     if (!hasClass(el, 'drg')) return
     toggleClass(el, 'sel')
     console.log('click')
@@ -389,25 +398,24 @@ function hookupEventHandlersFRP() {
   document.addEventListener('pointerdown', onPointerDown)
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
+
   const {state} = machine
 
-  function onPointerDown(e) {
+  function onPointerDown(e: MouseEvent) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    let el = e.path[0]
+    let el = e.composedPath()[0]
     state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
   }
-
-  function onPointerMove(e) {
+  function onPointerMove(e: MouseEvent) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    let hoverElId = e.path[0].id || "root"
+    let hoverElId = e.composedPath()[0].id || "root"
     state({x, y, hoverElId})
   }
-
-  function onPointerUp(e) {
+  function onPointerUp(e: MouseEvent) {
     e.preventDefault()
-    let el = e.path[0]
+    //let el = e.composedPath()[0]
     state({mouseState: 'up', dragging: false})
   }
 }
@@ -415,7 +423,7 @@ function hookupEventHandlersFRP() {
 function elById(id: string): HTMLElement {
   return document.getElementById(id) || dummyEl
 }
-
+/*
 function hookupEventHandlers() {
   const emptyHandler = e => false
   let isClick = emptyHandler
@@ -473,24 +481,26 @@ function hookupEventHandlers() {
     isClick = emptyHandler
   }, {passive: true})
 }
-
+*/
 hookupEventHandlersFRP()
 
-function anythingBut(value) {
-  return (compareValue) => value !== compareValue
+function anythingBut(value: any) {
+  return (compareValue: any) => value !== compareValue
 }
-
 function any() {
   return true
 }
-
-function changed(a, b) {
+function changed(a: any, b: any) {
   return a !== b
 }
-
-function funcify(value) {
+function funcify(value: any) {
   if (typeof value === 'function') {
     return value
   }
-  return (compareValue) => compareValue === value
+  return (compareValue: any) => compareValue === value
 }
+
+/*
+for dom state tracking, use paths:
+/nodes/0/propname
+ */
