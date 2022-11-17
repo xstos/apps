@@ -7,12 +7,15 @@ import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
 import {hasClass, insertAfter, insertBefore, toggleClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
-import {filter} from "./util"
+import {filter, log} from "./util"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 type Pred<T> = (value: T) => boolean
 type Callback<T> = (value: T) => any
-type TMutator = { [key: string]: Function }
+
+type TMutatorObj = { [key: string]: Function | string | number | boolean }
+type TMutatorFun = (s: TState) => TMutatorObj
+type TMutator = TMutatorObj | TMutatorFun
 type TStatePatternMatcher = Function | string | number | boolean
 type TPattern = { [key: string]: [TStatePatternMatcher, TStatePatternMatcher] | Function }
 
@@ -32,17 +35,12 @@ document.body.style.backgroundColor = "rgb(28,28,28)"
 //makeGLRenderer()
 //proxyWrapperDemo()
 
-bindkeys((data: { key: any; }) => {
-  const {key} = data
-  addKey(key)
-})
-
 function addKey(key: string) {
   const myjsx = <span>{key}</span>
   // @ts-ignore
   const el2 = render(myjsx)
   rootEL.appendChild(el2)
-  console.log(myjsx)
+  log(myjsx)
 }
 
 'hello'.split('').map(addKey)
@@ -87,12 +85,14 @@ const initialStateSansDiff = {
     width: 0
   },
   hoverBefore: true,
-  selectedItemIds: []
+  selectedItemIds: [],
+  key: '$NIL',
+  nodeCount: 0,
 }
 
 const initialState = {
   ...initialStateSansDiff,
-  diff: jsondiffpatch.diff({}, initialStateSansDiff)
+  diff: jsondiffpatch.diff({}, initialStateSansDiff),
 }
 
 type TStateSansDiff = typeof initialStateSansDiff
@@ -140,9 +140,15 @@ function createPredicate(statePattern: TPattern) {
   return ret
 }
 function mutate(s: TState, stateMutator: TMutator) {
+  if (typeof stateMutator === "function") {
+    stateMutator = stateMutator(s)
+  }
   const newStates = Object.entries(stateMutator).map((pair) => {
-    const [key, value] = pair
-    return [key, value(s)]
+    let [key, value] = pair
+    if (typeof value === "function") {
+      value = value(s)
+    }
+    return [key, value]
   })
   const ret = Object.fromEntries(newStates)
   return ret
@@ -231,7 +237,7 @@ function logHist(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
     return ["x", "y", "deltaX", "deltaY"].every((s) => s !== k)
   })
-  fd && console.log(JSON.stringify(fd), (historyLen) + '')
+  fd && log(JSON.stringify(fd), (historyLen) + '')
 }
 function makeStateHistory() {
   const history: TState[] = []
@@ -272,6 +278,7 @@ function makeStateHistory() {
 
 function hookupEventHandlersFRP() {
   const hist = makeStateHistory()
+  const NOKEY = '$NIL'
   const machine = rules(hist)
   ({
     mouseState: [any, 'down'],
@@ -320,26 +327,45 @@ function hookupEventHandlersFRP() {
           .map(el => el.id)
       }
     }
-  ).effects
+  )(
+    {
+      key: [NOKEY, complement(NOKEY)]
+    },
+    (s: TState) => {
+      const {nodeCount, key} = s
+
+      return {
+        [nodeCount]: { key },
+        nodeCount: nodeCount+1
+      }
+    }
+  )
+  .effects
+  ({
+    key: [NOKEY, complement(NOKEY)]
+  }, keyEffect)
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false]
-  }, onClick)
+  }, clickEffect)
   ({
     dragging: [false, true],
-  }, onStartDrag)
+  }, startDragEffect)
   ({
     dragging: [any, true]
-  }, onDrag)
+  }, dragEffect)
   ({
     dragging: [any, true],
     hoverElId: [changed, any]
-  }, hoverChanged)
+  }, hoverEffect)
   ({
     dragging: [true, false],
-  }, onDrop)
+  }, dropEffect)
+  function keyEffect(s: TState) {
+    log('derp!', s.diff)
+  }
 
-  function onDrop(s: TState, ps: TState) {
+  function dropEffect(s: TState, ps: TState) {
     const selected: HTMLElement[] = s.selectedItemIds.map(elById)
     // @ts-ignore
     selected.forEach(s => s.__cleanup())
@@ -353,13 +379,12 @@ function hookupEventHandlersFRP() {
       before ? insertBefore(sEL, hoverElement) : insertAfter(sEL, hoverElement)
     })
   }
-  function hoverChanged(s: TState, ps: TState) {
+  function hoverEffect(s: TState, ps: TState) {
     const prevEl = elById(ps.hoverElId)
     prevEl.style.borderLeft = ""
     prevEl.style.borderRight = ""
   }
-  function onStartDrag(s: TState, ps: TState) {
-    console.log('startdrag')
+  function startDragEffect(s: TState, ps: TState) {
     const selected = s.selectedItemIds.map(elById)
     selected.forEach((n, i) => {
       const {pointerEvents, position, transform} = n.style
@@ -371,7 +396,7 @@ function hookupEventHandlersFRP() {
       }
     })
   }
-  function onDrag(s: TState, ps: TState) {
+  function dragEffect(s: TState, ps: TState) {
     const selected = s.selectedItemIds.map(elById)
     selected.forEach((n, i) => {
       n.style.pointerEvents = 'none'
@@ -388,7 +413,7 @@ function hookupEventHandlersFRP() {
       hEl.style.borderRight = "3px dashed red"
     }
   }
-  function onClick(s: TState, ps: TState) {
+  function clickEffect(s: TState, ps: TState) {
     const el = elById(s.el)
     if (!hasClass(el, 'drg')) return
     toggleClass(el, 'sel')
@@ -418,6 +443,14 @@ function hookupEventHandlersFRP() {
     //let el = e.composedPath()[0]
     state({mouseState: 'up', dragging: false})
   }
+
+  bindkeys((data: { key: any; }) => {
+    const {key} = data
+    addKey(key)
+    state({ key: NOKEY})
+    state({key})
+  })
+
 }
 
 function elById(id: string): HTMLElement {
@@ -484,7 +517,7 @@ function hookupEventHandlers() {
 */
 hookupEventHandlersFRP()
 
-function anythingBut(value: any) {
+function complement(value: any) {
   return (compareValue: any) => value !== compareValue
 }
 function any() {
