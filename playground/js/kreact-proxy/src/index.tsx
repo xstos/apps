@@ -39,22 +39,23 @@ setStyles()
 //proxyWrapperDemo()
 
 function addKey(key: string) {
-  const myjsx = <span>{key}</span>
+  const myjsx = <span id={''+elIds++}>{key}</span>
   // @ts-ignore
   const el2 = render(myjsx)
   rootEL.appendChild(el2)
   //log(myjsx)
 }
 
-'hello'.split('').map(addKey)
+//'hello'.split('').map(addKey)
 
-function render(jsx: { type: string; children: any[]; }) {
+type TJsx = { type: string; props: { [key: string]: any }, children: any[]; }
+function render(jsx: TJsx) {
   const ret = document.createElement(jsx.type)
   if (jsx.type === 'span') {
     ret.tabIndex = 0
     ret.style.cursor = 'default'
     ret.classList.add('drg')
-    ret.id = ''+elIds++
+    ret.id = jsx.props.id
   }
   if (jsx.children) {
     const children = jsx.children.map(c => {
@@ -243,7 +244,7 @@ function logHist(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
     return ["x", "y", "deltaX", "deltaY"].every((s) => s !== k)
   })
-  fd && log(JSON.stringify(fd), (historyLen) + '')
+  fd && log(fd, (historyLen) + '')
 }
 function makeStateHistory() {
   const history: TState[] = []
@@ -365,8 +366,7 @@ function hookupEventHandlersFRP() {
     nodes = clonedeep(nodes)
     if (key==='cursor') {
       nodes.push({id: lastId++, v: key})
-    }
-    else if (key==='backspace') {
+    } else if (key==='backspace') {
       nodes = nodes.filter((n, i) => {
         const next = nodes[i + 1]
         if (next && next.v === 'cursor') {
@@ -395,14 +395,12 @@ function hookupEventHandlersFRP() {
         }
         return n
       })
-    }
-    else if (key==='delete') {
+    } else if (key==='delete') {
       nodes = nodes.filter((n,i)=>{
         const prev = nodes[i-1]
         return !(prev && prev.v === 'cursor')
       })
-    }
-    else {
+    } else if (true) {
       nodes = nodes.reduce((acc,cur,i)=>{
         if (cur.v==='cursor') {
           acc.push({id: lastId++, v: key}, cur)
@@ -412,7 +410,7 @@ function hookupEventHandlersFRP() {
         return acc
       },[])
     }
-    log(JSON.stringify(nodes))
+    //log(JSON.stringify(nodes))
     /*
     {"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
      */
@@ -423,14 +421,36 @@ function hookupEventHandlersFRP() {
   }
   function keyEffect(s: TState) {
     const {diff}=s
-
     if (!('nodes' in diff)) return
-
     const {nodes}=diff
+    const { _t, ...rest } = nodes
+    const deferred = []
+    for (const index in rest) {
+      const value = rest[index]
+      if (Array.isArray(value)) { //created
+        let [{id,v}] = value
+        let text
+        if (v==='cursor') {
+          text=CURSORKEY
+        } else {
+          text=v
+        }
+        const myjsx = <span id={id}>{text}</span>
+        const el = render(myjsx)
+        rootEL.appendChild(el)
+      } else {
+        let { id: [oid,nid], v: [ov,nv]=[null,null]} = value
+        const hasValue = 'v' in value
+        if (nv==='cursor') nv=CURSORKEY
+        const el =elById(oid)
+        deferred.push(()=>{
+          el.id=nid
+          hasValue && el.replaceChild(document.createTextNode(nv),el.childNodes[0])
+        })
 
-    const keys = Object.keys(nodes)
-
-    log('derp!', s.diff)
+      }
+    }
+    deferred.map(f=>f())
   }
 
   function dropEffect(s: TState, ps: TState) {
@@ -517,7 +537,7 @@ function hookupEventHandlersFRP() {
   }
   bindkeys((data: { key: any; }) => {
     const {key} = data
-    addKey(key)
+    //addKey(key)
     sendKeyToState(key)
   })
   sendKeyToState('cursor')
