@@ -14,3 +14,6 @@ export function filter<T>(o: object, pred: (key: string,value: any) => boolean) 
   if (filtered.length===0) return null
   return Object.fromEntries(filtered)
 }
+export function log(...items: any[]) {
+  console.log(...items)
+}

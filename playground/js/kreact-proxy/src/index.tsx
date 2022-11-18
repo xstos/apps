@@ -18,19 +18,22 @@ type TMutatorFun = (s: TState) => TMutatorObj
 type TMutator = TMutatorObj | TMutatorFun
 type TStatePatternMatcher = Function | string | number | boolean
 type TPattern = { [key: string]: [TStatePatternMatcher, TStatePatternMatcher] | Function }
-
+const NOKEY = '$NIL'
+const CURSORKEY = '█'
 let elIds = 1
 let jsxCallback = customJsx
 const dummyEl = document.createElement('div')
+const rootEL = elById('root')
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
 }
-
-const rootEL = elById('root')
-document.body.style.fontFamily = "monospace, sans-serif"
-document.body.style.fontSize = "24pt"
-document.body.style.color = "grey"
-document.body.style.backgroundColor = "rgb(28,28,28)"
+function setStyles() {
+  document.body.style.fontFamily = "monospace, sans-serif"
+  document.body.style.fontSize = "24pt"
+  document.body.style.color = "grey"
+  document.body.style.backgroundColor = "rgb(28,28,28)"
+}
+setStyles()
 
 //makeGLRenderer()
 //proxyWrapperDemo()
@@ -40,7 +43,7 @@ function addKey(key: string) {
   // @ts-ignore
   const el2 = render(myjsx)
   rootEL.appendChild(el2)
-  log(myjsx)
+  //log(myjsx)
 }
 
 'hello'.split('').map(addKey)
@@ -86,17 +89,20 @@ const initialStateSansDiff = {
   },
   hoverBefore: true,
   selectedItemIds: [],
-  key: '$NIL',
-  nodeCount: 0,
+  key: NOKEY,
+  nodes: [],
+  lastId: 0,
 }
 
 const initialState = {
   ...initialStateSansDiff,
   diff: jsondiffpatch.diff({}, initialStateSansDiff),
 }
-
 type TStateSansDiff = typeof initialStateSansDiff
-type TState = typeof initialState
+type TNode = { id: number, v: string }
+type TState = typeof initialState & {
+  nodes: TNode[]
+}
 type TCreateEvent<T> = (s: TState) => T
 type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: ()=>TState }
 type TRule = (s: TState) => (Partial<TState> | null)
@@ -278,7 +284,6 @@ function makeStateHistory() {
 
 function hookupEventHandlersFRP() {
   const hist = makeStateHistory()
-  const NOKEY = '$NIL'
   const machine = rules(hist)
   ({
     mouseState: [any, 'down'],
@@ -331,18 +336,11 @@ function hookupEventHandlersFRP() {
     {
       key: [NOKEY, complement(NOKEY)]
     },
-    (s: TState) => {
-      const {nodeCount, key} = s
-
-      return {
-        [nodeCount]: { key },
-        nodeCount: nodeCount+1
-      }
-    }
+    keyInputMutator
   )
   .effects
   ({
-    key: [NOKEY, complement(NOKEY)]
+    key: [NOKEY, complement(NOKEY)],
   }, keyEffect)
   ({
     mouseState: ['down', 'up'],
@@ -361,7 +359,77 @@ function hookupEventHandlersFRP() {
   ({
     dragging: [true, false],
   }, dropEffect)
+
+  function keyInputMutator(s: TState) {
+    let {nodes, key, lastId} = s
+    nodes = clonedeep(nodes)
+    if (key==='cursor') {
+      nodes.push({id: lastId++, v: key})
+    }
+    else if (key==='backspace') {
+      nodes = nodes.filter((n, i) => {
+        const next = nodes[i + 1]
+        if (next && next.v === 'cursor') {
+          return false
+        }
+        return true
+      })
+    } else if (key==='arrowleft') {
+      nodes = nodes.map((n,i)=>{
+        const next = nodes[i+1]
+        if (next && next.v==='cursor') {
+          return next
+        } else if (n.v==='cursor' && i>0) {
+          return nodes[i-1]
+        }
+        return n
+      })
+    } else if (key==='arrowright') {
+      nodes = nodes.map((n,i)=>{
+        const next = nodes[i+1]
+        const prev = nodes[i-1]
+        if (n.v==='cursor' && next) {
+          return next
+        } else if (prev && prev.v==='cursor') {
+          return prev
+        }
+        return n
+      })
+    }
+    else if (key==='delete') {
+      nodes = nodes.filter((n,i)=>{
+        const prev = nodes[i-1]
+        return !(prev && prev.v === 'cursor')
+      })
+    }
+    else {
+      nodes = nodes.reduce((acc,cur,i)=>{
+        if (cur.v==='cursor') {
+          acc.push({id: lastId++, v: key}, cur)
+        } else {
+          acc.push(cur)
+        }
+        return acc
+      },[])
+    }
+    log(JSON.stringify(nodes))
+    /*
+    {"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
+     */
+    return {
+      nodes,
+      lastId
+    }
+  }
   function keyEffect(s: TState) {
+    const {diff}=s
+
+    if (!('nodes' in diff)) return
+
+    const {nodes}=diff
+
+    const keys = Object.keys(nodes)
+
     log('derp!', s.diff)
   }
 
@@ -443,14 +511,16 @@ function hookupEventHandlersFRP() {
     //let el = e.composedPath()[0]
     state({mouseState: 'up', dragging: false})
   }
-
+  function sendKeyToState(key) {
+    state({ key: NOKEY})
+    state({key})
+  }
   bindkeys((data: { key: any; }) => {
     const {key} = data
     addKey(key)
-    state({ key: NOKEY})
-    state({key})
+    sendKeyToState(key)
   })
-
+  sendKeyToState('cursor')
 }
 
 function elById(id: string): HTMLElement {
