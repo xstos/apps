@@ -41,7 +41,7 @@ setStyles()
 //proxyWrapperDemo()
 
 function addKey(key: string) {
-  const myjsx = <span id={''+elIds++}>{key}</span>
+  const myjsx = <span id={'' + elIds++}>{key}</span>
   // @ts-ignore
   const el2 = render(myjsx)
   rootEL.appendChild(el2)
@@ -106,7 +106,7 @@ type TStateSansDiff = typeof initialStateSansDiff
 type TNode = { id: number, v: string }
 type TState = typeof initialState
 type TCreateEvent<T> = (s: TState) => T
-type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: ()=>TState }
+type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: () => TState }
 type TRule = (s: TState) => (Partial<TState> | null)
 
 function createPredicate(statePattern: TPattern) {
@@ -238,7 +238,7 @@ function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
   const {diff: oldDiff, ...prevStateSansDiff} = prev
   const nextStateSansDiff = {...prevStateSansDiff, ...o}
   const diff = jsondiffpatch.diff(prevStateSansDiff, nextStateSansDiff)
-  if (diff===undefined) return undefined
+  if (diff === undefined) return undefined
   return {diff, ...nextStateSansDiff}
 }
 function logHist(s: TState, historyLen: number) {
@@ -331,7 +331,7 @@ function hookupEventHandlersFRP() {
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false]
-  },{
+  }, {
     key: 'click'
   })
   (
@@ -340,76 +340,73 @@ function hookupEventHandlersFRP() {
     },
     keyInputMutator
   )
-  .effects
-  ({
-    key: [complement(NOKEY), NOKEY],
-  }, keyEffect)
-  ({
-    mouseState: ['down', 'up'],
-    dragging: [false, false]
-  }, clickEffect)
-  ({
-    dragging: [false, true],
-  }, startDragEffect)
-  ({
-    dragging: [any, true]
-  }, dragEffect)
-  ({
-    dragging: [any, true],
-    hoverElId: [changed, any]
-  }, hoverEffect)
-  ({
-    dragging: [true, false],
-  }, dropEffect)
+    .effects
+    ({
+      key: [complement(NOKEY), NOKEY],
+    }, keyEffect)
+    ({
+      mouseState: ['down', 'up'],
+      dragging: [false, false]
+    }, clickEffect)
+    ({
+      dragging: [false, true],
+    }, startDragEffect)
+    ({
+      dragging: [any, true]
+    }, dragEffect)
+    ({
+      dragging: [any, true],
+      hoverElId: [changed, any]
+    }, hoverEffect)
+    ({
+      dragging: [true, false],
+    }, dropEffect)
 
   function keyInputMutator(s: TState) {
     let {nodes, key, lastId} = s
     nodes = clonedeep(nodes)
-    if (key==='cursor') {
+    if (key === 'cursor') {
       nodes.push({id: lastId++, v: key})
-    } else if (key==='backspace') {
+    } else if (key === 'backspace') {
       nodes = nodes.filter((n, i) => {
         const next = nodes[i + 1]
-        if (next && next.v === 'cursor') {
-          return false
-        }
-        return true
+        return !(next && next.v === 'cursor')
       })
-    } else if (key==='arrowleft') {
-      nodes = nodes.map((n,i)=>{
-        const next = nodes[i+1]
-        if (next && next.v==='cursor') {
+    } else if (key === 'arrowleft') {
+      nodes = nodes.map((n, i) => {
+        const next = nodes[i + 1]
+        if (next && next.v === 'cursor') {
           return next
-        } else if (n.v==='cursor' && i>0) {
-          return nodes[i-1]
+        } else if (n.v === 'cursor' && i > 0) {
+          return nodes[i - 1]
         }
         return n
       })
-    } else if (key==='arrowright') {
-      nodes = nodes.map((n,i)=>{
-        const next = nodes[i+1]
-        const prev = nodes[i-1]
-        if (n.v==='cursor' && next) {
+    } else if (key === 'arrowright') {
+      nodes = nodes.map((n, i) => {
+        const next = nodes[i + 1]
+        const prev = nodes[i - 1]
+        if (n.v === 'cursor' && next) {
           return next
-        } else if (prev && prev.v==='cursor') {
+        } else if (prev && prev.v === 'cursor') {
           return prev
         }
         return n
       })
-    } else if (key==='delete') {
-      nodes = nodes.filter((n,i)=>{
-        const prev = nodes[i-1]
+    } else if (key === 'delete') {
+      nodes = nodes.filter((n, i) => {
+        const prev = nodes[i - 1]
         return !(prev && prev.v === 'cursor')
       })
     } else if (true) {
-      nodes = nodes.reduce((acc,cur,i)=>{
-        if (cur.v==='cursor') {
+      nodes = nodes.reduce((acc, cur, i) => {
+        if (cur.v === 'cursor') {
           acc.push({id: lastId++, v: key}, cur)
         } else {
           acc.push(cur)
         }
         return acc
-      },T<TNode[]>([]))
+      }, T<TNode[]>([]))
     }
     //log(JSON.stringify(nodes))
     /*
@@ -422,46 +419,46 @@ function hookupEventHandlersFRP() {
     }
   }
   function keyEffect(s: TState) {
-    const {diff}=s
+    const {diff} = s
     if (!('nodes' in diff)) {
       return
     }
-    const {nodes}=diff
-    const { _t, ...rest } = nodes
+    const {nodes} = diff
+    const {_t, ...rest} = nodes
     const deferred = []
     for (const index in rest) {
       const value = rest[index]
       if (index.startsWith('_')) {
         const [deletedNode] = value
         const el = elById(deletedNode.id)
-        deferred.push(()=>unmount(el))
+        deferred.push(() => unmount(el))
         continue
       }
 
       if (Array.isArray(value)) { //created
-        let [{id,v}] = value
+        let [{id, v}] = value
         let text
-        if (v==='cursor') {
-          text=CURSORKEY
+        if (v === 'cursor') {
+          text = CURSORKEY
         } else {
-          text=v
+          text = v
         }
         const myjsx = <span id={id}>{text}</span>
         // @ts-ignore
         const el = render(myjsx)
         rootEL.appendChild(el)
       } else { //changed
-        let { id: [oid,nid], v: [ov,nv]=['','']} = value
+        let {id: [oid, nid], v: [ov, nv] = ['', '']} = value
         const hasValue = 'v' in value
         nv = nv === 'cursor' ? CURSORKEY : nv
-        const el =elById(oid)
-        deferred.push(()=>{
-          el.id=nid
-          hasValue && el.replaceChild(document.createTextNode(nv),el.childNodes[0])
+        const el = elById(oid)
+        deferred.push(() => {
+          el.id = nid
+          hasValue && el.replaceChild(document.createTextNode(nv), el.childNodes[0])
         })
       }
     }
-    deferred.forEach(f=>f())
+    deferred.forEach(f => f())
   }
 
   function dropEffect(s: TState, ps: TState) {
@@ -541,7 +538,7 @@ function hookupEventHandlersFRP() {
   function onPointerUp(e: MouseEvent) {
     e.preventDefault()
     //let el = e.composedPath()[0]
-    state({mouseState: 'up', dragging: false,  mouseButton: -1})
+    state({mouseState: 'up', dragging: false, mouseButton: -1})
   }
   function sendKeyToState(key: string) {
     state({key})
@@ -633,7 +630,7 @@ function funcify(value: any) {
   }
   return (compareValue: any) => compareValue === value
 }
-function T<T>(o:T) {
+function T<T>(o: T) {
   return o
 }
 /*
