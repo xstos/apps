@@ -8,16 +8,18 @@ import * as jsondiffpatch from 'jsondiffpatch'
 import {hasClass, insertAfter, insertBefore, toggleClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {filter, log} from "./util"
+import {Delta} from "jsondiffpatch"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 type Pred<T> = (value: T) => boolean
 type Callback<T> = (value: T) => any
-
-type TMutatorObj = { [key: string]: Function | string | number | boolean }
+//todo: idea: typescript needs map filter reduce i.e. pairs(SomeType).map(pair=> SomeOtherType)
+type PartialState = Partial<TState>
+type TMutatorObj = { [Prop in keyof PartialState]: Function | PartialState[Prop] }
 type TMutatorFun = (s: TState) => TMutatorObj
 type TMutator = TMutatorObj | TMutatorFun
-type TStatePatternMatcher = Function | string | number | boolean
-type TPattern = { [key: string]: [TStatePatternMatcher, TStatePatternMatcher] | Function }
+type TStatePatternMatcher<T> = Function | T
+type TPattern = { [Prop in keyof PartialState]: [TStatePatternMatcher<PartialState[Prop]>, TStatePatternMatcher<PartialState[Prop]>] | Function }
 const NOKEY = '$NIL'
 const CURSORKEY = '█'
 let elIds = 1
@@ -74,6 +76,7 @@ function render(jsx: TJsx) {
 //todo box dragger https://codepen.io/knobo/pen/WNeMYjO
 const initialStateSansDiff = {
   mouseState: 'unknown',
+  mouseButton: -1,
   startX: 0,
   startY: 0,
   deltaX: 0,
@@ -91,19 +94,17 @@ const initialStateSansDiff = {
   hoverBefore: true,
   selectedItemIds: [],
   key: NOKEY,
-  nodes: [],
+  nodes: T<TNode[]>([]),
   lastId: 0,
 }
-
 const initialState = {
   ...initialStateSansDiff,
-  diff: jsondiffpatch.diff({}, initialStateSansDiff),
+  diff: T<Delta>(jsondiffpatch.diff({}, initialStateSansDiff) as Delta),
 }
+
 type TStateSansDiff = typeof initialStateSansDiff
 type TNode = { id: number, v: string }
-type TState = typeof initialState & {
-  nodes: TNode[]
-}
+type TState = typeof initialState
 type TCreateEvent<T> = (s: TState) => T
 type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: ()=>TState }
 type TRule = (s: TState) => (Partial<TState> | null)
@@ -191,8 +192,8 @@ function rules(state: TStateFunc) {
       const rule = ruleList[i]
       const ruleResult = rule(currentState)
       if (ruleResult === null) continue
-      const {next, changed} = stateDiff(currentState, ruleResult)
-      if (!changed) {
+      const next = stateDiff(currentState, ruleResult)
+      if (!next) {
         continue
       }
       dirty = true
@@ -233,12 +234,12 @@ function rules(state: TStateFunc) {
   effects.state = wrappedState
   return pushRule
 }
-function stateDiff(prev: TState, o: Partial<TState>) {
-  let {diff, ...prevSansDiff} = prev
-  const nextSansDiff = {...prevSansDiff, ...o}
-  diff = jsondiffpatch.diff(prevSansDiff, nextSansDiff)
-  const next = {diff, ...nextSansDiff}
-  return {next, changed: diff !== undefined}
+function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
+  const {diff: oldDiff, ...prevStateSansDiff} = prev
+  const nextStateSansDiff = {...prevStateSansDiff, ...o}
+  const diff = jsondiffpatch.diff(prevStateSansDiff, nextStateSansDiff)
+  if (diff===undefined) return undefined
+  return {diff, ...nextStateSansDiff}
 }
 function logHist(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
@@ -248,37 +249,30 @@ function logHist(s: TState, historyLen: number) {
 }
 function makeStateHistory() {
   const history: TState[] = []
-
   function pushHistory(s: TState) {
     logHist(s, history.length)
     history.push(s)
   }
-
   function peekHistory(): TState {
     const index = history.length - 1
     return history[index]
   }
-
   pushHistory(initialState)
-
   function state(o?: Partial<TState>, push: boolean = true): TState {
     const prev = peekHistory()
     if (!o) {
       return prev
     }
-    const {next, changed} = stateDiff(prev, o)
-    if (!changed) {
+    const next = stateDiff(prev, o)
+    if (!next) {
       return prev
     }
-
     push && pushHistory(next)
     return next
   }
-
   function getPrevious() {
     return history[history.length - 2] || initialState
   }
-
   state.getPrevious = getPrevious
   return state
 }
@@ -333,7 +327,14 @@ function hookupEventHandlersFRP() {
           .map(el => el.id)
       }
     }
-  )(
+  )
+  ({
+    mouseState: ['down', 'up'],
+    dragging: [false, false]
+  },{
+    key: 'click'
+  })
+  (
     {
       key: [NOKEY, complement(NOKEY)]
     },
@@ -341,7 +342,7 @@ function hookupEventHandlersFRP() {
   )
   .effects
   ({
-    key: [NOKEY, complement(NOKEY)],
+    key: [complement(NOKEY), NOKEY],
   }, keyEffect)
   ({
     mouseState: ['down', 'up'],
@@ -408,7 +409,7 @@ function hookupEventHandlersFRP() {
           acc.push(cur)
         }
         return acc
-      },[])
+      },T<TNode[]>([]))
     }
     //log(JSON.stringify(nodes))
     /*
@@ -416,17 +417,27 @@ function hookupEventHandlersFRP() {
      */
     return {
       nodes,
-      lastId
+      lastId,
+      key: NOKEY
     }
   }
   function keyEffect(s: TState) {
     const {diff}=s
-    if (!('nodes' in diff)) return
+    if (!('nodes' in diff)) {
+      return
+    }
     const {nodes}=diff
     const { _t, ...rest } = nodes
     const deferred = []
     for (const index in rest) {
       const value = rest[index]
+      if (index.startsWith('_')) {
+        const [deletedNode] = value
+        const el = elById(deletedNode.id)
+        deferred.push(()=>unmount(el))
+        continue
+      }
+
       if (Array.isArray(value)) { //created
         let [{id,v}] = value
         let text
@@ -436,21 +447,21 @@ function hookupEventHandlersFRP() {
           text=v
         }
         const myjsx = <span id={id}>{text}</span>
+        // @ts-ignore
         const el = render(myjsx)
         rootEL.appendChild(el)
-      } else {
-        let { id: [oid,nid], v: [ov,nv]=[null,null]} = value
+      } else { //changed
+        let { id: [oid,nid], v: [ov,nv]=['','']} = value
         const hasValue = 'v' in value
-        if (nv==='cursor') nv=CURSORKEY
+        nv = nv === 'cursor' ? CURSORKEY : nv
         const el =elById(oid)
         deferred.push(()=>{
           el.id=nid
           hasValue && el.replaceChild(document.createTextNode(nv),el.childNodes[0])
         })
-
       }
     }
-    deferred.map(f=>f())
+    deferred.forEach(f=>f())
   }
 
   function dropEffect(s: TState, ps: TState) {
@@ -517,22 +528,22 @@ function hookupEventHandlersFRP() {
   function onPointerDown(e: MouseEvent) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    let el = e.composedPath()[0]
-    state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id})
+    let el = e.composedPath()[0] as HTMLElement
+    state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id, mouseButton: e.button})
   }
   function onPointerMove(e: MouseEvent) {
     e.preventDefault()
     const [x, y] = [e.clientX, e.clientY]
-    let hoverElId = e.composedPath()[0].id || "root"
+    let el = e.composedPath()[0] as HTMLElement
+    let hoverElId = el.id || "root"
     state({x, y, hoverElId})
   }
   function onPointerUp(e: MouseEvent) {
     e.preventDefault()
     //let el = e.composedPath()[0]
-    state({mouseState: 'up', dragging: false})
+    state({mouseState: 'up', dragging: false,  mouseButton: -1})
   }
-  function sendKeyToState(key) {
-    state({ key: NOKEY})
+  function sendKeyToState(key: string) {
     state({key})
   }
   bindkeys((data: { key: any; }) => {
@@ -622,7 +633,9 @@ function funcify(value: any) {
   }
   return (compareValue: any) => compareValue === value
 }
-
+function T<T>(o:T) {
+  return o
+}
 /*
 for dom state tracking, use paths:
 /nodes/0/propname
