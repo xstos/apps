@@ -105,7 +105,6 @@ const initialState = {
 type TStateSansDiff = typeof initialStateSansDiff
 type TNode = { id: number, v: string }
 type TState = typeof initialState
-type TCreateEvent<T> = (s: TState) => T
 type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: () => TState }
 type TRule = (s: TState) => (Partial<TState> | null)
 
@@ -334,38 +333,39 @@ function hookupEventHandlersFRP() {
   }, {
     key: 'click'
   })
-  (
-    {
+  ({
       key: [NOKEY, complement(NOKEY)]
     },
     keyInputMutator
   )
-    .effects
-    ({
-      key: [complement(NOKEY), NOKEY],
-    }, keyEffect)
-    ({
-      mouseState: ['down', 'up'],
-      dragging: [false, false]
-    }, clickEffect)
-    ({
-      dragging: [false, true],
-    }, startDragEffect)
-    ({
-      dragging: [any, true]
-    }, dragEffect)
-    ({
-      dragging: [any, true],
-      hoverElId: [changed, any]
-    }, hoverEffect)
-    ({
-      dragging: [true, false],
-    }, dropEffect)
+  const {effects} = machine
+  effects
+  ({
+    key: [complement(NOKEY), NOKEY],
+  }, keyEffect)
+  ({
+    mouseState: ['down', 'up'],
+    dragging: [false, false]
+  }, clickEffect)
+  ({
+    dragging: [false, true],
+  }, startDragEffect)
+  ({
+    dragging: [any, true]
+  }, dragEffect)
+  ({
+    dragging: [any, true],
+    hoverElId: [changed, any]
+  }, hoverEffect)
+  ({
+    dragging: [true, false],
+  }, dropEffect)
 
   function keyInputMutator(s: TState) {
     let {nodes, key, lastId} = s
     nodes = clonedeep(nodes)
-    if (key === 'cursor') {
+    if (false) {
+    } else if (key === 'cursor') {
       nodes.push({id: lastId++, v: key})
     } else if (key === 'backspace') {
       nodes = nodes.filter((n, i) => {
@@ -398,6 +398,8 @@ function hookupEventHandlersFRP() {
         const prev = nodes[i - 1]
         return !(prev && prev.v === 'cursor')
       })
+    } else if (key === 'click') {
+
     } else if (true) {
       nodes = nodes.reduce((acc, cur, i) => {
         if (cur.v === 'cursor') {
