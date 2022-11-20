@@ -9,6 +9,13 @@ export function toggleClass(el, cls) {
     el.classList.add(cls)
   }
 }
+export function setClass(el: HTMLElement,addRemove: boolean,cls: string) {
+  if (addRemove) {
+    el.classList.add(cls)
+  } else {
+    el.classList.remove(cls)
+  }
+}
 export function hasClass(el,cls) {
   return el.classList.contains(cls)
 }

@@ -5,7 +5,7 @@ import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
-import {hasClass, insertAfter, insertBefore, toggleClass, unmount} from "./domutil"
+import {hasClass, insertAfter, insertBefore, setClass, toggleClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {filter, log} from "./util"
 import {Delta} from "jsondiffpatch"
@@ -85,14 +85,14 @@ const initialStateSansDiff = {
   y: 0,
   dragging: false,
   el: '',
-  hoverElId: '',
+  hoverElId: T<string>(''),
   hoverBounds: {
     left: 0,
     right: 0,
     width: 0
   },
   hoverBefore: true,
-  selectedItemIds: [],
+  selectedItemIds: T<string[]>([]),
   key: NOKEY,
   nodes: T<TNode[]>([]),
   lastId: 0,
@@ -103,7 +103,7 @@ const initialState = {
 }
 
 type TStateSansDiff = typeof initialStateSansDiff
-type TNode = { id: number, v: string }
+type TNode = { id: number, v: string, sl: boolean }
 type TState = typeof initialState
 type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: () => TState }
 type TRule = (s: TState) => (Partial<TState> | null)
@@ -338,8 +338,7 @@ function hookupEventHandlersFRP() {
     },
     keyInputMutator
   )
-  const {effects} = machine
-  effects
+  machine.effects
   ({
     key: [complement(NOKEY), NOKEY],
   }, keyEffect)
@@ -362,11 +361,12 @@ function hookupEventHandlersFRP() {
   }, dropEffect)
 
   function keyInputMutator(s: TState) {
-    let {nodes, key, lastId} = s
+    let {nodes, key, lastId, selectedItemIds} = s
     nodes = clonedeep(nodes)
+    selectedItemIds = clonedeep(selectedItemIds)
     if (false) {
     } else if (key === 'cursor') {
-      nodes.push({id: lastId++, v: key})
+      nodes.push({id: lastId++, v: key, sl:false})
     } else if (key === 'backspace') {
       nodes = nodes.filter((n, i) => {
         const next = nodes[i + 1]
@@ -399,11 +399,15 @@ function hookupEventHandlersFRP() {
         return !(prev && prev.v === 'cursor')
       })
     } else if (key === 'click') {
-
+      nodes = nodes.map(n=> {
+        if (String(n.id)!==s.hoverElId) return n
+        n.sl=!n.sl
+        return n
+      } )
     } else if (true) {
       nodes = nodes.reduce((acc, cur, i) => {
         if (cur.v === 'cursor') {
-          acc.push({id: lastId++, v: key}, cur)
+          acc.push({id: lastId++, v: key, sl:false}, cur)
         } else {
           acc.push(cur)
         }
@@ -417,7 +421,8 @@ function hookupEventHandlersFRP() {
     return {
       nodes,
       lastId,
-      key: NOKEY
+      key: NOKEY,
+      selectedItemIds
     }
   }
   function keyEffect(s: TState) {
@@ -430,6 +435,7 @@ function hookupEventHandlersFRP() {
     const deferred = []
     for (const index in rest) {
       const value = rest[index]
+      const origNode = s.nodes[Number(index)]
       if (index.startsWith('_')) {
         const [deletedNode] = value
         const el = elById(deletedNode.id)
@@ -438,7 +444,7 @@ function hookupEventHandlersFRP() {
       }
 
       if (Array.isArray(value)) { //created
-        let [{id, v}] = value
+        let [{id, v, sl}] = value
         let text
         if (v === 'cursor') {
           text = CURSORKEY
@@ -448,15 +454,26 @@ function hookupEventHandlersFRP() {
         const myjsx = <span id={id}>{text}</span>
         // @ts-ignore
         const el = render(myjsx)
+        if (sl) {
+          el.classList.add('sel')
+        }
         rootEL.appendChild(el)
+
       } else { //changed
-        let {id: [oid, nid], v: [ov, nv] = ['', '']} = value
+        let {
+          id: [oid, nid] = [origNode.id,origNode.id],
+          v: [ov, nv] = [origNode.v, origNode.v],
+          sl: [os,ns] = [origNode.sl,origNode.sl],
+        } = value
         const hasValue = 'v' in value
+        const hasId = 'id' in value
+        const hasSel = 'sl' in value
         nv = nv === 'cursor' ? CURSORKEY : nv
         const el = elById(oid)
         deferred.push(() => {
-          el.id = nid
+          hasId && (el.id = nid)
           hasValue && el.replaceChild(document.createTextNode(nv), el.childNodes[0])
+          hasSel && setClass(el,ns,'sel')
         })
       }
     }
@@ -464,6 +481,7 @@ function hookupEventHandlersFRP() {
   }
 
   function dropEffect(s: TState, ps: TState) {
+    return
     const selected: HTMLElement[] = s.selectedItemIds.map(elById)
     // @ts-ignore
     selected.forEach(s => s.__cleanup())
@@ -478,6 +496,7 @@ function hookupEventHandlersFRP() {
     })
   }
   function hoverEffect(s: TState, ps: TState) {
+    return
     const prevEl = elById(ps.hoverElId)
     prevEl.style.borderLeft = ""
     prevEl.style.borderRight = ""
@@ -512,6 +531,7 @@ function hookupEventHandlersFRP() {
     }
   }
   function clickEffect(s: TState, ps: TState) {
+    return
     const el = elById(s.el)
     if (!hasClass(el, 'drg')) return
     toggleClass(el, 'sel')
