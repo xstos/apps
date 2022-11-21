@@ -3,12 +3,11 @@ import React from "react";
 //import hyperactiv from 'hyperactiv'
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
-import {cellx} from "cellx"
 import * as jsondiffpatch from 'jsondiffpatch'
+import {Delta} from 'jsondiffpatch'
 import {hasClass, insertAfter, insertBefore, setClass, toggleClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {filter, log} from "./util"
-import {Delta} from "jsondiffpatch"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 type Pred<T> = (value: T) => boolean
@@ -34,21 +33,12 @@ function setStyles() {
   document.body.style.fontSize = "24pt"
   document.body.style.color = "grey"
   document.body.style.backgroundColor = "rgb(28,28,28)"
+  rootEL.style.whiteSpace = 'pre'
 }
 setStyles()
 
 //makeGLRenderer()
 //proxyWrapperDemo()
-
-function addKey(key: string) {
-  const myjsx = <span id={'' + elIds++}>{key}</span>
-  // @ts-ignore
-  const el2 = render(myjsx)
-  rootEL.appendChild(el2)
-  //log(myjsx)
-}
-
-//'hello'.split('').map(addKey)
 
 type TJsx = { type: string; props: { [key: string]: any }, children: any[]; }
 function render(jsx: TJsx) {
@@ -57,7 +47,9 @@ function render(jsx: TJsx) {
     ret.tabIndex = 0
     ret.style.cursor = 'default'
     ret.classList.add('drg')
-    ret.id = jsx.props.id
+    if ('id' in jsx.props) {
+      ret.id = jsx.props.id
+    }
   }
   if (jsx.children) {
     const children = jsx.children.map(c => {
@@ -77,6 +69,7 @@ function render(jsx: TJsx) {
 const initialStateSansDiff = {
   mouseState: 'unknown',
   mouseButton: -1,
+  mouseMove: false,
   startX: 0,
   startY: 0,
   deltaX: 0,
@@ -95,7 +88,7 @@ const initialStateSansDiff = {
   selectedItemIds: T<string[]>([]),
   key: NOKEY,
   nodes: T<TNode[]>([]),
-  lastId: 0,
+  lastId: 1,
 }
 const initialState = {
   ...initialStateSansDiff,
@@ -203,6 +196,7 @@ function rules(state: TStateFunc) {
       if (!next) {
         continue
       }
+      log('rule',i)
       dirty = true
       Object.assign(currentState, ruleResult)
       Object.assign(currentState.diff, next.diff)
@@ -251,10 +245,11 @@ function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
   return {diff, ...nextStateSansDiff}
 }
 function logHist(s: TState, historyLen: number) {
-  return
   const fd = filter(s.diff || {}, (k, v) => {
-    return ["x", "y", "deltaX", "deltaY", "nodes"].every((s) => s !== k)
+    return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove'].every((s) => s !== k)
   })
+  const cs = clonedeep(s)
+  //delete cs.diff.nodes.style
   fd && log(JSON.stringify(fd), (historyLen) + '')
 }
 function makeStateHistory() {
@@ -290,7 +285,7 @@ function makeStateHistory() {
 function hookupEventHandlersFRP() {
   const hist = makeStateHistory()
   const machine = rules(hist)
-  ({
+  ({ //0
     mouseState: [any, 'down'],
     dragging: [false, false],
   }, {
@@ -302,13 +297,13 @@ function hookupEventHandlersFRP() {
       return magnitude > delta
     },
   })
-  ({
+  ({ //1
     dragging: [any, true],
   }, {
     deltaX: (s: TState) => s.x - s.startX,
     deltaY: (s: TState) => s.y - s.startY,
   })
-  ({
+  ({ //2
     dragging: [any, true],
     hoverElId: changed,
   }, {
@@ -318,7 +313,7 @@ function hookupEventHandlersFRP() {
       return {left, width}
     },
   })
-  ({
+  ({ //3
     dragging: [any, true],
   }, {
     hoverBefore: (s: TState) => {
@@ -328,8 +323,8 @@ function hookupEventHandlersFRP() {
     },
     nodes: (s: TState) => {
       const nodes = clonedeep(s.nodes)
-      return nodes.map(n=>{
-        const id = String(n.id)
+      return nodes.map((n,i)=>{
+        const id = String(i)
         if (id===s.hoverElId) {
           if (s.hoverBefore) {
             n.style.borderLeft = "3px dashed red"
@@ -351,15 +346,15 @@ function hookupEventHandlersFRP() {
       })
     }
   })
-  ({
+  ({ //4
     dragging: [any, true],
     hoverElId: changed,
   }, {
     nodes: (s: TState) => {
       const [prevId,_] =  s.diff.hoverElId
       const nodes = clonedeep(s.nodes)
-      return nodes.map(n=>{
-        const id = String(n.id)
+      return nodes.map((n,i)=>{
+        const id = String(i)
         if (id===prevId) {
           n.style.borderLeft=''
           n.style.borderRight=''
@@ -368,7 +363,7 @@ function hookupEventHandlersFRP() {
       })
     }
   })
-  ({ //startDrag
+  /*({ //startDrag
       dragging: [false, true],
     },
     {
@@ -379,50 +374,58 @@ function hookupEventHandlersFRP() {
           .map(el => el.id)
       },
     },
-  )
-  ({
+  )*/
+  ({ //drop
     dragging: [true, false],
+    mouseMove: [any, false],
   }, {
     nodes: (s: TState) => {
+
       const nodes = clonedeep(s.nodes)
       const selected = nodes.filter(n=>{
         const ret = n.sl
         if (ret) {
-          const style = {
+          Object.assign(n.style, {
             pointerEvents: '',
             position: '',
             transform: '',
-          }
-          Object.assign(n.style, style)
+          })
         }
         return ret
       })
       const hoverId = Number(s.hoverElId)
-      const ret = nodes.reduce((nodes, node)=>{
-        if (node.sl) return nodes
-        if (hoverId === node.id) {
-          if (s.hoverBefore) {
-            nodes.push(...selected)
-            nodes.push(node)
+      function getRet() {
+        return nodes.reduce((newNodes, node, i) => {
+          if (node.sl) return newNodes
+          if (hoverId === i) {
+            node.style.borderLeft = ''
+            node.style.borderRight = ''
+            if (s.hoverBefore) {
+              newNodes.push(...selected)
+              newNodes.push(node)
+            } else {
+              newNodes.push(node)
+              newNodes.push(...selected)
+            }
           } else {
-            nodes.push(node)
-            nodes.push(...selected)
+            newNodes.push(node)
           }
-          node.style.borderLeft = ''
-          node.style.borderRight = ''
-        } else {
-          nodes.push(node)
-        }
-
-        return nodes
-      },T<TNode[]>([]))
-      debugger
+          return newNodes
+        }, T<TNode[]>([]))
+      }
+      const ret = getRet()
+      if (ret.length<3) {
+        debugger
+        const r2 = getRet()
+      }
+      //log(JSON.stringify(nodes))
       return ret
     }
   })
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false],
+    mouseMove: [any, false],
   }, {
     key: 'click',
   })
@@ -434,7 +437,7 @@ function hookupEventHandlersFRP() {
   machine.effects
   ({
     key: [complement(NOKEY), NOKEY],
-  }, keyEffect)
+  }, nodesChangedEffect)
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false],
@@ -500,31 +503,11 @@ function hookupEventHandlersFRP() {
         return !(prev && prev.v === 'cursor')
       })
     } else if (key === 'click') {
-      nodes = nodes.map(n => {
-        if (String(n.id) !== s.hoverElId) return n
-        n.sl = !n.sl
-        return n
-      })
-    } else if (key === 'startDrag') {
-
-    } else if (key === 'drag') {
-      debugger
-      nodes = nodes.map(n => {
-        if (n.sl) {
-          n.style.pointerEvents = 'none'
-          n.style.position = 'absolute'
-          n.style.transform = `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`
-        } else if (String(n.id) === s.hoverElId) {
-          debugger
-          if (s.hoverBefore) {
-            n.style.borderLeft = "3px dashed red"
-            n.style.borderRight = undefined
-          } else {
-            n.style.borderLeft = undefined
-            n.style.borderRight = "3px dashed red"
-          }
+      nodes = nodes.map((n,i) => {
+        if (i !== Number(s.hoverElId)) {
+          return n
         }
-
+        n.sl = !n.sl
         return n
       })
     } else if (true) {
@@ -545,130 +528,101 @@ function hookupEventHandlersFRP() {
       selectedItemIds,
     }
   }
-  function keyEffect(s: TState) {
+  function nodesChangedEffect(s: TState, ps: TState) {
     const {diff} = s
     if (!('nodes' in diff)) {
       return
     }
     const {nodes} = diff
     const {_t, ...rest} = nodes
-    const deferred = []
-    for (const index in rest) {
-      const value = rest[index]
-      const origNode = s.nodes[Number(index)]
-      if (index.startsWith('_')) {
-        const [deletedNode] = value
-        const el = elById(deletedNode.id)
-        deferred.push(() => unmount(el))
-        continue
-      }
 
-      if (Array.isArray(value)) { //created
-        let [{id, v, sl}] = value
-        let text
-        if (v === 'cursor') {
-          text = CURSORKEY
-        } else {
-          text = v
-        }
-        const myjsx = <span id={id}>{text}</span>
-        // @ts-ignore
-        const el = render(myjsx)
-        if (sl) {
-          el.classList.add('sel')
-        }
-        rootEL.appendChild(el)
-
-      } else { //changed
-        let {
-          id: [oid, nid] = [origNode.id, origNode.id],
-          v: [ov, nv] = [origNode.v, origNode.v],
-          sl: [os, ns] = [origNode.sl, origNode.sl],
-        } = value
-        const hasValue = 'v' in value
-        const hasId = 'id' in value
-        const hasSel = 'sl' in value
-        const hasStyle = 'style' in value
-        nv = nv === 'cursor' ? CURSORKEY : nv
-        const el = elById(oid)
-        deferred.push(() => {
-          hasId && (el.id = nid)
-          hasValue && el.replaceChild(document.createTextNode(nv), el.childNodes[0])
-          hasSel && setClass(el, ns, 'sel')
-          if (hasStyle) {
-            const snew = Object.fromEntries(Object.entries(value.style).map(e=>{
-              const [k,v] = e
-              return [k,v[1]]
-            }))
-            Object.assign(el.style,snew)
-          }
-        })
+    const entries = Object.entries(rest).reduce((acc,value)=>{
+      let [k,v]=value
+      if (k.startsWith("_")) {
+        k=k.replace('_','')
+        acc.deleted.push([Number(k),v])
+      } else if (Array.isArray(v)) {
+        acc.created.push([Number(k),v])
+      } else {
+        acc.modified.push([Number(k),v])
       }
-    }
-    deferred.forEach(f => f())
+      return acc
+    },{
+      deleted: [],
+      created: [],
+      modified: [],
+    })
+    /*if (entries.deleted.length>0) {
+      debugger
+    }*/
+    entries.created.forEach((e)=>{
+      const [index,value]=e
+      let [{id, v, sl}] = value
+      let text
+      if (v === 'cursor') {
+        text = CURSORKEY
+      } else if (v === ' ') {
+        text = '&nbsp'
+      }
+      else {
+        text = v
+      }
+      const myjsx = <span id={index}>{text+"("+id+")"}</span>
+      // @ts-ignore
+      const el = render(myjsx)
+      if (sl) {
+        el.classList.add('sel')
+      }
+      rootEL.appendChild(el)
+    })
+    entries.modified.forEach((e)=>{
+      const [ix,value]=e
+      const origNode: TNode = s.nodes[ix]
+      let {
+        id: [oid, nid] = [origNode.id, origNode.id],
+        v: [ov, nv] = [origNode.v, origNode.v],
+        sl: [oldSel,newSel] = [origNode.sl,origNode.sl]
+      } = value
+      const hasValue = 'v' in value
+      const hasSel = 'sl' in value
+      const hasStyle = 'style' in value
+      nv = nv === 'cursor' ? CURSORKEY : nv
+
+      let el = elById(ix)
+      hasValue && el.replaceChild(
+        document.createTextNode(nv+"("+nid+")"),
+        el.childNodes[0])
+      hasSel && setClass(el, newSel, 'sel')
+
+      if (hasStyle) {
+        const snew = Object.fromEntries(Object.entries(value.style).map(e=>{
+          const [k,v] = e
+          return [k,v[1]]
+        }))
+        Object.assign(el.style,snew)
+      }
+    })
+    entries.deleted.forEach((e)=>{
+      const [index,value]=e
+      const [deletedNode] = value
+      const elToDel = elById(index+'')
+      unmount(elToDel)
+      log('deleted',deletedNode,elToDel)
+    })
   }
   function startDragEffect(s: TState, ps: TState) {
-    keyEffect(s)
-    return
-    const selected = s.selectedItemIds.map(elById)
-    selected.forEach((n, i) => {
-      const {pointerEvents, position, transform} = n.style
-      // @ts-ignore
-      n.__cleanup = () => {
-        n.style.pointerEvents = pointerEvents
-        n.style.position = position
-        n.style.transform = transform
-      }
-    })
+    nodesChangedEffect(s,ps)
   }
   function dragEffect(s: TState, ps: TState) {
-    keyEffect(s)
-    return
-    const selected = s.selectedItemIds.map(elById)
-    selected.forEach((n, i) => {
-      n.style.pointerEvents = 'none'
-      n.style.position = 'absolute'
-      n.style.transform = `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`;
-    })
-    const hEl = elById(s.hoverElId)
-    if (!hasClass(hEl, 'drg')) return
-    if (s.hoverBefore) {
-      hEl.style.borderLeft = "3px dashed red"
-      hEl.style.borderRight = ""
-    } else {
-      hEl.style.borderLeft = ""
-      hEl.style.borderRight = "3px dashed red"
-    }
+    nodesChangedEffect(s,ps)
   }
   function dropEffect(s: TState, ps: TState) {
-    keyEffect(s)
-    return
-    const selected: HTMLElement[] = s.selectedItemIds.map(elById)
-    // @ts-ignore
-    selected.forEach(s => s.__cleanup())
-    const hoverElement = elById(s.hoverElId)
-    if (!hasClass(hoverElement, 'drg')) return
-    hoverElement.style.borderLeft = hoverElement.style.borderRight = ""
-    //todo: we don't want transitory UI stuff like selections lost. need to keep history for repeatability.
-    unmount(...selected)
-    const before = s.hoverBefore
-    selected.reverse().forEach(sEL => {
-      before ? insertBefore(sEL, hoverElement) : insertAfter(sEL, hoverElement)
-    })
+    nodesChangedEffect(s,ps)
   }
   function hoverEffect(s: TState, ps: TState) {
-    return
-    const prevEl = elById(ps.hoverElId)
-    prevEl.style.borderLeft = ""
-    prevEl.style.borderRight = ""
   }
 
   function clickEffect(s: TState, ps: TState) {
-    return
-    const el = elById(s.el)
-    if (!hasClass(el, 'drg')) return
-    toggleClass(el, 'sel')
-    console.log('click')
   }
 
   document.addEventListener('pointerdown', onPointerDown)
@@ -688,7 +642,8 @@ function hookupEventHandlersFRP() {
     const [x, y] = [e.clientX, e.clientY]
     let el = e.composedPath()[0] as HTMLElement
     let hoverElId = el.id || "root"
-    state({x, y, hoverElId})
+    state({x, y, hoverElId, mouseMove: true})
+    state({mouseMove: false})
   }
   function onPointerUp(e: MouseEvent) {
     e.preventDefault()
@@ -703,71 +658,13 @@ function hookupEventHandlersFRP() {
     //addKey(key)
     sendKeyToState(key)
   })
-  sendKeyToState('cursor',..."hello".split(''))
+  sendKeyToState('cursor',..."23".split(''))
 }
-
 function elById(id: string): HTMLElement {
-  return document.getElementById(id) || dummyEl
+  const ret = document.getElementById(id)
+  if (!ret) throw new Error("id not found")
+  return ret
 }
-/*
-function hookupEventHandlers() {
-  const emptyHandler = e => false
-  let isClick = emptyHandler
-  let handleMove = emptyHandler
-  let dragItemsToCursor = emptyHandler
-  let resetDraggedItems = emptyHandler
-  document.addEventListener('pointerdown', (clickEvent) => {
-    const targ = clickEvent.path[0]
-    if (!targ.classList.contains('drg')) return
-    isClick = (e) => {
-      const delta = 6
-      const diffX = Math.abs(e.clientX - clickEvent.clientX);
-      const diffY = Math.abs(e.clientY - clickEvent.clientY);
-      return diffX < delta && diffY < delta
-    }
-    handleMove = (firstMoveEvent) => {
-      if (isClick(firstMoveEvent)) return
-      firstMoveEvent.preventDefault()
-      handleMove = (startDragMoveEvent) => {
-        const selected = Array.from(document.querySelectorAll('.sel'))
-        const oldStyles = selected.map(n => ({p: n.style.position, t: n.style.transform}))
-        const selectedBounds = selected.map(s => s.getBoundingClientRect())
-        dragItemsToCursor = (dragEvent) => {
-          const [deltaX, deltaY] = [dragEvent.clientX - clickEvent.clientX, dragEvent.clientY - clickEvent.clientY]
-          selected.forEach((n, i) => {
-            n.style.position = 'absolute'
-            n.style.transform = "translate3d(" + deltaX + "px," + deltaY + "px, 0px)";
-          })
-        }
-        resetDraggedItems = () => {
-          selected.forEach((n, i) => {
-            n.style.position = oldStyles[i].p
-            n.style.transform = oldStyles[i].t
-          })
-          resetDraggedItems = emptyHandler
-        }
-        dragItemsToCursor(startDragMoveEvent)
-        handleMove = (dragInProgressEvent) => {
-          dragItemsToCursor(dragInProgressEvent)
-        }
-      }
-    }
-
-  }, {passive: false})
-  document.addEventListener('pointermove', (e) => {
-    handleMove(e)
-  }, {passive: false})
-  document.addEventListener('pointerup', (e) => {
-    if (isClick(e)) {
-      const el = e.path[0]
-      toggleClass(el, 'sel')
-    }
-    resetDraggedItems(e)
-    handleMove = emptyHandler
-    isClick = emptyHandler
-  }, {passive: true})
-}
-*/
 hookupEventHandlersFRP()
 
 function complement(value: any) {
