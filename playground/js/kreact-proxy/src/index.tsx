@@ -238,7 +238,7 @@ function hookupEventHandlersFRP() {
   const stateStream = makeStateStream()
   const machine = rules(stateStream)
   const { effects, state } = machine
-  machine({ //0
+  machine({
     mouseState: [any, 'down'],
     dragging: [false, false],
   }, {
@@ -250,13 +250,13 @@ function hookupEventHandlersFRP() {
       return magnitude > delta
     },
   })
-  ({ //1
+  ({
     dragging: [any, true],
   }, {
     deltaX: (s: TState) => s.x - s.startX,
     deltaY: (s: TState) => s.y - s.startY,
   })
-  ({ //2
+  ({
     dragging: [any, true],
     hoverElId: changed,
   }, {
@@ -266,7 +266,7 @@ function hookupEventHandlersFRP() {
       return {left, width}
     },
   })
-  ({ //3
+  ({
     dragging: [any, true],
   }, {
     hoverBefore: (s: TState) => {
@@ -299,7 +299,7 @@ function hookupEventHandlersFRP() {
       })
     }
   })
-  ({ //4
+  ({
     dragging: [any, true],
     hoverElId: changed,
   }, {
