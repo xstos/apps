@@ -31,6 +31,7 @@ initHTML()
 function render(jsx: TJsx) {
   const ret = document.createElement(jsx.type)
   if (jsx.type === 'span') {
+    ret.style.display='inline-block'
     ret.tabIndex = 0
     ret.style.cursor = 'default'
     ret.classList.add('drg')
@@ -288,11 +289,13 @@ function hookupEventHandlersFRP() {
           }
         }
         if (n.sl) {
+
           const newStyle = {
             pointerEvents: 'none',
-            position: 'absolute',
-            transform: `translate3d(${s.deltaX}px,${s.deltaY}px, 0px)`
+            //position: 'absolute',
+            transform: `translate3d(${s.deltaX}px,${s.deltaY}px,10px)`
           }
+          log(newStyle.transform)
           Object.assign(n.style,newStyle)
         }
         return n
