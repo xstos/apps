@@ -4,43 +4,30 @@ import React from "react";
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import * as jsondiffpatch from 'jsondiffpatch'
-import {Delta} from 'jsondiffpatch'
-import {hasClass, insertAfter, insertBefore, setClass, toggleClass, unmount} from "./domutil"
+import {setClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {filter, log} from "./util"
+import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
-type Pred<T> = (value: T) => boolean
-type Callback<T> = (value: T) => any
-//todo: idea: typescript needs map filter reduce i.e. pairs(SomeType).map(pair=> SomeOtherType)
-type PartialState = Partial<TState>
-type TMutatorObj = { [Prop in keyof PartialState]: Function | PartialState[Prop] }
-type TMutatorFun = (s: TState) => TMutatorObj
-type TMutator = TMutatorObj | TMutatorFun
-type TStatePatternMatcher<T> = Function | T
-type TPattern = { [Prop in keyof PartialState]: [TStatePatternMatcher<PartialState[Prop]>, TStatePatternMatcher<PartialState[Prop]>] | Function }
-const NOKEY = '$NIL'
 const CURSORKEY = '█'
-let elIds = 1
 let jsxCallback = customJsx
-const dummyEl = document.createElement('div')
 const rootEL = elById('root')
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return jsxCallback(type, props, ...children)
 }
-function setStyles() {
+function initHTML() {
   document.body.style.fontFamily = "monospace, sans-serif"
   document.body.style.fontSize = "24pt"
   document.body.style.color = "grey"
   document.body.style.backgroundColor = "rgb(28,28,28)"
   rootEL.style.whiteSpace = 'pre'
 }
-setStyles()
+initHTML()
 
 //makeGLRenderer()
 //proxyWrapperDemo()
 
-type TJsx = { type: string; props: { [key: string]: any }, children: any[]; }
 function render(jsx: TJsx) {
   const ret = document.createElement(jsx.type)
   if (jsx.type === 'span') {
@@ -65,48 +52,15 @@ function render(jsx: TJsx) {
   return ret
 }
 
-//todo box dragger https://codepen.io/knobo/pen/WNeMYjO
-const initialStateSansDiff = {
-  mouseState: 'unknown',
-  mouseButton: -1,
-  mouseMove: false,
-  startX: 0,
-  startY: 0,
-  deltaX: 0,
-  deltaY: 0,
-  x: 0,
-  y: 0,
-  dragging: false,
-  el: '',
-  hoverElId: T<string>(''),
-  hoverBounds: {
-    left: 0,
-    right: 0,
-    width: 0,
-  },
-  hoverBefore: true,
-  selectedItemIds: T<string[]>([]),
-  key: NOKEY,
-  nodes: T<TNode[]>([]),
-  lastId: 1,
+function newStyle() {
+  return {
+    pointerEvents: '',
+    position: '',
+    transform: '',
+    borderLeft: '',
+    borderRight: '',
+  }
 }
-const initialState = {
-  ...initialStateSansDiff,
-  diff: T<Delta>(jsondiffpatch.diff({}, initialStateSansDiff) as Delta),
-}
-
-type TStateSansDiff = typeof initialStateSansDiff
-type TStyle = {
-  pointerEvents: any,
-  position: any,
-  transform: any,
-  borderLeft: any,
-  borderRight: any,
-}
-type TNode = { id: number, v: string, sl: boolean, style: TStyle }
-type TState = typeof initialState
-type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: () => TState }
-type TRule = (s: TState) => (Partial<TState> | null)
 
 function createPredicate(statePattern: TPattern) {
   const predicates = Object.entries(statePattern).map((pair) => {
@@ -244,18 +198,16 @@ function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
   if (diff === undefined) return undefined
   return {diff, ...nextStateSansDiff}
 }
-function logHist(s: TState, historyLen: number) {
+function logState(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
     return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove'].every((s) => s !== k)
   })
-  const cs = clonedeep(s)
-  //delete cs.diff.nodes.style
   fd && log(JSON.stringify(fd), (historyLen) + '')
 }
-function makeStateHistory() {
+function makeStateStream() {
   const history: TState[] = []
   function pushHistory(s: TState) {
-    logHist(s, history.length)
+    logState(s, history.length)
     history.push(s)
   }
   function peekHistory(): TState {
@@ -283,9 +235,10 @@ function makeStateHistory() {
 }
 
 function hookupEventHandlersFRP() {
-  const hist = makeStateHistory()
-  const machine = rules(hist)
-  ({ //0
+  const stateStream = makeStateStream()
+  const machine = rules(stateStream)
+  const { effects, state } = machine
+  machine({ //0
     mouseState: [any, 'down'],
     dragging: [false, false],
   }, {
@@ -363,18 +316,6 @@ function hookupEventHandlersFRP() {
       })
     }
   })
-  /*({ //startDrag
-      dragging: [false, true],
-    },
-    {
-      selectedItemIds: (s: TState): string[] => {
-        return []
-        return Array.from(document.querySelectorAll('.sel'))
-          .filter((el) => hasClass(el, 'drg'))
-          .map(el => el.id)
-      },
-    },
-  )*/
   ({ //drop
     dragging: [true, false],
     mouseMove: [any, false],
@@ -434,10 +375,10 @@ function hookupEventHandlersFRP() {
     },
     keyInputMutator,
   )
-  machine.effects
+  effects
   ({
     key: [complement(NOKEY), NOKEY],
-  }, nodesChangedEffect)
+  }, domSyncEffect)
   ({
     mouseState: ['down', 'up'],
     dragging: [false, false],
@@ -455,19 +396,10 @@ function hookupEventHandlersFRP() {
   ({
     dragging: [true, false],
   }, dropEffect)
-  function newStyle() {
-    return {
-      pointerEvents: '',
-      position: '',
-      transform: '',
-      borderLeft: '',
-      borderRight: '',
-    }
-  }
+
   function keyInputMutator(s: TState) {
-    let {nodes, key, lastId, selectedItemIds} = s
+    let {nodes, key, lastId} = s
     nodes = clonedeep(nodes)
-    selectedItemIds = clonedeep(selectedItemIds)
     if (false) {
     } else if (key === 'cursor') {
       nodes.push({id: lastId++, v: key, sl: false, style: newStyle()})
@@ -525,10 +457,9 @@ function hookupEventHandlersFRP() {
       nodes,
       lastId,
       key: NOKEY,
-      selectedItemIds,
     }
   }
-  function nodesChangedEffect(s: TState, ps: TState) {
+  function domSyncEffect(s: TState, ps: TState) {
     const {diff} = s
     if (!('nodes' in diff)) {
       return
@@ -611,25 +542,20 @@ function hookupEventHandlersFRP() {
     })
   }
   function startDragEffect(s: TState, ps: TState) {
-    nodesChangedEffect(s,ps)
+    domSyncEffect(s,ps)
   }
   function dragEffect(s: TState, ps: TState) {
-    nodesChangedEffect(s,ps)
+    domSyncEffect(s,ps)
   }
   function dropEffect(s: TState, ps: TState) {
-    nodesChangedEffect(s,ps)
+    domSyncEffect(s,ps)
   }
-  function hoverEffect(s: TState, ps: TState) {
-  }
-
-  function clickEffect(s: TState, ps: TState) {
-  }
+  function hoverEffect(s: TState, ps: TState) {  }
+  function clickEffect(s: TState, ps: TState) {  }
 
   document.addEventListener('pointerdown', onPointerDown)
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
-
-  const {state} = machine
 
   function onPointerDown(e: MouseEvent) {
     e.preventDefault()
@@ -659,6 +585,7 @@ function hookupEventHandlersFRP() {
     sendKeyToState(key)
   })
   sendKeyToState('cursor',..."23".split(''))
+
 }
 function elById(id: string): HTMLElement {
   const ret = document.getElementById(id)
@@ -681,9 +608,6 @@ function funcify(value: any) {
     return value
   }
   return (compareValue: any) => compareValue === value
-}
-function T<T>(o: T) {
-  return o
 }
 /*
 for dom state tracking, use paths:
