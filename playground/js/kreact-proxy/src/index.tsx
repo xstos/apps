@@ -151,7 +151,7 @@ function rules(state: TStateFunc) {
       if (!next) {
         continue
       }
-      log('rule',i)
+      //log('rule',i)
       dirty = true
       Object.assign(currentState, ruleResult)
       Object.assign(currentState.diff, next.diff)
@@ -289,13 +289,12 @@ function hookupEventHandlersFRP() {
           }
         }
         if (n.sl) {
-
           const newStyle = {
             pointerEvents: 'none',
             //position: 'absolute',
             transform: `translate3d(${s.deltaX}px,${s.deltaY}px,10px)`
           }
-          log(newStyle.transform)
+
           Object.assign(n.style,newStyle)
         }
         return n
@@ -338,6 +337,7 @@ function hookupEventHandlersFRP() {
         return ret
       })
       const hoverId = Number(s.hoverElId)
+      if (Number.isNaN(hoverId)) return nodes
       function getRet() {
         return nodes.reduce((newNodes, node, i) => {
           if (node.sl) return newNodes
@@ -501,7 +501,7 @@ function hookupEventHandlersFRP() {
       else {
         text = v
       }
-      const myjsx = <span id={index}>{text+"("+id+")"}</span>
+      const myjsx = <span id={index}>{text}</span>
       // @ts-ignore
       const el = render(myjsx)
       if (sl) {
@@ -513,7 +513,6 @@ function hookupEventHandlersFRP() {
       const [ix,value]=e
       const origNode: TNode = s.nodes[ix]
       let {
-        id: [oid, nid] = [origNode.id, origNode.id],
         v: [ov, nv] = [origNode.v, origNode.v],
         sl: [oldSel,newSel] = [origNode.sl,origNode.sl]
       } = value
@@ -524,7 +523,7 @@ function hookupEventHandlersFRP() {
 
       let el = elById(ix)
       hasValue && el.replaceChild(
-        document.createTextNode(nv+"("+nid+")"),
+        document.createTextNode(nv),
         el.childNodes[0])
       hasSel && setClass(el, newSel, 'sel')
 
