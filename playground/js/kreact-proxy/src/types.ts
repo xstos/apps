@@ -30,10 +30,10 @@ const initialStateSansDiff = {
     width: 0,
   },
   hoverBefore: true,
-  selectedItemIds: T<string[]>([]),
   key: NOKEY,
   nodes: T<TNode[]>([]),
   lastId: 1,
+  html: '',
 }
 export const initialState = {
   ...initialStateSansDiff,

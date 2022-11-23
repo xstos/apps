@@ -1,20 +1,25 @@
 import './index.css';
 import React from "react";
+import {cellx} from "cellx"
 //import hyperactiv from 'hyperactiv'
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import * as jsondiffpatch from 'jsondiffpatch'
 import {setClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
-import {filter, log} from "./util"
+import {filter, log, proxy} from "./util"
 import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 const CURSORKEY = '█'
 let jsxCallback = customJsx
 const rootEL = elById('root')
+const jsxCell = cellx(null)
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
-  return jsxCallback(type, props, ...children)
+  log({props})
+  const ret = jsxCallback(type, props, ...children)
+  jsxCell(ret)
+  return ret
 }
 function initHTML() {
   document.body.style.fontFamily = "monospace, sans-serif"
@@ -27,32 +32,47 @@ initHTML()
 
 //makeGLRenderer()
 //proxyWrapperDemo()
+const cellsByPath = {
 
+}
 function render(jsx: TJsx) {
-  const ret = document.createElement(jsx.type)
-  if (jsx.type === 'span') {
+  let { type, props, children } = jsx
+
+  for (const key in (props)) {
+    const val = props[key]
+    if (!val._data) continue
+    if (!val._data.type==='cell') continue
+    //todo: cells by name map/setter/getter
+  }
+  const ret = document.createElement(type)
+  if (type === 'span') {
     ret.style.display='inline-block'
     ret.tabIndex = 0
     ret.style.cursor = 'default'
     ret.classList.add('drg')
-    if ('id' in jsx.props) {
-      ret.id = jsx.props.id
-    }
   }
-  if (jsx.children) {
-    const children = jsx.children.map(c => {
+  if ('id' in props) {
+    ret.id = props.id
+  }
+  if (type === 'input') {
+    Object.assign(ret,props)
+  }
+  if (children) {
+    const childEls = children.map(c => {
       if (typeof c === 'string') {
         return document.createTextNode(c)
       }
       const ret2 = render(c)
       return ret2
     })
-    children.forEach(childNode => ret.appendChild(childNode))
+    childEls.forEach(childNode => ret.appendChild(childNode))
   }
 
   return ret
 }
-
+function getHTML() {
+  return rootEL.innerHTML
+}
 function newStyle() {
   return {
     pointerEvents: '',
@@ -165,6 +185,7 @@ function rules(state: TStateFunc) {
   }
 
   function wrappedState(o?: Partial<TState>): TState {
+    o = { ...o, html: getHTML() }
     const ret = state(o)
     const prevState = state.getPrevious()
     effectList.forEach(r => r(ret, prevState))
@@ -173,6 +194,8 @@ function rules(state: TStateFunc) {
   }
 
   wrappedState.getPrevious = state.getPrevious
+
+
 
   function effects(statePattern: TPattern, callback: (s: TState, prevState: TState) => void) {
     const pred = createPredicate(statePattern)
@@ -201,7 +224,7 @@ function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
 }
 function logState(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
-    return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove'].every((s) => s !== k)
+    return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove','html'].every((s) => s !== k)
   })
   fd && log(JSON.stringify(fd), (historyLen) + '')
 }
@@ -228,7 +251,10 @@ function makeStateStream() {
     push && pushHistory(next)
     return next
   }
-  function getPrevious() {
+  function getPrevious(ix? : number) {
+    if (ix) {
+      return history[Math.max(history.length-ix,0)]
+    }
     return history[history.length - 2] || initialState
   }
   state.getPrevious = getPrevious
@@ -291,7 +317,6 @@ function hookupEventHandlersFRP() {
         if (n.sl) {
           const newStyle = {
             pointerEvents: 'none',
-            //position: 'absolute',
             transform: `translate3d(${s.deltaX}px,${s.deltaY}px,10px)`
           }
 
@@ -323,14 +348,12 @@ function hookupEventHandlersFRP() {
     mouseMove: [any, false],
   }, {
     nodes: (s: TState) => {
-
       const nodes = clonedeep(s.nodes)
       const selected = nodes.filter(n=>{
         const ret = n.sl
         if (ret) {
           Object.assign(n.style, {
             pointerEvents: '',
-            position: '',
             transform: '',
           })
         }
@@ -358,10 +381,10 @@ function hookupEventHandlersFRP() {
         }, T<TNode[]>([]))
       }
       const ret = getRet()
-      if (ret.length<3) {
-        debugger
-        const r2 = getRet()
-      }
+      // if (ret.length<3) {
+      //   debugger
+      //   const r2 = getRet()
+      // }
       //log(JSON.stringify(nodes))
       return ret
     }
@@ -404,7 +427,7 @@ function hookupEventHandlersFRP() {
     let {nodes, key, lastId} = s
     nodes = clonedeep(nodes)
     if (false) {
-    } else if (key === 'cursor') {
+    } else if (key === 'cursor' || key === 'slider') {
       nodes.push({id: lastId++, v: key, sl: false, style: newStyle()})
     } else if (key === 'backspace') {
       nodes = nodes.filter((n, i) => {
@@ -492,16 +515,21 @@ function hookupEventHandlersFRP() {
     entries.created.forEach((e)=>{
       const [index,value]=e
       let [{id, v, sl}] = value
-      let text
+      let text, myjsx
       if (v === 'cursor') {
         text = CURSORKEY
       } else if (v === ' ') {
         text = '&nbsp'
-      }
-      else {
+      } else {
         text = v
       }
-      const myjsx = <span id={index}>{text}</span>
+      const isSlider = v === 'slider'
+      if (isSlider) {
+        myjsx = <input id={index} type={"range"} min={"1"} max={"1000"} value={1}/>
+      } else {
+        myjsx = <span id={index}>{text}</span>
+      }
+
       // @ts-ignore
       const el = render(myjsx)
       if (sl) {
@@ -540,7 +568,7 @@ function hookupEventHandlersFRP() {
       const [deletedNode] = value
       const elToDel = elById(index+'')
       unmount(elToDel)
-      log('deleted',deletedNode,elToDel)
+      //log('deleted',deletedNode,elToDel)
     })
   }
   function startDragEffect(s: TState, ps: TState) {
@@ -558,24 +586,42 @@ function hookupEventHandlersFRP() {
   document.addEventListener('pointerdown', onPointerDown)
   document.addEventListener('pointermove', onPointerMove)
   document.addEventListener('pointerup', onPointerUp)
-
-  function onPointerDown(e: MouseEvent) {
-    e.preventDefault()
-    const [x, y] = [e.clientX, e.clientY]
+  document.addEventListener('input', e => {
     let el = e.composedPath()[0] as HTMLElement
+    log('prev',el.value)
+    const { diff, ...prev } = state.getPrevious(Number(el.value))
+    state({...prev, key:'rewind'})
+    console.log(prev)
+  })
+  function onPointerDown(e: MouseEvent) {
+    let el = e.composedPath()[0] as HTMLElement
+    if (el.tagName==="INPUT" && el.type==="range") {
+      return
+    } else {
+      e.preventDefault()
+    }
+    const [x, y] = [e.clientX, e.clientY]
     state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id, mouseButton: e.button})
   }
   function onPointerMove(e: MouseEvent) {
-    e.preventDefault()
-    const [x, y] = [e.clientX, e.clientY]
     let el = e.composedPath()[0] as HTMLElement
+    if (el.tagName==="INPUT" && el.type==="range") {
+
+    } else {
+      e.preventDefault()
+    }
+    const [x, y] = [e.clientX, e.clientY]
     let hoverElId = el.id || "root"
     state({x, y, hoverElId, mouseMove: true})
     state({mouseMove: false})
   }
   function onPointerUp(e: MouseEvent) {
-    e.preventDefault()
-    //let el = e.composedPath()[0]
+    let el = e.composedPath()[0] as HTMLElement
+    if (el.tagName==="INPUT" && el.type==="range") {
+      return
+    } else {
+      e.preventDefault()
+    }
     state({mouseState: 'up', dragging: false, mouseButton: -1})
   }
   function sendKeyToState(...keys: string[]) {
@@ -587,7 +633,26 @@ function hookupEventHandlersFRP() {
     sendKeyToState(key)
   })
   sendKeyToState('cursor',..."23".split(''))
-
+  function cell() {
+    const p = proxy((data)=>{
+      data.type='cell'
+      data.path = []
+    }, (data,key) => {
+      data.path.push(key)
+    }, null)
+    return p
+  }
+  const foo= cellx(()=>{
+    const newJsx = jsxCell()
+    return newJsx
+  }).onChange(({data: { value }})=>{
+    render(value)
+  })
+  const scrubber = <input c-appendBefore={'root'} id={'scrubber'}
+                          type={"range"}
+                          min={cell().min}
+                          max={cell().max}
+                          value={cell().value} />
 }
 function elById(id: string): HTMLElement {
   const ret = document.getElementById(id)

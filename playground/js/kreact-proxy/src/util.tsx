@@ -17,3 +17,34 @@ export function filter<T>(o: object, pred: (key: string,value: any) => boolean) 
 export function log(...items: any[]) {
   console.log(...items)
 }
+export function proxy(ctor, get, apply) {
+  let handler = null
+  handler = {
+    get(target, key) {
+      if (key.startsWith('_')) {
+        return target[key]
+      }
+      const data = target._data
+      get(data,key)
+      return new Proxy(target, handler)
+    },
+    /*
+    apply(target, thisArg, args) {
+      const data = target._data
+      data.args = args.map(a => {
+        if (a._data) {
+          a._data.root = false
+        }
+        return a._data ? a._data : a
+      })
+      return new Proxy(target, handler)
+    },
+    */
+  }
+
+  const f = () => { }
+  const data = { }
+  f._data = data
+  ctor(data)
+  return new Proxy(f, handler)
+}
