@@ -5,7 +5,7 @@ import {cellx} from "cellx"
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import * as jsondiffpatch from 'jsondiffpatch'
-import {setClass, unmount} from "./domutil"
+import {insertAfter, insertBefore, setClass, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {filter, log, proxy} from "./util"
 import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
@@ -14,37 +14,63 @@ import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, 
 const CURSORKEY = '█'
 let jsxCallback = customJsx
 const rootEL = elById('root')
-const jsxCell = cellx(null)
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
-  log({props})
   const ret = jsxCallback(type, props, ...children)
-  jsxCell(ret)
   return ret
 }
 function initHTML() {
   document.body.style.fontFamily = "monospace, sans-serif"
   document.body.style.fontSize = "24pt"
-  document.body.style.color = "grey"
-  document.body.style.backgroundColor = "rgb(28,28,28)"
+  //document.body.style.color = "grey"
+  //document.body.style.backgroundColor = "rgb(28,28,28)"
   rootEL.style.whiteSpace = 'pre'
 }
 initHTML()
 
 //makeGLRenderer()
 //proxyWrapperDemo()
-const cellsByPath = {
+const cells = {
 
+}
+function getCell(name: string, initialValue = null) {
+  let ret
+  if (!(name in cells)) {
+    ret = cells[name] = cellx(initialValue)
+  } else {
+    ret = cells[name]
+  }
+  return ret
+}
+function render2(...jsx: TJsx[]) {
+  return jsx.map(render)
 }
 function render(jsx: TJsx) {
   let { type, props, children } = jsx
+  const { id } = props
+  const [appendBefore,appendAfter] = [props['c-appendBefore'], props['c-appendAfter']]
 
-  for (const key in (props)) {
-    const val = props[key]
-    if (!val._data) continue
-    if (!val._data.type==='cell') continue
-    //todo: cells by name map/setter/getter
-  }
   const ret = document.createElement(type)
+  for (const key in (props)) {
+    const propVal = props[key]
+    const data = propVal._data
+    if (!data) {
+      ret[key]=propVal
+      continue
+    }
+    const { type, value } = data
+    if (type!=='cell') continue
+    if (!id) continue
+    //todo: cells by name map/setter/getter
+    const mycell = getCell(id+"."+key)
+    mycell.onChange(e => {
+      log('set cell',key, e.data.value)
+      ret[key]=e.data.value
+    })
+    if ('value' in data) {
+      mycell(value)
+    }
+  }
+
   if (type === 'span') {
     ret.style.display='inline-block'
     ret.tabIndex = 0
@@ -52,10 +78,7 @@ function render(jsx: TJsx) {
     ret.classList.add('drg')
   }
   if ('id' in props) {
-    ret.id = props.id
-  }
-  if (type === 'input') {
-    Object.assign(ret,props)
+    ret.id = id
   }
   if (children) {
     const childEls = children.map(c => {
@@ -67,11 +90,15 @@ function render(jsx: TJsx) {
     })
     childEls.forEach(childNode => ret.appendChild(childNode))
   }
-
+  if (appendBefore) {
+    insertBefore(ret, elById(appendBefore))
+  } else if (appendAfter) {
+    insertAfter(ret, elById(appendAfter))
+  }
   return ret
 }
 function getHTML() {
-  return rootEL.innerHTML
+  return elById('root').innerHTML
 }
 function newStyle() {
   return {
@@ -185,18 +212,22 @@ function rules(state: TStateFunc) {
   }
 
   function wrappedState(o?: Partial<TState>): TState {
-    o = { ...o, html: getHTML() }
+    const oldHtml = getHTML()
+
     const ret = state(o)
     const prevState = state.getPrevious()
     effectList.forEach(r => r(ret, prevState))
     run()
+    const newHtml = getHTML()
+    if (oldHtml!==newHtml) {
+      state.htmlChanged(newHtml)
+    }
     return ret
   }
 
   wrappedState.getPrevious = state.getPrevious
-
-
-
+  wrappedState.htmlChanged = state.htmlChanged
+  wrappedState.html = state.html
   function effects(statePattern: TPattern, callback: (s: TState, prevState: TState) => void) {
     const pred = createPredicate(statePattern)
 
@@ -230,6 +261,7 @@ function logState(s: TState, historyLen: number) {
 }
 function makeStateStream() {
   const history: TState[] = []
+  const htmlHistory=[]
   function pushHistory(s: TState) {
     logState(s, history.length)
     history.push(s)
@@ -257,7 +289,16 @@ function makeStateStream() {
     }
     return history[history.length - 2] || initialState
   }
+  function htmlChanged(html: string) {
+    htmlHistory.push([html,history.length-1])
+    getCell('scrubber.max')(htmlHistory.length-1)
+  }
+  function html(index: number) {
+    return htmlHistory[index]
+  }
   state.getPrevious = getPrevious
+  state.htmlChanged = htmlChanged
+  state.html = html
   return state
 }
 
@@ -588,10 +629,8 @@ function hookupEventHandlersFRP() {
   document.addEventListener('pointerup', onPointerUp)
   document.addEventListener('input', e => {
     let el = e.composedPath()[0] as HTMLElement
-    log('prev',el.value)
-    const { diff, ...prev } = state.getPrevious(Number(el.value))
-    state({...prev, key:'rewind'})
-    console.log(prev)
+    const {id} = el
+    getCell(id+".value")(el.value)
   })
   function onPointerDown(e: MouseEvent) {
     let el = e.composedPath()[0] as HTMLElement
@@ -633,32 +672,38 @@ function hookupEventHandlersFRP() {
     sendKeyToState(key)
   })
   sendKeyToState('cursor',..."23".split(''))
-  function cell() {
-    const p = proxy((data)=>{
-      data.type='cell'
-      data.path = []
-    }, (data,key) => {
-      data.path.push(key)
-    }, null)
-    return p
-  }
-  const foo= cellx(()=>{
-    const newJsx = jsxCell()
-    return newJsx
-  }).onChange(({data: { value }})=>{
-    render(value)
+  getCell('scrubber.value').onChange(e=>{
+    const htmlAtIndex = state.html(e.data.value)
+    getCell('history.srcdoc')(htmlAtIndex[0])
   })
-  const scrubber = <input c-appendBefore={'root'} id={'scrubber'}
-                          type={"range"}
-                          min={cell().min}
-                          max={cell().max}
-                          value={cell().value} />
 }
 function elById(id: string): HTMLElement {
   const ret = document.getElementById(id)
   if (!ret) throw new Error("id not found")
   return ret
 }
+
+function cellv(value) {
+  const p = proxy((data)=>{
+    data.type='cell'
+    data.value = value
+    data.path = []
+  }, (data,key) => {
+    data.path.push(key)
+  }, null)
+  return p
+}
+
+const scrubber = <input c-appendBefore='root'
+                        id='scrubber'
+                        type="range"
+                        min={0}
+                        max={cellv(0).max}
+                        value={cellv(0).value} />
+const historyFrame = <iframe c-appendBefore={'root'} id={'history'}
+                             srcdoc={cellv('').innerHtml}/>
+
+render2(scrubber,historyFrame)
 hookupEventHandlersFRP()
 
 function complement(value: any) {

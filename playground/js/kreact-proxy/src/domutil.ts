@@ -33,7 +33,7 @@ export function insertAfter(newNode: HTMLElement, existingNode: HTMLElement) {
 }
 
 export function unmount(...els: HTMLElement[]) {
-  els.forEach(el=>{
+  els.filter(el=>el).forEach(el=>{
     if (!el.parentElement) return
     el.parentElement.removeChild(el)
   })
