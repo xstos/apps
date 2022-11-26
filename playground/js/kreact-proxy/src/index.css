@@ -1,12 +1,16 @@
+
 html, body {
-    overflow: hidden;
+    /*overflow: hidden;*/
     height: 100%;
     width: 100%;
+    margin: 0px;
+    padding: 0px;
 }
 .root {
-
-    height: 100%;
-    width: 100%;
+    margin: 0px;
+    padding: 0px;
+    /*height: 100%;*/
+    /*width: 100%;*/
 }
 .bcanv {
     height: 100%;
@@ -15,4 +19,7 @@ html, body {
 
 .sel {
     color: red;
+}
+button {
+    margin-right: 1px;
 }

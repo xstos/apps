@@ -5,12 +5,14 @@ import {cellx} from "cellx"
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import * as jsondiffpatch from 'jsondiffpatch'
-import {insertAfter, insertBefore, setClass, unmount} from "./domutil"
+import { DiffDOM } from "diff-dom"
+import {insertAfter, insertBefore, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
-import {filter, log, proxy} from "./util"
+import {debouncer, filter, log, proxy} from "./util"
 import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
+const dd = new DiffDOM()
 const CURSORKEY = '█'
 let jsxCallback = customJsx
 const rootEL = elById('root')
@@ -20,10 +22,11 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
 }
 function initHTML() {
   document.body.style.fontFamily = "monospace, sans-serif"
-  document.body.style.fontSize = "24pt"
+  document.body.style.fontSize = "14pt"
   //document.body.style.color = "grey"
   //document.body.style.backgroundColor = "rgb(28,28,28)"
   rootEL.style.whiteSpace = 'pre'
+  rootEL.style.border="1px solid gray"
 }
 initHTML()
 
@@ -46,15 +49,13 @@ function render2(...jsx: TJsx[]) {
 }
 function render(jsx: TJsx) {
   let { type, props, children } = jsx
-  const { id } = props
-  const [appendBefore,appendAfter] = [props['c-appendBefore'], props['c-appendAfter']]
-
+  const { id, ['data-appendBefore']: appendBefore, ['data-appendAfter']: appendAfter, ...rest } = props
   const ret = document.createElement(type)
-  for (const key in (props)) {
+  for (const key in rest) {
     const propVal = props[key]
     const data = propVal._data
     if (!data) {
-      ret[key]=propVal
+      ret.setAttribute(key,propVal)
       continue
     }
     const { type, value } = data
@@ -63,7 +64,7 @@ function render(jsx: TJsx) {
     //todo: cells by name map/setter/getter
     const mycell = getCell(id+"."+key)
     mycell.onChange(e => {
-      log('set cell',key, e.data.value)
+      //log('set cell',key, e.data.value)
       ret[key]=e.data.value
     })
     if ('value' in data) {
@@ -75,7 +76,6 @@ function render(jsx: TJsx) {
     ret.style.display='inline-block'
     ret.tabIndex = 0
     ret.style.cursor = 'default'
-    ret.classList.add('drg')
   }
   if ('id' in props) {
     ret.id = id
@@ -212,16 +212,18 @@ function rules(state: TStateFunc) {
   }
 
   function wrappedState(o?: Partial<TState>): TState {
-    const oldHtml = getHTML()
+    //const oldHtml = getHTML()
 
     const ret = state(o)
     const prevState = state.getPrevious()
     effectList.forEach(r => r(ret, prevState))
     run()
+    /*
     const newHtml = getHTML()
     if (oldHtml!==newHtml) {
-      state.htmlChanged(newHtml)
+      false && state.htmlChanged(newHtml)
     }
+    */
     return ret
   }
 
@@ -463,68 +465,8 @@ function hookupEventHandlersFRP() {
   ({
     dragging: [true, false],
   }, dropEffect)
-
-  function keyInputMutator(s: TState) {
-    let {nodes, key, lastId} = s
-    nodes = clonedeep(nodes)
-    if (false) {
-    } else if (key === 'cursor' || key === 'slider') {
-      nodes.push({id: lastId++, v: key, sl: false, style: newStyle()})
-    } else if (key === 'backspace') {
-      nodes = nodes.filter((n, i) => {
-        const next = nodes[i + 1]
-        return !(next && next.v === 'cursor')
-      })
-    } else if (key === 'arrowleft') {
-      nodes = nodes.map((n, i) => {
-        const next = nodes[i + 1]
-        if (next && next.v === 'cursor') {
-          return next
-        } else if (n.v === 'cursor' && i > 0) {
-          return nodes[i - 1]
-        }
-        return n
-      })
-    } else if (key === 'arrowright') {
-      nodes = nodes.map((n, i) => {
-        const next = nodes[i + 1]
-        const prev = nodes[i - 1]
-        if (n.v === 'cursor' && next) {
-          return next
-        } else if (prev && prev.v === 'cursor') {
-          return prev
-        }
-        return n
-      })
-    } else if (key === 'delete') {
-      nodes = nodes.filter((n, i) => {
-        const prev = nodes[i - 1]
-        return !(prev && prev.v === 'cursor')
-      })
-    } else if (key === 'click') {
-      nodes = nodes.map((n,i) => {
-        if (i !== Number(s.hoverElId)) {
-          return n
-        }
-        n.sl = !n.sl
-        return n
-      })
-    } else if (true) {
-      nodes = nodes.reduce((nodes, node, i) => {
-        if (node.v === 'cursor') {
-          nodes.push({id: lastId++, v: key, sl: false, style: newStyle()}, node)
-        } else {
-          nodes.push(node)
-        }
-        return nodes
-      }, T<TNode[]>([]))
-    }
-    //{"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
-    return {
-      nodes,
-      lastId,
-      key: NOKEY,
-    }
+  const verbs = {
+    split: String.prototype.split
   }
   function domSyncEffect(s: TState, ps: TState) {
     const {diff} = s
@@ -553,16 +495,21 @@ function hookupEventHandlersFRP() {
     /*if (entries.deleted.length>0) {
       debugger
     }*/
-    entries.created.forEach((e)=>{
-      const [index,value]=e
-      let [{id, v, sl}] = value
-      let text, myjsx
-      if (v === 'cursor') {
-        text = CURSORKEY
-      } else if (v === ' ') {
-        text = '&nbsp'
-      } else {
-        text = v
+    const replace = {
+      cursor: CURSORKEY,
+      [' ']: " ",
+      cell: "〈",
+      _cell: "〉",
+    }
+    const isCode = {
+      cell: true,
+      _cell: true
+    }
+    function renderNode(node: TNode, index: any) {
+      const {id, v, sl} = node
+      let text = v, myjsx
+      if (v in replace) {
+        text = replace[v]
       }
       const isSlider = v === 'slider'
       if (isSlider) {
@@ -574,34 +521,59 @@ function hookupEventHandlersFRP() {
       // @ts-ignore
       const el = render(myjsx)
       if (sl) {
-        el.classList.add('sel')
+        selectEl(el, true)
       }
+      if (isCode[v]) {
+        el.style.color = "green"
+      } else {
+        el.style.color = ""
+      }
+      Object.assign(el.style,node.style)
+      return el
+    }
+    entries.created.forEach((e)=>{
+      const [index,value]=e
+      let [node] = value as [TNode]
+      const el = renderNode(node, index)
       rootEL.appendChild(el)
     })
     entries.modified.forEach((e)=>{
       const [ix,value]=e
       const origNode: TNode = s.nodes[ix]
-      let {
-        v: [ov, nv] = [origNode.v, origNode.v],
-        sl: [oldSel,newSel] = [origNode.sl,origNode.sl]
-      } = value
-      const hasValue = 'v' in value
-      const hasSel = 'sl' in value
-      const hasStyle = 'style' in value
-      nv = nv === 'cursor' ? CURSORKEY : nv
-
+      const newNode = renderNode(origNode,ix)
       let el = elById(ix)
-      hasValue && el.replaceChild(
-        document.createTextNode(nv),
-        el.childNodes[0])
-      hasSel && setClass(el, newSel, 'sel')
+      const diff = dd.diff(el,newNode)
+      dd.apply(el,diff)
+      
+      function oldModLogic() {
+        let {
+          v: [ov, nv] = [origNode.v, origNode.v],
+          sl: [oldSel, newSel] = [origNode.sl, origNode.sl],
+        } = value
+        let text = nv
+        const hasValue = 'v' in value
+        const hasSel = 'sl' in value
+        const hasStyle = 'style' in value
+        if (nv in replace) {
+          text = replace[nv]
+        }
 
-      if (hasStyle) {
-        const snew = Object.fromEntries(Object.entries(value.style).map(e=>{
-          const [k,v] = e
-          return [k,v[1]]
-        }))
-        Object.assign(el.style,snew)
+        hasValue && el.replaceChild(
+          document.createTextNode(text),
+          el.childNodes[0])
+        hasSel && selectEl(el, newSel)
+        if (isCode[nv]) {
+          el.style.color = "green"
+        } else {
+          el.style.color = ""
+        }
+        if (hasStyle) {
+          const snew = Object.fromEntries(Object.entries(value.style).map(e => {
+            const [k, v] = e
+            return [k, v[1]]
+          }))
+          Object.assign(el.style, snew)
+        }
       }
     })
     entries.deleted.forEach((e)=>{
@@ -632,6 +604,7 @@ function hookupEventHandlersFRP() {
     const {id} = el
     getCell(id+".value")(el.value)
   })
+  const debounce = debouncer(100, (f)=>f())
   function onPointerDown(e: MouseEvent) {
     let el = e.composedPath()[0] as HTMLElement
     if (el.tagName==="INPUT" && el.type==="range") {
@@ -651,8 +624,10 @@ function hookupEventHandlersFRP() {
     }
     const [x, y] = [e.clientX, e.clientY]
     let hoverElId = el.id || "root"
-    state({x, y, hoverElId, mouseMove: true})
-    state({mouseMove: false})
+    debounce(()=>{
+      state({x, y, hoverElId, mouseMove: true})
+      state({mouseMove: false})
+    })
   }
   function onPointerUp(e: MouseEvent) {
     let el = e.composedPath()[0] as HTMLElement
@@ -662,6 +637,10 @@ function hookupEventHandlersFRP() {
       e.preventDefault()
     }
     state({mouseState: 'up', dragging: false, mouseButton: -1})
+    if (el.tagName==="BUTTON") {
+      const dataKey = el.getAttribute('data-key')
+      dataKey && sendKeyToState(dataKey)
+    }
   }
   function sendKeyToState(...keys: string[]) {
     keys.forEach(key=>state({key}))
@@ -676,6 +655,100 @@ function hookupEventHandlersFRP() {
     const htmlAtIndex = state.html(e.data.value)
     getCell('history.srcdoc')(htmlAtIndex[0])
   })
+}
+function keyInputMutator(s: TState) {
+  let {nodes, key, lastId} = s
+  nodes = clonedeep(nodes)
+  function makeNode(v: string): TNode {
+    return {id: lastId++, v, sl: false, style: newStyle()}
+  }
+
+  function pushKey(key: string) {
+    nodes.push(makeNode(key))
+  }
+  function insert(key) {
+    nodes = nodes.reduce((nodes, node, i) => {
+      if (node.v === 'cursor') {
+        nodes.push(makeNode(key))
+      }
+      nodes.push(node)
+      return nodes
+    }, T<TNode[]>([]))
+  }
+  function replace(callback: (cursorNode: TNode)=>TNode[]) {
+    nodes = nodes.reduce((nodes, node, i) => {
+      if (node.v === 'cursor') {
+        const nodesToInsert = callback(node)
+        nodes.push(...nodesToInsert)
+        return nodes
+      }
+      nodes.push(node)
+      return nodes
+    }, T<TNode[]>([]))
+  }
+  if (false) {
+  } else if (key === 'cursor' || key === 'slider') {
+    pushKey(key)
+  } else if (key === 'cell') {
+    replace((cur)=>[makeNode('cell'),cur,makeNode('_cell')])
+  } else if (key === ' ') {
+    insert(' ')
+  } else if (key === 'ctrl+ ') {
+    insert('␞')
+  } else if (key === 'backspace') {
+    nodes = nodes.filter((n, i) => {
+      const next = nodes[i + 1]
+      return !(next && next.v === 'cursor')
+    })
+  } else if (key === 'arrowleft') {
+    nodes = nodes.map((n, i) => {
+      const next = nodes[i + 1]
+      if (next && next.v === 'cursor') {
+        return next
+      } else if (n.v === 'cursor' && i > 0) {
+        return nodes[i - 1]
+      }
+      return n
+    })
+  } else if (key === 'arrowright') {
+    nodes = nodes.map((n, i) => {
+      const next = nodes[i + 1]
+      const prev = nodes[i - 1]
+      if (n.v === 'cursor' && next) {
+        return next
+      } else if (prev && prev.v === 'cursor') {
+        return prev
+      }
+      return n
+    })
+  } else if (key === 'delete') {
+    nodes = nodes.filter((n, i) => {
+      const prev = nodes[i - 1]
+      return !(prev && prev.v === 'cursor')
+    })
+  } else if (key === 'click') {
+    nodes = nodes.map((n,i) => {
+      if (i !== Number(s.hoverElId)) {
+        return n
+      }
+      n.sl = !n.sl
+      return n
+    })
+  } else if (true) {
+
+    insert(key)
+  }
+  //{"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
+  return {
+    nodes,
+    lastId,
+    key: NOKEY,
+  }
+}
+
+function selectEl(el,value) {
+  //el.style.color=value ? 'red' : ''
+  el.style.boxShadow=value ? "0px 0px 0px 2px red" : ''
 }
 function elById(id: string): HTMLElement {
   const ret = document.getElementById(id)
@@ -693,19 +766,23 @@ function cellv(value) {
   }, null)
   return p
 }
-
-const scrubber = <input c-appendBefore='root'
+/*
+const scrubber = <input data-appendAfter='root'
                         id='scrubber'
                         type="range"
                         min={0}
                         max={cellv(0).max}
                         value={cellv(0).value} />
-const historyFrame = <iframe c-appendBefore={'root'} id={'history'}
+const historyFrame = <iframe data-appendAfter={'root'} id={'history'}
                              srcdoc={cellv('').innerHtml}/>
 
-render2(scrubber,historyFrame)
+render2(historyFrame,scrubber)
+ */
+function toolButton(name) {
+  return <button data-appendBefore={'root'} data-key={name}>{name}</button>
+}
+["cell"].map(toolButton).forEach(render)
 hookupEventHandlersFRP()
-
 function complement(value: any) {
   return (compareValue: any) => value !== compareValue
 }

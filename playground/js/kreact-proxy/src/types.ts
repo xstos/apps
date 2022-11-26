@@ -49,7 +49,8 @@ type TStyle = {
 }
 export type TNode = { id: number, v: string, sl: boolean, style: TStyle }
 export type TState = typeof initialState
-export type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & { getPrevious: () => TState }
+export type TStateFuncAccessor = { getPrevious: () => TState }
+export type TStateFunc = ((o?: Partial<TState>, push?: boolean) => TState) & TStateFuncAccessor
 export type TRule = (s: TState) => (Partial<TState> | null)
 export function T<T>(o: T) {
   return o

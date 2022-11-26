@@ -48,3 +48,20 @@ export function proxy(ctor, get, apply) {
   ctor(data)
   return new Proxy(f, handler)
 }
+export function debouncer<T>(timeout: number, callback: (value: T) => void) {
+  let lastValue: T, wasSet = false
+  const handle = setInterval(() => {
+    if (!wasSet) return
+    callback(lastValue)
+  }, timeout)
+
+  function set(value: T) {
+    wasSet = true
+    lastValue = value
+  }
+  function off() {
+    clearInterval(handle)
+  }
+  set.off = off
+  return set
+}
