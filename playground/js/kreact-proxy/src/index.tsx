@@ -5,7 +5,7 @@ import {cellx} from "cellx"
 import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import * as jsondiffpatch from 'jsondiffpatch'
-import { DiffDOM } from "diff-dom"
+import {DiffDOM} from "diff-dom"
 import {insertAfter, insertBefore, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {debouncer, filter, log, proxy} from "./util"
@@ -37,68 +37,13 @@ initHTML()
 
 //makeGLRenderer()
 //proxyWrapperDemo()
-const cells = {
-
-}
+const cells = { }
 function getCell(name: string, initialValue = null) {
   let ret
   if (!(name in cells)) {
     ret = cells[name] = cellx(initialValue)
   } else {
     ret = cells[name]
-  }
-  return ret
-}
-function render2(...jsx: TJsx[]) {
-  return jsx.map(render)
-}
-function render(jsx: TJsx) {
-  let { type, props, children } = jsx
-  const { id, ['data-appendBefore']: appendBefore, ['data-appendAfter']: appendAfter, ...rest } = props
-  const ret = document.createElement(type)
-  for (const key in rest) {
-    const propVal = props[key]
-    const data = propVal._data
-    if (!data) {
-      ret.setAttribute(key,propVal)
-      continue
-    }
-    const { type, value } = data
-    if (type!=='cell') continue
-    if (!id) continue
-    //todo: cells by name map/setter/getter
-    const mycell = getCell(id+"."+key)
-    mycell.onChange(e => {
-      //log('set cell',key, e.data.value)
-      ret[key]=e.data.value
-    })
-    if ('value' in data) {
-      mycell(value)
-    }
-  }
-
-  if (type === 'span') {
-    ret.style.display='inline-block'
-    //ret.tabIndex = 0
-    ret.style.cursor = 'default'
-  }
-  if ('id' in props) {
-    ret.id = id
-  }
-  if (children) {
-    const childEls = children.map(c => {
-      if (typeof c === 'string') {
-        return document.createTextNode(c)
-      }
-      const ret2 = render(c)
-      return ret2
-    })
-    childEls.forEach(childNode => ret.appendChild(childNode))
-  }
-  if (appendBefore) {
-    insertBefore(ret, elById(appendBefore))
-  } else if (appendAfter) {
-    insertAfter(ret, elById(appendAfter))
   }
   return ret
 }
@@ -115,41 +60,6 @@ function newStyle() {
   }
 }
 
-function renderNode(node: TNode, index: any) {
-  const {id, v, sl} = node
-  const replace = {
-    cursor: CURSORKEY,
-    cell: "〈",
-    _cell: "〉",
-  }
-  const isCode = {
-    cell: true,
-    _cell: true
-  }
-  let text = v, myjsx
-  if (v in replace) {
-    text = replace[v]
-  }
-  const isSlider = v === 'slider'
-  if (isSlider) {
-    myjsx = <input id={index} type={"range"} min={"1"} max={"1000"} value={1}/>
-  } else {
-    myjsx = <span id={index}>{text}</span>
-  }
-
-  // @ts-ignore
-  const el = render(myjsx)
-  if (sl) {
-    selectEl(el, true)
-  }
-  if (isCode[v]) {
-    el.style.color = "green"
-  } else {
-    el.style.color = ""
-  }
-  Object.assign(el.style,node.style)
-  return el
-}
 function createPredicate(statePattern: TPattern) {
   const predicates = Object.entries(statePattern).map((pair) => {
     let [key, value] = pair
@@ -485,11 +395,6 @@ function hookupEventHandlersFRP() {
         }, T<TNode[]>([]))
       }
       const ret = getRet()
-      // if (ret.length<3) {
-      //   debugger
-      //   const r2 = getRet()
-      // }
-      //log(JSON.stringify(nodes))
       return ret
     }
   })
@@ -678,6 +583,112 @@ function hookupEventHandlersFRP() {
     getCell('history.srcdoc')(htmlAtIndex[0])
   })
 }
+function render2(...jsx: TJsx[]) {
+  return jsx.map(render)
+}
+function render(myjsx: TJsx) {
+  let { type, props, children } = myjsx
+  const { id, ['data-appendBefore']: appendBefore, ['data-appendAfter']: appendAfter, style, ...rest } = props
+  const ret = document.createElement(type)
+  if ('style' in props) {
+    const s = ret.style
+    Object.entries(props.style).forEach((e)=>{
+      const [k,v] = e
+      s[k]=v
+    })
+  }
+  for (const key in rest) {
+    const propVal = props[key]
+    const data = propVal._data
+    if (!data) {
+      ret.setAttribute(key,propVal)
+      continue
+    }
+    const { type, value } = data
+    if (type!=='cell') continue
+    if (!id) continue
+    //todo: cells by name map/setter/getter
+    const mycell = getCell(id+"."+key)
+    mycell.onChange(e => {
+      //log('set cell',key, e.data.value)
+      ret[key]=e.data.value
+    })
+    if ('value' in data) {
+      mycell(value)
+    }
+  }
+
+  if (type === 'span') {
+    ret.style.display='inline-block'
+    //ret.tabIndex = 0
+    ret.style.cursor = 'default'
+  }
+  if ('id' in props) {
+    ret.id = id
+  }
+  if (children) {
+    const childEls = children.map(c => {
+      const type = typeof c
+      if (type === 'string' || type === "number") {
+        const el = document.createTextNode(c)
+        return el
+      }
+      const ret2 = render(c)
+      return ret2
+    })
+    childEls.forEach(childNode => ret.appendChild(childNode))
+  }
+  if (appendBefore) {
+    insertBefore(ret, elById(appendBefore))
+  } else if (appendAfter) {
+    insertAfter(ret, elById(appendAfter))
+  }
+  return ret
+}
+
+function renderNode(node: TNode, index: any) {
+  const {id, v, sl} = node
+  const replace = {
+    cursor: CURSORKEY,
+    cell: "〈",
+    _cell: "〉",
+    button: 'button',
+    _button: '/button'
+  }
+  const isCode = {
+    cell: true,
+    _cell: true,
+    button: true,
+    _button: true,
+  }
+  let text = v, myjsx
+  if (v in replace) {
+    text = replace[v]
+  }
+  const isSlider = v === 'slider'
+  if (isSlider) {
+    myjsx = <input id={index} type={"range"} min={"1"} max={"1000"} value={1}/>
+  } else {
+    if (isCode[v]) {
+      myjsx = <span id={index}>{text}<sup style={{fontSize: '50%'}}>{id}</sup></span>
+    } else {
+      myjsx = <span id={index}>{text}</span>
+    }
+  }
+
+  // @ts-ignore
+  const el = render(myjsx)
+  if (sl) {
+    selectEl(el, true)
+  }
+  if (isCode[v]) {
+    el.style.color = "green"
+  } else {
+    el.style.color = ""
+  }
+  Object.assign(el.style,node.style)
+  return el
+}
 function keyInputMutator(s: TState) {
   let {nodes, key, lastId} = s
   nodes = clonedeep(nodes)
@@ -697,6 +708,9 @@ function keyInputMutator(s: TState) {
       return nodes
     }, T<TNode[]>([]))
   }
+  function makeNodes(...text) {
+    return text.map(makeNode)
+  }
   function replace(callback: (cursorNode: TNode)=>TNode[]) {
     nodes = nodes.reduce((nodes, node, i) => {
       if (node.v === 'cursor') {
@@ -708,11 +722,20 @@ function keyInputMutator(s: TState) {
       return nodes
     }, T<TNode[]>([]))
   }
+  const replaceMap = {
+    ['shift++']: '+'
+  }
   if (false) {
   } else if (key === 'cursor' || key === 'slider') {
     pushKey(key)
+  } else if (key in replaceMap) {
+    insert(replaceMap[key])
   } else if (key === 'cell') {
-    replace((cur)=>[makeNode('cell'),cur,makeNode('_cell')])
+    const [o,c] = makeNodes('cell','_cell')
+    replace((cur)=>[o,cur,c])
+  } else if (key === 'button') {
+    const [o,c] = makeNodes('button','_button')
+    replace((cur)=>[o,cur,c])
   } else if (key === ' ') {
     insert(' ')
   } else if (key === 'ctrl+ ') {
@@ -757,7 +780,6 @@ function keyInputMutator(s: TState) {
       return n
     })
   } else if (true) {
-
     insert(key)
   }
   //{"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
@@ -803,7 +825,7 @@ render2(historyFrame,scrubber)
 function toolButton(name) {
   return <button data-appendBefore={'root'} data-key={name}>{name}</button>
 }
-["cell"].map(toolButton).forEach(render)
+["cell", "button"].map(toolButton).forEach(render)
 //const test = <input data-appendAfter={'root'}></input>
 //render(test)
 hookupEventHandlersFRP()
