@@ -2,16 +2,13 @@
 const lettersArray = Array.from(
   '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
 )
-const prevDef = {
-  ['ctrl+a']: 1,
-  tab: 1
-}
-export function bindkeys(onkey) {
+export function bindkeys(onkey, shouldHandleCallback) {
 
   //keyboard.bind([...lettersArray, 'space', 'enter', 'escape', 'backspace', 'left', 'right', 'up', 'down', 'delete'], pressed)
   // keyboard.bind('ctrl + enter', ()=>{
   //   debugger
   // })
+
   document.addEventListener('keydown', event => {
     const key = event.key.toLowerCase()
 
@@ -23,9 +20,9 @@ export function bindkeys(onkey) {
       .filter(v=>v)
 
     const foo = [...mod, key].join("+")
-    if (foo === "ctrl+c") return
-    if (foo in prevDef) {
-      event.preventDefault()
+    if (shouldHandleCallback) {
+      const shouldHandle = shouldHandleCallback(event, foo)
+      if (shouldHandle === false) return
     }
     pressed({ tag: 'io', key: foo })
   });

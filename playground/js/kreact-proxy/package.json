@@ -25,6 +25,7 @@
     "buffer": "^6.0.3",
     "cellx": "^1.10.29",
     "cellx-collections": "^1.0.3",
+    "diff-dom": "^4.2.8",
     "dom-to-image": "^2.6.0",
     "hyperactiv": "^0.11.2",
     "javascript-stringify": "^2.1.0",

@@ -16,17 +16,22 @@ const dd = new DiffDOM()
 const CURSORKEY = '█'
 let jsxCallback = customJsx
 const rootEL = elById('root')
+const body = document.body
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   const ret = jsxCallback(type, props, ...children)
   return ret
 }
 function initHTML() {
-  document.body.style.fontFamily = "monospace, sans-serif"
-  document.body.style.fontSize = "14pt"
+  body.style.fontFamily = "monospace, sans-serif"
+  body.style.fontSize = "24pt"
+  body.style.paddingLeft="0.5ch"
   //document.body.style.color = "grey"
   //document.body.style.backgroundColor = "rgb(28,28,28)"
   rootEL.style.whiteSpace = 'pre'
   rootEL.style.border="1px solid gray"
+  rootEL.tabIndex=0
+  rootEL.style.borderTop = "3px dotted yellow"
+  rootEL.style.borderBottom = "3px dotted yellow"
 }
 initHTML()
 
@@ -74,7 +79,7 @@ function render(jsx: TJsx) {
 
   if (type === 'span') {
     ret.style.display='inline-block'
-    ret.tabIndex = 0
+    //ret.tabIndex = 0
     ret.style.cursor = 'default'
   }
   if ('id' in props) {
@@ -110,6 +115,41 @@ function newStyle() {
   }
 }
 
+function renderNode(node: TNode, index: any) {
+  const {id, v, sl} = node
+  const replace = {
+    cursor: CURSORKEY,
+    cell: "〈",
+    _cell: "〉",
+  }
+  const isCode = {
+    cell: true,
+    _cell: true
+  }
+  let text = v, myjsx
+  if (v in replace) {
+    text = replace[v]
+  }
+  const isSlider = v === 'slider'
+  if (isSlider) {
+    myjsx = <input id={index} type={"range"} min={"1"} max={"1000"} value={1}/>
+  } else {
+    myjsx = <span id={index}>{text}</span>
+  }
+
+  // @ts-ignore
+  const el = render(myjsx)
+  if (sl) {
+    selectEl(el, true)
+  }
+  if (isCode[v]) {
+    el.style.color = "green"
+  } else {
+    el.style.color = ""
+  }
+  Object.assign(el.style,node.style)
+  return el
+}
 function createPredicate(statePattern: TPattern) {
   const predicates = Object.entries(statePattern).map((pair) => {
     let [key, value] = pair
@@ -303,6 +343,27 @@ function makeStateStream() {
   state.html = html
   return state
 }
+function getJsonDiffPatchEntries(nodes) {
+  const {_t, ...rest} = nodes
+
+  const entries = Object.entries(rest).reduce((acc, value) => {
+    let [k, v] = value
+    if (k.startsWith("_")) {
+      k = k.replace('_', '')
+      acc.deleted.push([Number(k), v])
+    } else if (Array.isArray(v)) {
+      acc.created.push([Number(k), v])
+    } else {
+      acc.modified.push([Number(k), v])
+    }
+    return acc
+  }, {
+    deleted: [],
+    created: [],
+    modified: [],
+  })
+  return entries
+}
 
 function hookupEventHandlersFRP() {
   const stateStream = makeStateStream()
@@ -474,63 +535,8 @@ function hookupEventHandlersFRP() {
       return
     }
     const {nodes} = diff
-    const {_t, ...rest} = nodes
+    const entries = getJsonDiffPatchEntries(nodes)
 
-    const entries = Object.entries(rest).reduce((acc,value)=>{
-      let [k,v]=value
-      if (k.startsWith("_")) {
-        k=k.replace('_','')
-        acc.deleted.push([Number(k),v])
-      } else if (Array.isArray(v)) {
-        acc.created.push([Number(k),v])
-      } else {
-        acc.modified.push([Number(k),v])
-      }
-      return acc
-    },{
-      deleted: [],
-      created: [],
-      modified: [],
-    })
-    /*if (entries.deleted.length>0) {
-      debugger
-    }*/
-    const replace = {
-      cursor: CURSORKEY,
-      [' ']: " ",
-      cell: "〈",
-      _cell: "〉",
-    }
-    const isCode = {
-      cell: true,
-      _cell: true
-    }
-    function renderNode(node: TNode, index: any) {
-      const {id, v, sl} = node
-      let text = v, myjsx
-      if (v in replace) {
-        text = replace[v]
-      }
-      const isSlider = v === 'slider'
-      if (isSlider) {
-        myjsx = <input id={index} type={"range"} min={"1"} max={"1000"} value={1}/>
-      } else {
-        myjsx = <span id={index}>{text}</span>
-      }
-
-      // @ts-ignore
-      const el = render(myjsx)
-      if (sl) {
-        selectEl(el, true)
-      }
-      if (isCode[v]) {
-        el.style.color = "green"
-      } else {
-        el.style.color = ""
-      }
-      Object.assign(el.style,node.style)
-      return el
-    }
     entries.created.forEach((e)=>{
       const [index,value]=e
       let [node] = value as [TNode]
@@ -539,16 +545,16 @@ function hookupEventHandlersFRP() {
     })
     entries.modified.forEach((e)=>{
       const [ix,value]=e
-      const origNode: TNode = s.nodes[ix]
-      const newNode = renderNode(origNode,ix)
+      const node: TNode = s.nodes[ix]
+      const newNode = renderNode(node,ix)
       let el = elById(ix)
       const diff = dd.diff(el,newNode)
       dd.apply(el,diff)
       
       function oldModLogic() {
         let {
-          v: [ov, nv] = [origNode.v, origNode.v],
-          sl: [oldSel, newSel] = [origNode.sl, origNode.sl],
+          v: [ov, nv] = [node.v, node.v],
+          sl: [oldSel, newSel] = [node.sl, node.sl],
         } = value
         let text = nv
         const hasValue = 'v' in value
@@ -604,10 +610,20 @@ function hookupEventHandlersFRP() {
     const {id} = el
     getCell(id+".value")(el.value)
   })
+  document.addEventListener('click',(e)=>{
+    const path = e.composedPath()
+    let el = path[0] as HTMLElement
+    if (el.tagName==="BUTTON") {
+      const dataKey = el.getAttribute('data-key')
+      dataKey && sendKeyToState(dataKey)
+      rootEL.focus()
+    }
+  })
   const debounce = debouncer(100, (f)=>f())
   function onPointerDown(e: MouseEvent) {
-    let el = e.composedPath()[0] as HTMLElement
-    if (el.tagName==="INPUT" && el.type==="range") {
+    const path = e.composedPath()
+    let el = path[0] as HTMLElement
+    if (!path.includes(rootEL)) {
       return
     } else {
       e.preventDefault()
@@ -616,39 +632,45 @@ function hookupEventHandlersFRP() {
     state({mouseState: 'down', startX: x, startY: y, x, y, el: el.id, mouseButton: e.button})
   }
   function onPointerMove(e: MouseEvent) {
-    let el = e.composedPath()[0] as HTMLElement
-    if (el.tagName==="INPUT" && el.type==="range") {
-
-    } else {
-      e.preventDefault()
+    const path = e.composedPath()
+    let el = path[0] as HTMLElement
+    if (!path.includes(rootEL)) {
+      return
     }
     const [x, y] = [e.clientX, e.clientY]
     let hoverElId = el.id || "root"
     debounce(()=>{
+      rootEL.focus()
+      e.preventDefault()
       state({x, y, hoverElId, mouseMove: true})
       state({mouseMove: false})
     })
   }
   function onPointerUp(e: MouseEvent) {
-    let el = e.composedPath()[0] as HTMLElement
-    if (el.tagName==="INPUT" && el.type==="range") {
+    const path = e.composedPath()
+    let el = path[0] as HTMLElement
+    if (!path.includes(rootEL)) {
       return
     } else {
       e.preventDefault()
     }
     state({mouseState: 'up', dragging: false, mouseButton: -1})
-    if (el.tagName==="BUTTON") {
-      const dataKey = el.getAttribute('data-key')
-      dataKey && sendKeyToState(dataKey)
-    }
   }
   function sendKeyToState(...keys: string[]) {
     keys.forEach(key=>state({key}))
   }
   bindkeys((data: { key: any; }) => {
     const {key} = data
-    //addKey(key)
     sendKeyToState(key)
+  }, (e,key)=>{
+    const path = e.composedPath()
+    let el = path[0] as HTMLElement
+    if (!path.includes(rootEL)) {
+      return false
+    } else {
+      if (key==='tab' || key==='shift+tab') return false
+      e.preventDefault()
+    }
   })
   sendKeyToState('cursor',..."23".split(''))
   getCell('scrubber.value').onChange(e=>{
@@ -694,7 +716,7 @@ function keyInputMutator(s: TState) {
   } else if (key === ' ') {
     insert(' ')
   } else if (key === 'ctrl+ ') {
-    insert('␞')
+    insert('␞␞')
   } else if (key === 'backspace') {
     nodes = nodes.filter((n, i) => {
       const next = nodes[i + 1]
@@ -748,7 +770,7 @@ function keyInputMutator(s: TState) {
 
 function selectEl(el,value) {
   //el.style.color=value ? 'red' : ''
-  el.style.boxShadow=value ? "0px 0px 0px 2px red" : ''
+  el.style.boxShadow=value ? "0px 0px 0px 5px rgba(255,0,0,0.5)" : ''
 }
 function elById(id: string): HTMLElement {
   const ret = document.getElementById(id)
@@ -782,6 +804,8 @@ function toolButton(name) {
   return <button data-appendBefore={'root'} data-key={name}>{name}</button>
 }
 ["cell"].map(toolButton).forEach(render)
+//const test = <input data-appendAfter={'root'}></input>
+//render(test)
 hookupEventHandlersFRP()
 function complement(value: any) {
   return (compareValue: any) => value !== compareValue
