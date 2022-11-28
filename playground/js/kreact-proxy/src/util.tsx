@@ -14,8 +14,9 @@ export function filter<T>(o: object, pred: (key: string,value: any) => boolean) 
   if (filtered.length===0) return null
   return Object.fromEntries(filtered)
 }
+let count = 0
 export function log(...items: any[]) {
-  console.log(...items)
+  console.log(count++,...items)
 }
 export function proxy(ctor, get, apply) {
   let handler = null
@@ -53,6 +54,7 @@ export function debouncer<T>(timeout: number, callback: (value: T) => void) {
   const handle = setInterval(() => {
     if (!wasSet) return
     callback(lastValue)
+    wasSet = false
   }, timeout)
 
   function set(value: T) {

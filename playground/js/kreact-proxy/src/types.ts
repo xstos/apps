@@ -33,7 +33,7 @@ const initialStateSansDiff = {
   key: NOKEY,
   nodes: T<TNode[]>([]),
   lastId: 1,
-  html: '',
+  transitory: true,
 }
 export const initialState = {
   ...initialStateSansDiff,

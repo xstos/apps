@@ -189,52 +189,44 @@ function rules(state: TStateFunc) {
 }
 function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
   const {diff: oldDiff, ...prevStateSansDiff} = prev
-  const nextStateSansDiff = {...prevStateSansDiff, ...o}
+  const nextStateSansDiff = {...prevStateSansDiff, transitory:true, ...o}
   const diff = jsondiffpatch.diff(prevStateSansDiff, nextStateSansDiff)
   if (diff === undefined) return undefined
   return {diff, ...nextStateSansDiff}
 }
 function logState(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
-    return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove','html'].every((s) => s !== k)
+    return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove', 'transitory']
+      .every((s) => s !== k)
   })
-  fd && log(JSON.stringify(fd), (historyLen) + '')
+  fd && log(JSON.stringify(fd), historyLen)
 }
 function makeStateStream() {
   let history: TState[] = [initialState, initialState]
-  let undo: TState[] = [initialState]
-  function keep(s: TState) {
-    return 'key' in s && s.key!==NOKEY && s.key !== 'undo'
-  }
-  function keep2(s: TState) {
-    if (s.key!==NOKEY) return false
-    if (!('nodes' in s.diff)) return false
-    return true
-  }
-  function current(): TState {
+  let undo: TState[] = []
+  const keep = (s: TState) => !s.transitory
+  function getCurrent(): TState {
     return history[history.length - 1]
   }
-  function state(o?: Partial<TState>): TState {
-    let prev = current()
-    if (!o) {
-      return prev
+  function state(statePatch?: Partial<TState>): TState {
+    let current = getCurrent()
+    if (!statePatch) {
+      return current
     }
-    const next = stateDiff(prev, o)
+    const next = stateDiff(current, statePatch)
     if (!next) {
-      return prev
+      return current
     }
-    if (prev.key==='undo') {
+    if (current.key==='undo') {
       history[history.length-1] = next
     } else {
       history.push(next)
       const popped = history.shift()
-      if (keep2(next)) {
+      if (keep(next)) {
         undo.push(next)
       }
     }
-
-    logState(next,history.length)
-
+    logState(next,undo.length)
     getCell('scrubber.max')(undo.length-1)
     return next
   }
@@ -397,6 +389,7 @@ function hookupEventHandlersFRP() {
         const ret = getRet()
         return ret
       },
+      transitory: false,
     })
     ({
       mouseState: ['down', 'up'],
@@ -485,7 +478,8 @@ function hookupEventHandlersFRP() {
   document.addEventListener('input', e => {
     let el = e.composedPath()[0] as HTMLElement
     const {id} = el
-    getCell(id+".value")(el.value)
+    const max = getCell(id+".max")()
+    getCell(id+".value.ui")(max-el.value)
   })
   document.addEventListener('click',(e)=>{
     const path = e.composedPath()
@@ -543,21 +537,21 @@ function hookupEventHandlersFRP() {
   function sendKeyToState(...keys: string[]) {
     keys.forEach(key=>state({key}))
   }
-  bindkeys((data: { key: any; }) => {
-    const {key} = data
-    sendKeyToState(key)
-  }, (e:KeyboardEvent,key: string)=>{
+  bindkeys((data: { key: string; }) => {
+    sendKeyToState(data.key)
+  }, keyBindPrevDef)
+  function keyBindPrevDef(e: KeyboardEvent, key: string) {
     const path = e.composedPath()
     let el = path[0] as HTMLElement
     if (!path.includes(rootEL)) {
       return false
     } else {
-      if (key==='tab' || key==='shift+tab' || key==='ctrl+v') return false
+      if (key === 'tab' || key === 'shift+tab' || key === 'ctrl+v') return false
       e.preventDefault()
     }
-  })
+  }
   sendKeyToState('cursor',..."23".split(''))
-  getCell('scrubber.value').onChange(e=>{
+  getCell('scrubber.value.ui').onChange(e=>{
     const old = state.scrub(e.data.value)
     state({
       key: old.key,
@@ -586,11 +580,20 @@ function render(myjsx: TJsx) {
     if (type!=='cell') continue
     if (!id) continue
     //todo: cells by name map/setter/getter
-    const mycell = getCell(id+"."+key)
-
+    const cellName = id+"."+key
+    const mycell = getCell(cellName)
+    const myCell2 = getCell(cellName+".ui")
+    let fire = true
     mycell.onChange(e => {
+      if (!fire) return
       //log('set cell',key, e.data.value)
       ret[key]=e.data.value
+    })
+    myCell2.onChange(e => {
+      //log('set cell.ui',key, e.data.value)
+      fire=false
+      mycell(e.data.value)
+      fire=true
     })
     if ('value' in data) {
       mycell(value)
@@ -770,6 +773,7 @@ function keyInputMutator(s: TState) {
     nodes,
     lastId,
     key: NOKEY,
+    transitory: false,
   }
 }
 
