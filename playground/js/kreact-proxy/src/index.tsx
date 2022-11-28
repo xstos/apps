@@ -201,11 +201,21 @@ function logState(s: TState, historyLen: number) {
   fd && log(JSON.stringify(fd), (historyLen) + '')
 }
 function makeStateStream() {
-  let history: TState[] = []
-  let prev = initialState
-  let counter = 0
-
+  let history: TState[] = [initialState, initialState]
+  let undo: TState[] = [initialState]
+  function keep(s: TState) {
+    return 'key' in s && s.key!==NOKEY && s.key !== 'undo'
+  }
+  function keep2(s: TState) {
+    if (s.key!==NOKEY) return false
+    if (!('nodes' in s.diff)) return false
+    return true
+  }
+  function current(): TState {
+    return history[history.length - 1]
+  }
   function state(o?: Partial<TState>): TState {
+    let prev = current()
     if (!o) {
       return prev
     }
@@ -213,20 +223,32 @@ function makeStateStream() {
     if (!next) {
       return prev
     }
-    logState(next, ++counter)
-    if ('key' in prev && prev.key!==NOKEY && prev.key!=='undo') {
-      history.push(prev)
+    if (prev.key==='undo') {
+      history[history.length-1] = next
+    } else {
+      history.push(next)
+      const popped = history.shift()
+      if (keep2(next)) {
+        undo.push(next)
+      }
     }
-    prev=next
-    getCell('scrubber.max')(history.length-1)
+
+    logState(next,history.length)
+
+    getCell('scrubber.max')(undo.length-1)
     return next
   }
   function getPrevious() {
-    return prev
+    return history[history.length-2]
   }
   state.getPrevious = getPrevious
   state.scrub = function(ix:number) {
-    return history[ix]
+    const ret = undo[ix]
+    const foo = {
+      ...ret,
+      key: 'undo'
+    }
+    return foo
   }
   return state
 }
@@ -538,7 +560,7 @@ function hookupEventHandlersFRP() {
   getCell('scrubber.value').onChange(e=>{
     const old = state.scrub(e.data.value)
     state({
-      key: 'undo',
+      key: old.key,
       nodes: clonedeep(old.nodes)
     })
   })
@@ -567,7 +589,7 @@ function render(myjsx: TJsx) {
     const mycell = getCell(id+"."+key)
 
     mycell.onChange(e => {
-      log('set cell',key, e.data.value)
+      //log('set cell',key, e.data.value)
       ret[key]=e.data.value
     })
     if ('value' in data) {
@@ -771,6 +793,7 @@ function cellv(value) {
   return p
 }
 
+const scrublbl = <label style={{fontSize: '14pt'}} data-appendBefore='root' for={"scrubber"}>undo</label>
 const scrubber = <input data-appendBefore='root'
                         id='scrubber'
                         type="range"
@@ -786,8 +809,8 @@ render2(historyFrame,scrubber)
 function toolButton(name) {
   return <button data-appendBefore={'root'} data-key={name}>{name}</button>
 }
-["cell", "button", "undo"].map(toolButton).forEach(render)
-render(scrubber)
+["cell", "button"].map(toolButton).forEach(render)
+render2(scrublbl, scrubber)
 //const test = <input data-appendAfter={'root'}></input>
 //render(test)
 hookupEventHandlersFRP()
