@@ -13,7 +13,7 @@ import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, 
 
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
-const dd = new DiffDOM()
+const diffDOM = new DiffDOM()
 const CURSORKEY = '█'
 let jsxCallback = customJsx
 const rootEL = elById('root')
@@ -25,14 +25,15 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
 function initHTML() {
   body.style.fontFamily = "monospace, sans-serif"
   body.style.fontSize = "24pt"
-  body.style.paddingLeft="0.5ch"
+  //body.style.paddingLeft="0.5ch"
+  //body.style.paddingRight= "1ch"
   //document.body.style.color = "grey"
   //document.body.style.backgroundColor = "rgb(28,28,28)"
   rootEL.style.whiteSpace = 'pre'
   rootEL.style.border="1px solid gray"
   rootEL.tabIndex=0
-  rootEL.style.borderTop = "3px dotted yellow"
-  rootEL.style.borderBottom = "3px dotted yellow"
+  rootEL.style.borderTop = "3px dotted cyan"
+  rootEL.style.borderBottom = "3px dotted cyan"
 }
 initHTML()
 
@@ -449,8 +450,12 @@ function hookupEventHandlersFRP() {
       const node: TNode = s.nodes[ix]
       const newNode = renderNode(node,ix)
       let el = elById(ix+'')
-      const diff = dd.diff(el,newNode)
-      dd.apply(el,diff)
+      if (el.nodeName!==newNode.nodeName) {
+        el.parentNode.replaceChild(newNode,el)
+      } else {
+        const diff = diffDOM.diff(el,newNode)
+        diffDOM.apply(el,diff)
+      }
     })
     entries.deleted.forEach((e)=>{
       const [index,value]=e
@@ -550,9 +555,9 @@ function hookupEventHandlersFRP() {
       e.preventDefault()
     }
   }
-  sendKeyToState('cursor',..."23".split(''))
+  sendKeyToState('cursor',..."hello world".split(''))
   getCell('scrubber.value.ui').onChange(e=>{
-    const old = state.scrub(e.data.value)
+    const old = state.scrub(Number(e.data.value))
     state({
       key: old.key,
       nodes: clonedeep(old.nodes)
@@ -611,6 +616,7 @@ function render(myjsx: TJsx) {
   if (children) {
     const childEls = children.map(c => {
       const type = typeof c
+
       if (type === 'string' || type === "number") {
         const el = document.createTextNode(c)
         return el
@@ -635,7 +641,7 @@ function renderNode(node: TNode, index: any) {
     cell: "〈",
     _cell: "〉",
     button: '〈button',
-    _button: 'button〉'
+    _button: 'button〉',
   }
   const isCode = {
     cell: true,
@@ -656,12 +662,17 @@ function renderNode(node: TNode, index: any) {
       const idDesc = isClose ? id-1 : id
       myjsx = <span id={index}>{text}<sup style={{fontSize: '50%'}}>{idDesc}</sup></span>
     } else {
-      myjsx = <span id={index}>{text}</span>
+      myjsx = <span style={{display: 'inline-block'}} id={index}>{text}</span>
     }
   }
 
   // @ts-ignore
-  const el = render(myjsx)
+  let el = render(myjsx)
+  if (v==="enter") {
+    const id = el.id
+    el = document.createElement("br")
+    el.id = id
+  }
   if (sl) {
     selectEl(el, true)
   }
@@ -705,8 +716,9 @@ function keyInputMutator(s: TState) {
       return nodes
     }, T<TNode[]>([]))
   }
+  const shifties = "!@#$%^&*()<>:\"{}+_"
   const replaceMap = {
-    ['shift++']: '+'
+    ...Object.fromEntries(shifties.split('').map(c=>["shift+"+c,c]))
   }
 
   if (false) {
