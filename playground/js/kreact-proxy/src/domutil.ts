@@ -38,3 +38,10 @@ export function unmount(...els: HTMLElement[]) {
     el.parentElement.removeChild(el)
   })
 }
+export function assignPropsStyle(propsStyle: Partial<CSSStyleDeclaration>, s: CSSStyleDeclaration) {
+  Object.entries(propsStyle).forEach((e) => {
+    const [k, v] = e
+    // @ts-ignore
+    s[k] = v
+  })
+}
