@@ -15,6 +15,10 @@ import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, 
 //const {observe, computed} = hyperactiv
 const diffDOM = new DiffDOM()
 const CURSORKEY = '█'
+const codez = {
+  uppercase: "a→A",
+  lowercase: "A→a",
+};
 let jsxCallback = customJsx
 const rootEL = elById('root')
 const body = document.body
@@ -522,9 +526,9 @@ function hookupEventHandlersFRP() {
     }
     const [x, y] = [e.clientX, e.clientY]
     let hoverElId = el.id || "root"
+    e.preventDefault()
     debounce(()=>{
       rootEL.focus()
-      e.preventDefault()
       state({x, y, hoverElId, mouseMove: true})
       state({mouseMove: false})
     })
@@ -544,8 +548,8 @@ function hookupEventHandlersFRP() {
   }
   bindkeys((data: { key: string; }) => {
     sendKeyToState(data.key)
-  }, keyBindPrevDef)
-  function keyBindPrevDef(e: KeyboardEvent, key: string) {
+  }, keyBindFilter)
+  function keyBindFilter(e: KeyboardEvent, key: string) {
     const path = e.composedPath()
     let el = path[0] as HTMLElement
     if (!path.includes(rootEL)) {
@@ -555,7 +559,7 @@ function hookupEventHandlersFRP() {
       e.preventDefault()
     }
   }
-  sendKeyToState('cursor',..."hello world".split(''))
+  sendKeyToState('cursor',"pipe", ..."1 enter 2 enter 3".split(" "))
   getCell('scrubber.value.ui').onChange(e=>{
     const old = state.scrub(Number(e.data.value))
     state({
@@ -642,13 +646,15 @@ function renderNode(node: TNode, index: any) {
     _cell: "〉",
     button: '〈button',
     _button: 'button〉',
+    pipe: "⮞",
+    _pipe: "/⮞"
   }
-  const isCode = {
-    cell: true,
-    _cell: true,
-    button: true,
-    _button: true,
-  }
+
+  const codes = `cell button pipe ${codez.uppercase} ${codez.lowercase}`.split(" ").reduce((acc, value)=>{
+    acc.push(value,"_"+value)
+    return acc
+  },[]).map(s=>[s,true])
+  const isCode = Object.fromEntries(codes)
   const isClose = v.startsWith('_')
   let text = v, myjsx
   if (v in replace) {
@@ -661,18 +667,16 @@ function renderNode(node: TNode, index: any) {
     if (isCode[v]) {
       const idDesc = isClose ? id-1 : id
       myjsx = <span id={index}>{text}<sup style={{fontSize: '50%'}}>{idDesc}</sup></span>
-    } else {
-      myjsx = <span style={{display: 'inline-block'}} id={index}>{text}</span>
+    } else if (v==="enter") {
+      myjsx = <br id={index}/>
+    }
+    else {
+      myjsx = <span id={index}>{text}</span>
     }
   }
 
   // @ts-ignore
   let el = render(myjsx)
-  if (v==="enter") {
-    const id = el.id
-    el = document.createElement("br")
-    el.id = id
-  }
   if (sl) {
     selectEl(el, true)
   }
@@ -720,22 +724,27 @@ function keyInputMutator(s: TState) {
   const replaceMap = {
     ...Object.fromEntries(shifties.split('').map(c=>["shift+"+c,c]))
   }
-
+  function makeCode(name) {
+    const [o, c] = makeNodes(name, '_'+name)
+    replace((cur) => [o, cur, c])
+  }
   if (false) {
   } else if (key === 'cursor' || key === 'slider') {
     pushKey(key)
   } else if (key in replaceMap) {
     insert(replaceMap[key])
   } else if (key === 'cell') {
-    const [o,c] = makeNodes('cell','_cell')
-    replace((cur)=>[o,cur,c])
+    makeCode('cell')
   } else if (key === 'button') {
-    const [o,c] = makeNodes('button','_button')
-    replace((cur)=>[o,cur,c])
+    makeCode("button")
+  } else if (key === 'pipe') {
+    makeCode("pipe")
   } else if (key === ' ') {
     insert(' ')
-  } else if (key === 'ctrl+ ') {
-    insert('␞␞')
+  } else if (key === 'enter') {
+    insert('┊')
+  } else if (key === 'shift+enter') {
+    insert('enter')
   } else if (key === 'undo') {
 
   } else if (key === 'backspace') {
@@ -770,7 +779,7 @@ function keyInputMutator(s: TState) {
       return !(prev && prev.v === 'cursor')
     })
   } else if (key === 'click') {
-    nodes = nodes.map((n,i) => {
+    nodes = nodes.map((n, i) => {
       if (i !== Number(s.hoverElId)) {
         return n
       }
@@ -825,7 +834,8 @@ render2(historyFrame,scrubber)
 function toolButton(name) {
   return <button data-appendBefore={'root'} data-key={name}>{name}</button>
 }
-["cell", "button"].map(toolButton).forEach(render)
+
+["cell", "button", "pipe", codez.uppercase, codez.lowercase].map(toolButton).forEach(render)
 render2(scrublbl, scrubber)
 //const test = <input data-appendAfter={'root'}></input>
 //render(test)
