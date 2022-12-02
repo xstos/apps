@@ -559,7 +559,7 @@ function hookupEventHandlersFRP() {
       e.preventDefault()
     }
   }
-  sendKeyToState('cursor',"pipe", ..."1 enter 2 enter 3".split(" "))
+  sendKeyToState('cursor')
   getCell('scrubber.value.ui').onChange(e=>{
     const old = state.scrub(Number(e.data.value))
     state({
@@ -647,10 +647,15 @@ function renderNode(node: TNode, index: any) {
     button: '〈button',
     _button: 'button〉',
     pipe: "⮞",
-    _pipe: "/⮞"
+    _pipe: "/⮞",
+    uppercase: codez.uppercase,
+    lowercase: codez.lowercase,
+    sep: '┊',
+    table: '〈table',
+    _table: 'table〉',
   }
 
-  const codes = `cell button pipe ${codez.uppercase} ${codez.lowercase}`.split(" ").reduce((acc, value)=>{
+  const codes = `cell button pipe uppercase lowercase table`.split(" ").reduce((acc, value)=>{
     acc.push(value,"_"+value)
     return acc
   },[]).map(s=>[s,true])
@@ -724,15 +729,39 @@ function keyInputMutator(s: TState) {
   const replaceMap = {
     ...Object.fromEntries(shifties.split('').map(c=>["shift+"+c,c]))
   }
-  function makeCode(name) {
+  function makeCode(name, callback=null) {
+    callback = callback || (cur=>[cur])
     const [o, c] = makeNodes(name, '_'+name)
-    replace((cur) => [o, cur, c])
+    replace((cur) => [o, ...callback(cur), c])
+  }
+  function findCursor() {
+    return nodes.findIndex(n=>n.v==='cursor')
+  }
+  function swap(a,b) {
+    let temp = nodes[a]
+    nodes[a]=nodes[b]
+    nodes[b]=temp
+  }
+  function arrowLeft() {
+    const curix = findCursor()
+    if (curix<1) return
+    swap(curix,curix-1)
+  }
+  function arrowRight() {
+    const curix = findCursor()
+    if (curix+1===nodes.length) return
+    swap(curix,curix+1)
+  }
+  function enter() {
+    return makeNode("enter")
   }
   if (false) {
   } else if (key === 'cursor' || key === 'slider') {
     pushKey(key)
   } else if (key in replaceMap) {
     insert(replaceMap[key])
+  } else if (key === 'table') {
+    makeCode('table', (cur)=>[enter(), cur, enter()])
   } else if (key === 'cell') {
     makeCode('cell')
   } else if (key === 'button') {
@@ -742,7 +771,7 @@ function keyInputMutator(s: TState) {
   } else if (key === ' ') {
     insert(' ')
   } else if (key === 'enter') {
-    insert('┊')
+    insert('sep')
   } else if (key === 'shift+enter') {
     insert('enter')
   } else if (key === 'undo') {
@@ -753,26 +782,9 @@ function keyInputMutator(s: TState) {
       return !(next && next.v === 'cursor')
     })
   } else if (key === 'arrowleft') {
-    nodes = nodes.map((n, i) => {
-      const next = nodes[i + 1]
-      if (next && next.v === 'cursor') {
-        return next
-      } else if (n.v === 'cursor' && i > 0) {
-        return nodes[i - 1]
-      }
-      return n
-    })
+    arrowLeft()
   } else if (key === 'arrowright') {
-    nodes = nodes.map((n, i) => {
-      const next = nodes[i + 1]
-      const prev = nodes[i - 1]
-      if (n.v === 'cursor' && next) {
-        return next
-      } else if (prev && prev.v === 'cursor') {
-        return prev
-      }
-      return n
-    })
+    arrowRight()
   } else if (key === 'delete') {
     nodes = nodes.filter((n, i) => {
       const prev = nodes[i - 1]
@@ -789,6 +801,7 @@ function keyInputMutator(s: TState) {
   } else if (true) {
     insert(key)
   }
+  log(nodes)
   //{"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
   return {
     nodes,
@@ -831,11 +844,11 @@ const historyFrame = <iframe data-appendAfter={'root'} id={'history'}
 
 render2(historyFrame,scrubber)
  */
-function toolButton(name) {
-  return <button data-appendBefore={'root'} data-key={name}>{name}</button>
+function toolButton(key) {
+  const name = key in codez ? codez[key] : key
+  return <button data-appendBefore={'root'} data-key={key}>{name}</button>
 }
-
-["cell", "button", "pipe", codez.uppercase, codez.lowercase].map(toolButton).forEach(render)
+["cell", "button", "pipe", "uppercase", "lowercase", "table"].map(toolButton).forEach(render)
 render2(scrublbl, scrubber)
 //const test = <input data-appendAfter={'root'}></input>
 //render(test)
