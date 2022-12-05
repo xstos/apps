@@ -10,6 +10,7 @@ import {assignPropsStyle, insertAfter, insertBefore, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {debouncer, filter, log, proxy} from "./util"
 import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
+import {Example, ReactWindowExample} from "./react-virt"
 
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
@@ -28,19 +29,24 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
 }
 function initHTML() {
   body.style.fontFamily = "monospace, sans-serif"
-  body.style.fontSize = "24pt"
+  body.style.fontSize = "8pt"
   //body.style.paddingLeft="0.5ch"
   //body.style.paddingRight= "1ch"
   //document.body.style.color = "grey"
   //document.body.style.backgroundColor = "rgb(28,28,28)"
-  rootEL.style.whiteSpace = 'pre'
-  rootEL.style.border="1px solid gray"
+  const rootStyle = rootEL.style
+  rootStyle.whiteSpace = 'pre'
+  rootStyle.border="1px solid gray"
   rootEL.tabIndex=0
-  rootEL.style.borderTop = "3px dotted cyan"
-  rootEL.style.borderBottom = "3px dotted cyan"
+  rootStyle.borderTop = "3px dotted cyan"
+  rootStyle.borderBottom = "3px dotted cyan"
+  rootStyle.overflowX="scroll"
+  rootStyle.overflowY="scroll"
+  //rootStyle.overflowWrap = "break-word"
+  //rootStyle.maxWidth = "95vw"
 }
 initHTML()
-
+//ReactWindowExample()
 //makeGLRenderer()
 //proxyWrapperDemo()
 const cells = { }
@@ -193,6 +199,10 @@ function rules(state: TStateFunc) {
   return pushRule
 }
 function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
+  /*todo: change datastructures for size/speed
+     https://github.com/glenjamin/transit-immutable-js
+     https://github.com/intelie/immutable-js-diff
+   */
   const {diff: oldDiff, ...prevStateSansDiff} = prev
   const nextStateSansDiff = {...prevStateSansDiff, transitory:true, ...o}
   const diff = jsondiffpatch.diff(prevStateSansDiff, nextStateSansDiff)
@@ -453,14 +463,14 @@ function hookupEventHandlersFRP() {
       const [ix,value]=e
       const node: TNode = s.nodes[ix]
       const newNode = renderNode(node,ix)
-      let el = elById(ix+'')
+        let el = elById(ix+'')
       if (el.nodeName!==newNode.nodeName) {
-        el.parentNode.replaceChild(newNode,el)
-      } else {
-        const diff = diffDOM.diff(el,newNode)
-        diffDOM.apply(el,diff)
-      }
-    })
+          el.parentNode.replaceChild(newNode,el)
+        } else {
+          const diff = diffDOM.diff(el,newNode)
+          diffDOM.apply(el,diff)
+        }
+      })
     entries.deleted.forEach((e)=>{
       const [index,value]=e
       const [deletedNode] = value
@@ -503,7 +513,7 @@ function hookupEventHandlersFRP() {
     event.preventDefault();
 
     let paste = (event.clipboardData || window.clipboardData).getData('text');
-    sendKeyToState('cell',...paste.split(''))
+    sendKeyToState('cell', JSON.stringify({ type: 'paste', value: paste }))
   });
 
   const debounce = debouncer(100, (f: Function)=>f())
@@ -672,11 +682,23 @@ function renderNode(node: TNode, index: any) {
     if (isCode[v]) {
       const idDesc = isClose ? id-1 : id
       myjsx = <span id={index}>{text}<sup style={{fontSize: '50%'}}>{idDesc}</sup></span>
-    } else if (v==="enter") {
+    } else if (v==="enter" || v==='\n' || v==='\r') {
       myjsx = <br id={index}/>
     }
     else {
-      myjsx = <span id={index}>{text}</span>
+      let style = {
+        display:'inline-block',
+        maxWidth: '80ch',
+        maxHeight: '40ch',
+
+        verticalAlign: "top"
+      }
+      const largestyle = {
+        overflowX:"scroll",
+        overflowY:"scroll",
+      }
+      style = text.length>30 ? {...style, ...largestyle } : style
+      myjsx = <span style={style} id={index}>{text}</span>
     }
   }
 
@@ -693,19 +715,34 @@ function renderNode(node: TNode, index: any) {
   assignPropsStyle(node.style,el.style)
   return el
 }
+const shifties = "!@#$%^&*()<>:\"{}+_"
+const replaceMap = {
+  ...Object.fromEntries(shifties.split('').map(c=>["shift+"+c,c]))
+}
 function keyInputMutator(s: TState) {
   let {nodes, key, lastId} = s
+  let type, value
   nodes = clonedeep(nodes)
+  function getCursorIndexes() {
+    return nodes.reduce((acc,n,i)=>{
+      if (n.v==='cursor') acc.push(i)
+      return acc
+    },T<number[]>([]))
+  }
+  if (key.startsWith('{')) {
+    let foo = { type, value } = JSON.parse(key)
+  }
+  const cursors = getCursorIndexes()
   function makeNode(v: string): TNode {
     return {id: lastId++, v, sl: false, style: newStyle()}
   }
   function pushKey(key: string) {
     nodes.push(makeNode(key))
   }
-  function insert(key: string) {
+  function insert(...keys: string[]) {
     nodes = nodes.reduce((nodes, node, i) => {
       if (node.v === 'cursor') {
-        nodes.push(makeNode(key))
+        nodes.push(...keys.map(makeNode))
       }
       nodes.push(node)
       return nodes
@@ -725,10 +762,8 @@ function keyInputMutator(s: TState) {
       return nodes
     }, T<TNode[]>([]))
   }
-  const shifties = "!@#$%^&*()<>:\"{}+_"
-  const replaceMap = {
-    ...Object.fromEntries(shifties.split('').map(c=>["shift+"+c,c]))
-  }
+
+
   function makeCode(name, callback=null) {
     callback = callback || (cur=>[cur])
     const [o, c] = makeNodes(name, '_'+name)
@@ -756,6 +791,8 @@ function keyInputMutator(s: TState) {
     return makeNode("enter")
   }
   if (false) {
+  } else if (type === 'paste') {
+    insert(...value)
   } else if (key === 'cursor' || key === 'slider') {
     pushKey(key)
   } else if (key in replaceMap) {
@@ -801,7 +838,6 @@ function keyInputMutator(s: TState) {
   } else if (true) {
     insert(key)
   }
-  log(nodes)
   //{"nodes":{"0":{"id":[0,1],"v":["cursor","j"]},"_t":"a"},"lastId":[1,2]}
   return {
     nodes,
