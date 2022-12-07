@@ -292,13 +292,17 @@ function isBreak(node: TNode) {
   const {v} = node
   return v === "enter" || v === '\n' || v === '\r'
 }
+function isCursor(node: TNode) {
+  return node.v==='cursor'
+}
 function getCharWidth(node: TNode) {
-  let {v} = node
-
+  let {v, id} = node
+  let len = v.length
   if (v in replace) {
     v = replace[v]
+    len = v.length
   }
-  return v.length
+  return len
 }
 function hookupEventHandlersFRP() {
   const machine = rules(stateStream)
@@ -476,14 +480,17 @@ function hookupEventHandlersFRP() {
     let rows = [currentCols]
     let w
     let numColsMax=0
+    let cursor = [0,0]
     const nullNode = ()=>null
 
     for (let i = 0; i < s.nodes.length; i++){
       const n = s.nodes[i]
+      if (isCursor(n)) {
+        cursor = [rows.length,currentCols.length]
+      }
       if (isBreak(n)) {
         currentCols = []
         rows.push(currentCols)
-
       } else {
         w=getCharWidth(n)
         currentCols.push(()=>{
@@ -499,7 +506,7 @@ function hookupEventHandlersFRP() {
         numColsMax=Math.max(numColsMax, currentCols.length)
       }
     }
-    const data = {numCols: numColsMax, numRows: rows.length, table: rows}
+    const data = {numCols: numColsMax, numRows: rows.length, cursor, table: rows}
 
     getControllerById(0).setData(data)
 
@@ -850,7 +857,6 @@ function keyInputMutator(s: TState) {
   }
   if (false) {
   } else if (key === 'paste') {
-    debugger
     insert(...pasteData.split(''))
     pasteData=null
   } else if (key === 'cursor' || key === 'slider') {

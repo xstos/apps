@@ -28,7 +28,7 @@ export function bindkeys(onkey, shouldHandleCallback) {
   });
   //keyboard.bind('ctrl',(e)=>console.log(e))
   function pressed(e) {
-    console.log(e)
+    //console.log(e)
     const o = { tag: "io",  key: e.key.toLowerCase() }
     onkey(o)
   }

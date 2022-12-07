@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import ReactDOM from 'react-dom';
 import { VariableSizeGrid as Grid } from 'react-window';
 import AutoSizer from "react-virtualized-auto-sizer";
@@ -42,25 +42,25 @@ export function getControllerById(id) {
 }
 function Example(props) {
   const {id, onReady}=props
+  const gridRef = useRef(null)
   const [numCols,setNumCols] = useState(0)
   const [numRows,setNumRows] = useState(0)
-  const [scrollLeft,setScrollLeft] = useState(0)
-  const [scrollTop,setScrollTop] = useState(0)
   const [data,setData] = useState({
     numCols: 0,
     numRows: 0,
-    table: [[]]
+    table: [[]],
+    cursor: [0,0],
   })
-  let controller
+
+  let controller, colWidth=6, rowHeight=12
   if (!map[id]) {
     controller = {
       setNumCols,
       setNumRows,
-      getColumnWidth: (index) => 6,
-      getRowHeight: (index) => 12,
-      setScrollLeft,
-      setScrollTop,
+      getColumnWidth: (index) => colWidth,
+      getRowHeight: (index) => rowHeight,
       setData,
+      cursor: [0,0],
     }
     map[id]=controller
   } else {
@@ -75,8 +75,16 @@ function Example(props) {
     //controller.setNumRows(10)
     //controller.getColumnWidth = (index) => 20
   },[])
+  useEffect(()=>{
+    const [rowIndex, columnIndex] = data.cursor
+    //console.log('scroll',rowIndex,columnIndex)
+    gridRef?.current?.scrollToItem({ columnIndex, rowIndex, align: 'smart' })
+  })
+
   return <AutoSizer>
     {({ height, width }) => {
+
+
       const dt = data.table
       return (
         <Grid
@@ -87,8 +95,9 @@ function Example(props) {
           rowCount={data.numRows}
           rowHeight={(i)=>controller.getRowHeight(i)}
           width={width}
-          initialScrollTop={scrollTop}
-          initialScrollLeft={scrollLeft}
+          initialScrollTop={0}
+          initialScrollLeft={0}
+          ref={gridRef}
         >
           {(props) => {
 

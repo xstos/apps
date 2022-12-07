@@ -3,6 +3,8 @@ html, body {
     /*overflow: hidden;*/
 }
 .root {
+    padding: 3px;
+    padding-bottom: 8px;
 }
 .bcanv {
     height: 100%;
@@ -17,7 +19,7 @@ button {
 }
 
 .Grid {
-    border: 1px solid #d9dddd;
+    /*border: 1px solid #d9dddd;*/
 }
 
 .GridItemEven,
