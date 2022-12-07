@@ -10,11 +10,13 @@ import {assignPropsStyle, insertAfter, insertBefore, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {debouncer, filter, log, proxy} from "./util"
 import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
-import {Example, ReactWindowExample} from "./react-virt"
+import {Example, getControllerById, ReactWindowExample} from "./react-virt"
+import {texture} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements"
 
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
 const diffDOM = new DiffDOM()
+let pasteData:string=null
 const CURSORKEY = '█'
 const codez = {
   uppercase: "a→A",
@@ -38,17 +40,16 @@ function initHTML() {
   rootStyle.whiteSpace = 'pre'
   rootStyle.border="1px solid gray"
   rootEL.tabIndex=0
-  rootStyle.borderTop = "3px dotted cyan"
-  rootStyle.borderBottom = "3px dotted cyan"
-  rootStyle.overflowX="scroll"
-  rootStyle.overflowY="scroll"
+  rootStyle.borderTop = "1px solid cyan"
+  rootStyle.borderBottom = "1px solid cyan"
+  //rootStyle.overflowX="scroll"
+  //rootStyle.overflowY="scroll"
+  rootStyle.height="50vh"
   //rootStyle.overflowWrap = "break-word"
   //rootStyle.maxWidth = "95vw"
 }
 initHTML()
-//ReactWindowExample()
-//makeGLRenderer()
-//proxyWrapperDemo()
+
 const cells = { }
 function getCell(name: string, initialValue = null) {
   let ret
@@ -203,16 +204,21 @@ function stateDiff(prev: TState, o: Partial<TState>): TState | undefined {
      https://github.com/glenjamin/transit-immutable-js
      https://github.com/intelie/immutable-js-diff
    */
-  const {diff: oldDiff, ...prevStateSansDiff} = prev
-  const nextStateSansDiff = {...prevStateSansDiff, transitory:true, ...o}
+  const {diff: oldDiff,nodes, ...prevStateSansDiff} = prev
+  const { nodes: newNodes, ...oSansNodes} = o
+  const nextStateSansDiff = {...prevStateSansDiff, transitory:true, ...oSansNodes}
   const diff = jsondiffpatch.diff(prevStateSansDiff, nextStateSansDiff)
   if (diff === undefined) return undefined
-  return {diff, ...nextStateSansDiff}
+  return {diff,nodes: newNodes || nodes, ...nextStateSansDiff}
 }
+const stateKeyFilterEntries = ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove', 'transitory'].map(k=>[k,null])
+const stateKeyFilter = Object.fromEntries(stateKeyFilterEntries)
 function logState(s: TState, historyLen: number) {
   const fd = filter(s.diff || {}, (k, v) => {
-    return ["x", "y", "deltaX", "deltaY", "nodes", 'mouseMove', 'transitory']
-      .every((s) => s !== k)
+    if (k==="key" && v.length>50) {
+      return false
+    }
+    return (k in stateKeyFilter)
   })
   fd && log(JSON.stringify(fd), historyLen)
 }
@@ -281,6 +287,19 @@ function getJsonDiffPatchEntries(nodes: any) {
   return entries
 }
 const stateStream = makeStateStream()
+
+function isBreak(node: TNode) {
+  const {v} = node
+  return v === "enter" || v === '\n' || v === '\r'
+}
+function getCharWidth(node: TNode) {
+  let {v} = node
+
+  if (v in replace) {
+    v = replace[v]
+  }
+  return v.length
+}
 function hookupEventHandlersFRP() {
   const machine = rules(stateStream)
   const { effects, state } = machine
@@ -445,12 +464,46 @@ function hookupEventHandlersFRP() {
     split: String.prototype.split
   }
   function domSyncEffect(s: TState, ps: TState) {
+    /*
     const {diff} = s
-
     if (!('nodes' in diff)) {
       return
     }
     const {nodes} = diff
+
+     */
+    let currentCols = []
+    let rows = [currentCols]
+    let w
+    let numColsMax=0
+    const nullNode = ()=>null
+
+    for (let i = 0; i < s.nodes.length; i++){
+      const n = s.nodes[i]
+      if (isBreak(n)) {
+        currentCols = []
+        rows.push(currentCols)
+
+      } else {
+        w=getCharWidth(n)
+        currentCols.push(()=>{
+          let ret
+          jsxCallback=React.createElement
+          ret=renderNodeAsJSX(n,i)
+          jsxCallback=jsx
+          return ret
+        })
+        for (let j = 0; j < w - 1; j++) {
+          currentCols.push(nullNode)
+        }
+        numColsMax=Math.max(numColsMax, currentCols.length)
+      }
+    }
+    const data = {numCols: numColsMax, numRows: rows.length, table: rows}
+
+    getControllerById(0).setData(data)
+
+    return
     const entries = getJsonDiffPatchEntries(nodes)
 
     entries.created.forEach((e)=>{
@@ -463,7 +516,7 @@ function hookupEventHandlersFRP() {
       const [ix,value]=e
       const node: TNode = s.nodes[ix]
       const newNode = renderNode(node,ix)
-        let el = elById(ix+'')
+      let el = elById(ix+'')
       if (el.nodeName!==newNode.nodeName) {
           el.parentNode.replaceChild(newNode,el)
         } else {
@@ -512,8 +565,8 @@ function hookupEventHandlersFRP() {
   document.addEventListener('paste', (event) => {
     event.preventDefault();
 
-    let paste = (event.clipboardData || window.clipboardData).getData('text');
-    sendKeyToState('cell', JSON.stringify({ type: 'paste', value: paste }))
+    pasteData = (event.clipboardData || window.clipboardData).getData('text');
+    sendKeyToState('cell', 'paste')
   });
 
   const debounce = debouncer(100, (f: Function)=>f())
@@ -648,28 +701,29 @@ function render(myjsx: TJsx) {
   return ret
 }
 
-function renderNode(node: TNode, index: any) {
-  const {id, v, sl} = node
-  const replace = {
-    cursor: CURSORKEY,
-    cell: "〈",
-    _cell: "〉",
-    button: '〈button',
-    _button: 'button〉',
-    pipe: "⮞",
-    _pipe: "/⮞",
-    uppercase: codez.uppercase,
-    lowercase: codez.lowercase,
-    sep: '┊',
-    table: '〈table',
-    _table: 'table〉',
-  }
+const replace = {
+  cursor: CURSORKEY,
+  cell: "〈",
+  _cell: "〉",
+  button: '〈button',
+  _button: 'button〉',
+  pipe: "⮞",
+  _pipe: "/⮞",
+  uppercase: codez.uppercase,
+  lowercase: codez.lowercase,
+  sep: '┊',
+  table: '〈table',
+  _table: 'table〉',
+}
+const codes = `cell button pipe uppercase lowercase table`.split(" ").reduce((acc, value)=>{
+  acc.push(value,"_"+value)
+  return acc
+},[]).map(s=>[s,true])
+const isCode = Object.fromEntries(codes)
 
-  const codes = `cell button pipe uppercase lowercase table`.split(" ").reduce((acc, value)=>{
-    acc.push(value,"_"+value)
-    return acc
-  },[]).map(s=>[s,true])
-  const isCode = Object.fromEntries(codes)
+function renderNodeAsJSX(node: TNode, index: any) {
+  const {id, v, sl} = node
+
   const isClose = v.startsWith('_')
   let text = v, myjsx
   if (v in replace) {
@@ -680,27 +734,31 @@ function renderNode(node: TNode, index: any) {
     myjsx = <input id={index} type={"range"} min={"1"} max={"1000"} value={1}/>
   } else {
     if (isCode[v]) {
-      const idDesc = isClose ? id-1 : id
+      const idDesc = isClose ? id - 1 : id
       myjsx = <span id={index}>{text}<sup style={{fontSize: '50%'}}>{idDesc}</sup></span>
-    } else if (v==="enter" || v==='\n' || v==='\r') {
+    } else if (isBreak(node)) {
       myjsx = <br id={index}/>
-    }
-    else {
+    } else {
       let style = {
-        display:'inline-block',
+        display: 'inline-block',
         maxWidth: '80ch',
         maxHeight: '40ch',
 
-        verticalAlign: "top"
+        verticalAlign: "top",
       }
       const largestyle = {
-        overflowX:"scroll",
-        overflowY:"scroll",
+        overflowX: "scroll",
+        overflowY: "scroll",
       }
-      style = text.length>30 ? {...style, ...largestyle } : style
+      style = text.length > 30 ? {...style, ...largestyle} : style
       myjsx = <span style={style} id={index}>{text}</span>
     }
   }
+  return myjsx
+}
+function renderNode(node: TNode, index: any) {
+  const {id, v, sl} = node
+  let myjsx = renderNodeAsJSX(node, index)
 
   // @ts-ignore
   let el = render(myjsx)
@@ -729,9 +787,6 @@ function keyInputMutator(s: TState) {
       return acc
     },T<number[]>([]))
   }
-  if (key.startsWith('{')) {
-    let foo = { type, value } = JSON.parse(key)
-  }
   const cursors = getCursorIndexes()
   function makeNode(v: string): TNode {
     return {id: lastId++, v, sl: false, style: newStyle()}
@@ -742,7 +797,10 @@ function keyInputMutator(s: TState) {
   function insert(...keys: string[]) {
     nodes = nodes.reduce((nodes, node, i) => {
       if (node.v === 'cursor') {
-        nodes.push(...keys.map(makeNode))
+        for (let i1 = 0; i1 < keys.length; i1++){
+          const v = keys[i1]
+          nodes.push(makeNode(v))
+        }
       }
       nodes.push(node)
       return nodes
@@ -791,8 +849,10 @@ function keyInputMutator(s: TState) {
     return makeNode("enter")
   }
   if (false) {
-  } else if (type === 'paste') {
-    insert(...value)
+  } else if (key === 'paste') {
+    debugger
+    insert(...pasteData.split(''))
+    pasteData=null
   } else if (key === 'cursor' || key === 'slider') {
     pushKey(key)
   } else if (key in replaceMap) {
@@ -888,7 +948,14 @@ function toolButton(key) {
 render2(scrublbl, scrubber)
 //const test = <input data-appendAfter={'root'}></input>
 //render(test)
-hookupEventHandlersFRP()
+
+//hookupEventHandlersFRP()
+ReactWindowExample(()=>{
+  hookupEventHandlersFRP()
+})
+//makeGLRenderer()
+//proxyWrapperDemo()
+
 function complement(value: any) {
   return (compareValue: any) => value !== compareValue
 }
