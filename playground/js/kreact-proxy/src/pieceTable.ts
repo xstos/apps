@@ -8,13 +8,13 @@ import Immutable from "immutable"
 
 let log = console.log
 const outOfBoundsError = new Error("Index out of bounds");
-export function PieceTable<T>(fileText: T[]) {
+export function PieceTable<T>(fileContents: T[]) {
   /**
    * The file buffer represents the original file text
    * @private
    * @type {string}
    */
-  const file = fileText || [];
+  const file = fileContents || [];
 
   /**
    * The add buffer represents text that has been added to the original file
@@ -49,14 +49,15 @@ export function PieceTable<T>(fileText: T[]) {
 
   function pushHistory() {
     let prev = history.last()
-    pieceTable.forEach((piece,i)=>{
+    for (let i = 0; i < pieceTable.length; i++){
+      const piece = pieceTable[i]
       let p = prev.get(i)
       if (!p) {
         prev = prev.set(i,Immutable.Map(piece))
       } else {
         prev = prev.set(i,p.merge(piece))
       }
-    })
+    }
 
     history=history.push(prev)
     const h =getHistory(history.size-1)
@@ -75,11 +76,11 @@ export function PieceTable<T>(fileText: T[]) {
   function getHistories() {
     return history.map((h,i)=>getHistory(i))
   }
-  function insert(str: T[], offset: number) {
+  function insert(str: T[], offset?: number) {
     if (str.length === 0) {
       return;
     }
-
+    offset = offset === undefined ? add.length : offset
     const addBufferOffset = add.length;
     add = add.concat(str)
 
@@ -264,6 +265,11 @@ export function pieceTableExample() {
   pt.insert([..."c"], 2);
 
   pt.remove(1, 1);
+  let huge = new Array(10000).fill(0)
+    .flatMap((v,i)=>(i+' ').split(''))
+
+  debugger
+  pt.insert(huge)
   //pt.getHistories().map(log)
   return
   var sequence = pt.getSequence();
