@@ -182,29 +182,25 @@ export function PieceTable<T>(fileContents: T[]) {
     let currentPiece = 0;
     let currentOffset = 0;
     return {
-      next: function() {
+      next() {
         if (currentOffset > pieceTable[currentPiece].length - 1) {
           currentPiece++;
           currentOffset = 0;
         }
         if (currentPiece > pieceTable.length - 1) {
           return {done: true};
-        }
-        else {
+        } else {
           const piece = pieceTable[currentPiece];
           let val;
           if (piece.addBuffer) {
-            val = slice(add,piece.offset + currentOffset, 1)
-            //val = add.substr(piece.offset + currentOffset, 1);
-          }
-          else {
-            val = slice(file,piece.offset + currentOffset, 1);
-            //val = file.substr(piece.offset + currentOffset, 1);
+            val = slice(add, piece.offset + currentOffset, 1)
+          } else {
+            val = slice(file, piece.offset + currentOffset, 1);
           }
           currentOffset++;
           return {value: val[0], done: false};
         }
-      }
+      },
     };
   };
   function stringAt(offset: number, length: number): T[] {
