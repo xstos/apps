@@ -219,11 +219,9 @@ export function PieceTable<T>(fileContents: T[]) {
     let remainingPieceLength = initialBufferOffset - piece.offset;
     if (length < piece.length - (remainingPieceLength)) {
       str[0] = slice(buf,initialBufferOffset, length)
-      //str = buf.substr(initialBufferOffset, length);
     }
     else {
       str.push(slice(buf,initialBufferOffset, remainingPieceLength))
-      //str += buf.substr(initialBufferOffset, remainingPieceLength);
       // Iterate through remaining pieces
       for (let i = initialPieceIndex; i <= finalPieceIndex; i++) {
         piece = pieceTable[i];
@@ -231,17 +229,14 @@ export function PieceTable<T>(fileContents: T[]) {
         // If this is the final piece, only add the remaining length to the string
         if (i === finalPieceIndex) {
           str.push(slice(buf,piece.offset, finalBufferOffset - piece.offset))
-          //str += buf.substr(piece.offset, finalBufferOffset - piece.offset);
         }
         // Otherwise, add the whole piece to the string
         else {
           str.push(slice(buf,piece.offset, piece.length))
-          //str += buf.substr(piece.offset, piece.length);
         }
       }
     }
     return str.length === 0 ? [] : Array.prototype.concat(...str)
-    //return str === "" ? undefined : str;
   };
   return {
     insert,
@@ -268,8 +263,7 @@ export function pieceTableExample() {
   let huge = new Array(10000).fill(0)
     .flatMap((v,i)=>(i+' ').split(''))
 
-  debugger
-  pt.insert(huge)
+  pt.insert(huge,1)
   //pt.getHistories().map(log)
   return
   var sequence = pt.getSequence();
