@@ -9,9 +9,20 @@ import {DiffDOM} from "diff-dom"
 import {assignPropsStyle, insertAfter, insertBefore, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {debouncer, filter, log, proxy} from "./util"
-import {initialState, NOKEY, T, TJsx, TMutator, TNode, TPattern, TRule, TState, TStateFunc} from "./types"
+import {
+  initialState,
+  NOKEY,
+  T,
+  TEffectCallback,
+  TJsx,
+  TMutator,
+  TNode,
+  TPattern,
+  TRule,
+  TState,
+  TStateFunc,
+} from "./types"
 import {Example, getControllerById, ReactWindowExample} from "./react-virt"
-import {texture} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements"
 
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 //const {observe, computed} = hyperactiv
@@ -70,7 +81,8 @@ function newStyle() {
   }
 }
 
-function createPredicate(statePattern: TPattern) {
+type TStatePredicate = (s: TState) => boolean
+function createPredicate(statePattern: TPattern): TStatePredicate {
   const predicates = Object.entries(statePattern).map((pair) => {
     let [key, value] = pair
     if (typeof value === "function") {
@@ -123,16 +135,13 @@ function mutate(s: TState, stateMutator: TMutator) {
   const ret = Object.fromEntries(newStates)
   return ret
 }
-function rule(statePattern: TPattern, stateMutator: TMutator): TRule {
-  const predicate = createPredicate(statePattern)
-
+function rule(predicate: TStatePredicate, stateMutator: TMutator): TRule {
   function result(s: TState): Partial<TState> | null {
     const shouldApplyRule = predicate(s)
     if (!shouldApplyRule) return null
     const ret = mutate(s, stateMutator)
     return ret
   }
-
   return result
 }
 function rules(state: TStateFunc) {
@@ -140,8 +149,12 @@ function rules(state: TStateFunc) {
   type TStateTransitionCallback = (curState: TState, prevState: TState) => void
   const effectList: TStateTransitionCallback[] = []
 
-  function pushRule(statePattern: TPattern, stateMutator: TMutator) {
-    ruleList.push(rule(statePattern, stateMutator))
+  function pushRule(statePattern: TPattern, stateMutator: TMutator, effect?: TEffectCallback) {
+    const predicate = createPredicate(statePattern)
+    ruleList.push(rule(predicate, stateMutator))
+    if (effect) {
+      pushEffect(predicate,effect)
+    }
     return pushRule
   }
 
@@ -181,9 +194,7 @@ function rules(state: TStateFunc) {
 
   wrappedState.getPrevious = state.getPrevious
   wrappedState.scrub= state.scrub
-  function effects(statePattern: TPattern, callback: (s: TState, prevState: TState) => void) {
-    const pred = createPredicate(statePattern)
-
+  function pushEffect(pred: TStatePredicate, callback: TEffectCallback) {
     function ret(curState: TState, prevState: TState): void {
       const shouldBroadcast = pred(curState)
       if (!shouldBroadcast) return
@@ -191,6 +202,10 @@ function rules(state: TStateFunc) {
     }
 
     effectList.push(ret)
+  }
+  function effects(statePattern: TPattern, callback: TEffectCallback) {
+    const pred = createPredicate(statePattern)
+    pushEffect(pred,callback)
     return effects
   }
 
@@ -304,6 +319,49 @@ function getCharWidth(node: TNode) {
   }
   return len
 }
+function getSelectedElementIds() {
+  return [0,1,2,3].map(i=>i+'') //todo:
+}
+function setHoverStyle(elId: string, hoverBefore: boolean) {
+  const el = elById(elId)
+  const style = el.style
+  if (hoverBefore) {
+    style.borderLeft = "3px dashed red"
+    style.borderRight = ''
+  } else {
+    style.borderLeft = ''
+    style.borderRight = "3px dashed red"
+  }
+}
+function clearHover(elId: string) {
+  const el = elById(elId)
+  el.style.borderLeft = ''
+  el.style.borderRight = ''
+}
+function setDragStyle(s: TState) {
+  const sel = getSelectedElementIds().map(elById)
+  sel.forEach(el=>{
+    el.style.pointerEvents = 'none'
+    el.style.transform= `translate3d(${s.deltaX}px,${s.deltaY}px,10px)`
+  })
+}
+function moveDraggedNodes(targetId: string, before: boolean, selectedElementIds: string[]) {
+  //todo:
+}
+function clearDrag(selectedIds: string[]) {
+  const selectedElements = selectedIds.map(elById)
+  selectedElements.forEach(el => {
+    el.style.pointerEvents = ''
+    el.style.transform = ''
+  })
+}
+function drop(hoverElId: string, hoverBefore: boolean) {
+  const selected = getSelectedElementIds()
+  clearDrag(selected)
+  if (Number.isNaN(Number(hoverElId))) return
+  clearHover(hoverElId)
+  moveDraggedNodes(hoverElId, hoverBefore, selected)
+}
 function hookupEventHandlersFRP() {
   const machine = rules(stateStream)
   const { effects, state } = machine
@@ -319,7 +377,6 @@ function hookupEventHandlersFRP() {
         const magnitude = Math.sqrt(diffX * diffX + diffY * diffY)
         return magnitude > delta
       },
-
     })
     ({
       dragging: [any, true],
@@ -369,6 +426,9 @@ function hookupEventHandlersFRP() {
           return n
         })
       },
+    },(s: TState, ps:TState) => {
+      setHoverStyle(s.hoverElId, s.hoverBefore)
+      setDragStyle(s)
     })
     ({
       dragging: [any, true],
@@ -386,6 +446,8 @@ function hookupEventHandlersFRP() {
           return n
         })
       },
+    },(s: TState, ps:TState) => {
+      clearHover(ps.hoverElId)
     })
     ({ //drop
       dragging: [true, false],
@@ -428,6 +490,8 @@ function hookupEventHandlersFRP() {
         return ret
       },
       transitory: false,
+    },(s: TState, ps:TState) => {
+      drop(s.hoverElId, s.hoverBefore)
     })
     ({
       mouseState: ['down', 'up'],
@@ -468,14 +532,7 @@ function hookupEventHandlersFRP() {
     split: String.prototype.split
   }
   function domSyncEffect(s: TState, ps: TState) {
-    /*
-    const {diff} = s
-    if (!('nodes' in diff)) {
-      return
-    }
-    const {nodes} = diff
 
-     */
     let currentCols = []
     let rows = [currentCols]
     let w
@@ -511,33 +568,42 @@ function hookupEventHandlersFRP() {
     getControllerById(0).setData(data)
 
     return
-    const entries = getJsonDiffPatchEntries(nodes)
+    function oldNodeSync(s:TState) {
+      const {diff} = s
+      if (!('nodes' in diff)) {
+        return
+      }
+      const {nodes} = diff
 
-    entries.created.forEach((e)=>{
-      const [index,value]=e
-      let [node] = value as [TNode]
-      const el = renderNode(node, index)
-      rootEL.appendChild(el)
-    })
-    entries.modified.forEach((e)=>{
-      const [ix,value]=e
-      const node: TNode = s.nodes[ix]
-      const newNode = renderNode(node,ix)
-      let el = elById(ix+'')
-      if (el.nodeName!==newNode.nodeName) {
+      const entries = getJsonDiffPatchEntries(nodes)
+
+      entries.created.forEach((e)=>{
+        const [index,value]=e
+        let [node] = value as [TNode]
+        const el = renderNode(node, index)
+        rootEL.appendChild(el)
+      })
+      entries.modified.forEach((e)=>{
+        const [ix,value]=e
+        const node: TNode = s.nodes[ix]
+        const newNode = renderNode(node,ix)
+        let el = elById(ix+'')
+        if (el.nodeName!==newNode.nodeName) {
           el.parentNode.replaceChild(newNode,el)
         } else {
           const diff = diffDOM.diff(el,newNode)
           diffDOM.apply(el,diff)
         }
       })
-    entries.deleted.forEach((e)=>{
-      const [index,value]=e
-      const [deletedNode] = value
-      const elToDel = elById(index+'')
-      unmount(elToDel)
-      //log('deleted',deletedNode,elToDel)
-    })
+      entries.deleted.forEach((e)=>{
+        const [index,value]=e
+        const [deletedNode] = value
+        const elToDel = elById(index+'')
+        unmount(elToDel)
+        //log('deleted',deletedNode,elToDel)
+      })
+    }
+
   }
   function startDragEffect(s: TState, ps: TState) {
     domSyncEffect(s,ps)
