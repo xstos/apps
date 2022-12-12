@@ -55,3 +55,4 @@ export type TRule = (s: TState) => (Partial<TState> | null)
 export function T<T>(o: T) {
   return o
 }
+export type TEffectCallback = (s: TState, prevState: TState) => void

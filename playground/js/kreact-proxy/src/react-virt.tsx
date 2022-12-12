@@ -24,19 +24,8 @@ function getClassName(columnIndex, rowIndex) {
       ? 'GridItemOdd'
       : 'GridItemEven'
 }
-function Cell(props) {
-  const {columnIndex, rowIndex, style, controller} = props
-  const [text,setText] = useState('a')
+const map2 = {}
 
-  //map[rowIndex+" "+columnIndex]=setText
-  if (!text) return null
-  return <span
-    className={getClassName(columnIndex, rowIndex)}
-    style={style}
-  >
-    {text}
-  </span>
-}
 export function getControllerById(id) {
   return map[id]
 }
@@ -71,6 +60,7 @@ function Example(props) {
 
   useEffect(()=>{
     onReady()
+
     //controller.setNumCols(10)
     //controller.setNumRows(10)
     //controller.getColumnWidth = (index) => 20
@@ -79,17 +69,46 @@ function Example(props) {
     const [rowIndex, columnIndex] = data.cursor
     //console.log('scroll',rowIndex,columnIndex)
     gridRef?.current?.scrollToItem({ columnIndex, rowIndex, align: 'smart' })
+    map2['0 1'] && map2['0 1']('b')
   })
-
+  const dt = data.table
+  function Cell(props) {
+    const {columnIndex, rowIndex, style} = props
+    const [text,setText] = useState('a')
+    console.log('cell',rowIndex,columnIndex)
+    map2[rowIndex+" "+columnIndex]=setText
+    let derp = dt[rowIndex][columnIndex]
+    derp = derp && derp()
+    if (!text) return null
+    return <span
+      className={getClassName(columnIndex, rowIndex)}
+      style={style}
+    >
+    {derp}
+  </span>
+  }
   return <AutoSizer>
     {({ height, width }) => {
 
 
-      const dt = data.table
+
+      const element = (props) => {
+
+        const {columnIndex, rowIndex, style} = props
+        let derp = dt[rowIndex][columnIndex]
+        derp = derp && derp()
+        return <span
+          className={getClassName(columnIndex, rowIndex)}
+          style={style}
+        >
+        {derp}
+        </span>
+        //return <Cell controller={controller} {...props}/>
+      }
       return (
         <Grid
           className="Grid"
-          columnCount={data.numCols}
+          columnCount={data.numCols+5}
           columnWidth={(i)=>controller.getColumnWidth(i)}
           height={height}
           rowCount={data.numRows}
@@ -99,19 +118,7 @@ function Example(props) {
           initialScrollLeft={0}
           ref={gridRef}
         >
-          {(props) => {
-
-            const {columnIndex, rowIndex, style} = props
-            let derp = dt[rowIndex][columnIndex]
-            derp = derp && derp()
-            return <span
-              className={getClassName(columnIndex, rowIndex)}
-              style={style}
-            >
-            {derp}
-            </span>
-            //return <Cell controller={controller} {...props}/>
-          }}
+          {Cell}
         </Grid>
       )
     }}
