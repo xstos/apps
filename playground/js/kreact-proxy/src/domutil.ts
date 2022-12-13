@@ -45,3 +45,8 @@ export function assignPropsStyle(propsStyle: Partial<CSSStyleDeclaration>, s: CS
     s[k] = v
   })
 }
+export function elById(id: string): HTMLElement {
+  const ret = document.getElementById(id)
+  if (!ret) throw new Error("id not found")
+  return ret
+}

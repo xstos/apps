@@ -6,7 +6,7 @@ import {bindkeys} from "./io"
 import {customJsx} from "./reactUtil"
 import * as jsondiffpatch from 'jsondiffpatch'
 import {DiffDOM} from "diff-dom"
-import {assignPropsStyle, insertAfter, insertBefore, unmount} from "./domutil"
+import {assignPropsStyle, elById, insertAfter, insertBefore, unmount} from "./domutil"
 import clonedeep from "lodash.clonedeep"
 import {debouncer, filter, log, proxy} from "./util"
 import {
@@ -22,9 +22,11 @@ import {
   TState,
   TStateFunc,
 } from "./types"
-import {Example, getControllerById, ReactWindowExample} from "./react-virt"
-
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
+import {getControllerById, ReactWindowExample} from "./react-virt"
+import {ReactWindowFlow} from "./react-virt-2"
+
+
 //const {observe, computed} = hyperactiv
 const diffDOM = new DiffDOM()
 let pasteData:string=null
@@ -36,6 +38,12 @@ const codez = {
 let jsxCallback = customJsx
 const rootEL = elById('root')
 const body = document.body
+initHTML()
+
+ReactWindowFlow()
+
+return
+
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   const ret = jsxCallback(type, props, ...children)
   return ret
@@ -59,7 +67,7 @@ function initHTML() {
   //rootStyle.overflowWrap = "break-word"
   //rootStyle.maxWidth = "95vw"
 }
-initHTML()
+
 
 const cells = { }
 function getCell(name: string, initialValue = null) {
@@ -981,11 +989,6 @@ function keyInputMutator(s: TState) {
 
 function selectEl(el: HTMLElement,value: string) {
   el.style.boxShadow=value ? "0px 0px 0px 5px rgba(255,0,0,0.5)" : ''
-}
-function elById(id: string): HTMLElement {
-  const ret = document.getElementById(id)
-  if (!ret) throw new Error("id not found")
-  return ret
 }
 
 function cellv(value) {

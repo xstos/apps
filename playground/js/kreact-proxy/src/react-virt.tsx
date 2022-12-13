@@ -8,12 +8,6 @@ import {ipsum} from "./lorem"
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return React.createElement(type,props,...children)
 }
-const columnWidths = new Array(100000)
-  .fill(true)
-  .map(() => 10 + Math.round(Math.random() * 20));
-const rowHeights = new Array(100000)
-  .fill(true)
-  .map(() => 10 + Math.round(Math.random() * 20));
 const map = []
 function getClassName(columnIndex, rowIndex) {
   return columnIndex % 2
@@ -89,9 +83,6 @@ function Example(props) {
   }
   return <AutoSizer>
     {({ height, width }) => {
-
-
-
       const element = (props) => {
 
         const {columnIndex, rowIndex, style} = props
@@ -123,8 +114,8 @@ function Example(props) {
       )
     }}
   </AutoSizer>
-  return
 }
+
 export function ReactWindowExample(onReady)
 {
   ReactDOM.render(<Example id={0} onReady={onReady}/>, document.getElementById('root'));

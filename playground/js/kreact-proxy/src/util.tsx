@@ -67,3 +67,17 @@ export function debouncer<T>(timeout: number, callback: (value: T) => void) {
   set.off = off
   return set
 }
+export function numbersBetween(first: number,last: number): Iterable<number> {
+  function iter() {
+    let i = first;
+    return {
+      next() {
+        if (i>last) return {value: i, done: true}
+        return {value: i++, done: false}
+      },
+    };
+  };
+  return {
+    [Symbol.iterator]: iter
+  }
+}
