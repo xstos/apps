@@ -64,6 +64,7 @@ function initHTML() {
   //rootStyle.overflowX="scroll"
   //rootStyle.overflowY="scroll"
   rootStyle.height="50vh"
+  rootStyle.width="97vw"
   //rootStyle.overflowWrap = "break-word"
   //rootStyle.maxWidth = "95vw"
 }
