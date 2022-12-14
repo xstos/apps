@@ -14,38 +14,156 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
 const log = console.log
 const round = Math.round
 const floor = Math.floor
-let screenInfo
 let ctsplit = colortable.split('\n').map(line=>{
   return line.length === 0 ? ' ' : line
 })
 ctsplit[2]+=ipsum
 let testData = ctsplit.map(r=>r.split(''))
+function getInitialData() {
+  const initialData = {
+    hasContainerBoundary: false,
+    boundaryRect: {
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      width: 0,
+      height: 0,
+    },
+    maxRows: 0,
+    maxCols: 0,
+    scrollDiv: null,
+    dirty: false,
+    getScrollPos: ()=>({scrollLeft: 0, scrollTop: 0}),
+    scrollY: 0,
+    visibleGrid: {
+      numCols: 0,
+      numRows: 0,
+      startCol: 0,
+      startRow: 0,
+    },
+    heightRemain: NaN,
+    widthRemain: NaN,
+    numHeights: 0,
+    rowInfo: testData.map((row,rowIndex)=>({
+      numWidths: 0,
+      heightOffset: 0,
+      els: testData[rowIndex].map((char,colIndex)=>({ visible:true, pos:[-1,-1,-1,-1]}))
+    }))
+  }
+  return initialData
+}
+function makeTimeout(handler: TimerHandler, timeout: number | undefined) {
+  let myhandle = [false,NaN]
+  function enqueue() {
+    const [isSet,handle] = myhandle
+    if (!isSet) {
+      myhandle = [true,setTimeout(handler,timeout)]
+    }
+  }
+  return enqueue
+}
 function Example(props) {
-  const gridRef = useRef(null)
-
-  let colWidth=6, rowHeight=12
-
-  useEffect(()=>{
-  },[])
-  
-  useEffect(()=>{
-    //gridRef?.current?.scrollToItem({ columnIndex, rowIndex, align: 'smart' })
-
-  })
-  function getRowCount() {
-    return testData.length
+  let setDirty=()=>{}
+  const data = getInitialData()
+  let screenInfo = getSizeInfo()
+  const {width,height} = screenInfo
+  let maxCols = floor(width/screenInfo.char.width)-1
+  let maxRows = floor(height/screenInfo.char.height)-1
+  data.maxRows = maxRows
+  data.maxCols = maxCols
+  data.visibleGrid.numRows = floor(height/screenInfo.char.height)
+  data.visibleGrid.numCols = floor(width/screenInfo.char.height)
+  const queueReflow = makeTimeout(()=>{
+    if (reflow(data)) setDirty()
+  },100)
+  function getData() {
+    return data
   }
-  function getColumntCount(rowIndex) {
-    return testData[rowIndex].length
+  function onContainerBoundaryChanged(props) {
+    let {top,left,bottom,right,width,height, getScrollPos} = props
+    right=right-screenInfo.scrollBarWidth
+    bottom=bottom-screenInfo.scrollBarHeight
+    width=width-screenInfo.scrollBarWidth
+    height=height-screenInfo.scrollBarHeight
+    data.hasContainerBoundary = true
+    data.boundaryRect = {top,left,bottom,right, height, width }
+    data.getScrollPos = getScrollPos
   }
-  const {width,height} = elById('root').getBoundingClientRect()
-  return <Table width={width} height={height}/>
-  return <AutoSizer>
-    {({ height, width }) => <Table width={width} height={height}/>}
-  </AutoSizer>
+  function onElementBoundaryChanged(props) {
+    const {left,top,width,height, rowIndex, colIndex} = props
+    const ri = data.rowInfo[rowIndex]
+    ri.els[colIndex] = {
+      pos: [left,top,width,height]
+    }
+    queueReflow()
+  }
+  function onScroll() {
+    const {scrollLeft, scrollTop}=data.getScrollPos()
+    const vertPercent = scrollTop/11000
+    data.scrollY = vertPercent
+
+  }
+  function onSetDirtyCallbackCreated(dirtyCallback) {
+    setDirty = dirtyCallback
+  }
+  return <Table
+    width={width}
+    height={height}
+    onContainerBoundaryChanged={onContainerBoundaryChanged}
+    onElementBoundaryChanged={onElementBoundaryChanged}
+    getData={getData}
+    onScroll={onScroll}
+    onSetDirtyCallbackCreated={onSetDirtyCallbackCreated}
+  />
 }
 
-function getScreenInfo() {
+function reflow(data) {
+  if (!data.hasContainerBoundary) return false
+  log('start reflow')
+  let {visibleGrid} = data
+  let { startRow, startCol, numRows, numCols } = visibleGrid
+  let [endRow,endCol] = [startRow+numRows-1, startCol+numCols-1]
+
+  //startRow = floor(data.scrollY*testData.length)
+  //endRow = startRow + data.maxRows
+  let left = data.boundaryRect.left
+  let top = data.boundaryRect.top+data.rowInfo[startRow].heightOffset
+  for (let r = startRow; r <= endRow; r++) {
+    const ri = data.rowInfo[r]
+    let usedHeight = 0
+    let availableWidth = data.boundaryRect.width
+    for (let c = 0; c < ri.els.length; c++) {
+
+      const colInfo = ri.els[c]
+      const {pos} = colInfo
+      const [_, __, width, height] = pos
+      if (width===-1) {
+        log('reflow aborted')
+        return false
+      }
+      availableWidth-=width
+      if (availableWidth<0) {
+        colInfo.visible=false
+      } else {
+        colInfo.visible=true
+      }
+      pos[0] = left
+      pos[1] = top
+      colInfo.pos = pos
+      left += width
+      usedHeight = Math.max(usedHeight, height)
+    }
+    top += usedHeight
+    ri.heightOffset = usedHeight
+    left = data.boundaryRect.left
+  }
+
+  log('end reflow')
+  return true
+}
+
+function getSizeInfo() {
   const rootEl = elById('root')
   const char = document.createElement('span')
   char.appendChild(document.createTextNode('W'))
@@ -54,132 +172,98 @@ function getScreenInfo() {
   char.style.margin='0px'
   char.style.backgroundColor='red'
   rootEl.appendChild(char)
-  const r =  char.getBoundingClientRect()
-  const { width, height } = r
+
+  function getCharSize() {
+    const r =  char.getBoundingClientRect()
+    const { width, height } = r
+    return r
+  }
+  const charSize = getCharSize()
+
+  const [clientWidth, clientHeight] = [rootEl.clientWidth,rootEl.clientHeight]
+  rootEl.style.overflow="scroll"
+  const [clientWidth2, clientHeight2] = [rootEl.clientWidth,rootEl.clientHeight]
+  rootEl.style.overflow=''
+  const [scrollBarWidth, scrollBarHeight]=[clientWidth-clientWidth2,clientHeight-clientHeight2]
   unmount(char)
   const ret = {
-    char: { width, height },
+    scrollBarWidth,
+    scrollBarHeight,
+    width: clientWidth2,
+    height: clientHeight2,
+    char: charSize,
     screen: {
-      maxCols: floor(screen.width/width),
-      maxRows: floor(screen.height/height)
+      maxCols: floor(screen.width/charSize.width),
+      maxRows: floor(screen.height/charSize.height)
     }
   }
   log(ret)
   return ret
 }
 
-
+const overflowDivStyle = {
+  width: '8500px',
+  height: '11000px',
+  display:'inline-block',
+  padding: '0px',
+  margin: '0px'
+}
 function Table(props) {
-  const {width,height} = props
-  const [maxCols,maxRows] = useMemo(() => {
-    screenInfo = getScreenInfo()
-    let maxCols = floor(width/screenInfo.char.width)-1
-    let maxRows = floor(height/screenInfo.char.height)-1
-    return [maxCols,maxRows]
-  }, []);
-  let rowRange = [0,100]
-  let colRange = [0,100]
-  let boundaryRect = {
-    dirty: false,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  }
-  let scrollDiv=null
-  const [data,setData] = useState({
-    dirty: false,
-    rowRange: [0,maxRows],
-    heightRemain: height,
-    widthRemain: width,
-    rowInfo: testData.map((row,rowIndex)=>({
-      els: testData[rowIndex].map((char,colIndex)=>({ el: null, pos:[0,0,0,0]}))
-    }))
-  })
-  function repaint() {
-    if (!data.dirty) return
-    if (!boundaryRect.dirty) return
-    log('start reflow')
-    const [startRow, endRow] = data.rowRange
-    let left = boundaryRect.left
-    let top = boundaryRect.top
-    let keepGoing = true
-    for (let r = startRow; r <= endRow && keepGoing; r++) {
-      const ri = data.rowInfo[r]
-      let usedHeight = 0
-      for (let c = 0; c < ri.els.length; c++) {
-        const {el, pos} = ri.els[c]
-        if (!el) {
-          keepGoing = false
-          break
-        }
-        const [_, __, width, height] = pos
-        el.style.left = left + "px"
-        el.style.top = top + 'px'
-        pos[0] = left
-        pos[1] = top
-        ri.els[c].pos = pos
-        left += width
-        usedHeight = Math.max(usedHeight, height)
-      }
-      top += usedHeight
-      left = boundaryRect.left
+  const {
+    width,
+    height,
+    onContainerBoundaryChanged,
+    getData,
+    onElementBoundaryChanged,
+    onScroll,
+    onSetDirtyCallbackCreated,
+  } = props
+  const [dirty, setDirty] = useState(0)
+  const data = getData()
+  if (dirty===0) {
+    function setDirty2() {
+      setDirty(dirty+1)
     }
-    data.dirty = false
-    setData(data)
-    log('end reflow')
+    onSetDirtyCallbackCreated(setDirty2)
   }
-
-  useEffect(()=>{
-    const handle = setInterval(repaint,100)
-
-    return () => {
-      clearInterval(handle)
-    }
-  },[])
-  const [r1,r2] = data.rowRange
+  const {startRow, numRows} = data.visibleGrid
+  const [r1,r2] = [startRow,startRow+numRows-1]
   const rows = Array.from(numbersBetween(r1,r2),rowIndex=>{
-    function derp(o) {
-      const {el, colIndex}=o
-      if (!el) return
-      data.dirty=true
-      const {left,top,width,height} = el.getBoundingClientRect()
-      //log('ref',rowIndex,colIndex,testData[rowIndex][colIndex])
-      const ri = data.rowInfo[rowIndex]
-      ri.els[colIndex] = {
-        el,
-        pos: [left,top,width,height]
-      }
-      setData(data)
+
+    function makeSpan(char, colIndex) {
+      let style1 = {position: 'absolute'}
+      const info = data.rowInfo[rowIndex].els[colIndex]
+      if (!info.visible) return null
+      const [left,top] = info.pos
+      style1.left = left+'px'
+      style1.top = top+'px'
+      return <span
+        style={style1}
+        key={rowIndex + ' ' + colIndex}
+        ref={el => {
+          if (!el) return
+          const {left,top,width,height} = el.getBoundingClientRect()
+          onElementBoundaryChanged({left,top,width,height,rowIndex,colIndex})
+        }}>{char}
+      </span>
     }
     const row = testData[rowIndex].map(makeSpan)
-    function makeSpan(char, colIndex) {
-      return <span style={{position: 'absolute'}} key={rowIndex + ' ' + colIndex}
-                   ref={el => derp({el, colIndex})}>{char}</span>
-    }
     return row
   })
-  function onScroll(e) {
-    if (!scrollDiv) return
-    const {scrollLeft, scrollTop}=scrollDiv
 
+  function divRef(el) {
+    if (!el) return
+    const {top, left, bottom, right, width, height} = el.getBoundingClientRect()
+    function getScrollPos() {
+      const {scrollLeft, scrollTop}=el
+      return {scrollLeft, scrollTop}
+    }
+    onContainerBoundaryChanged({top,left,bottom,right,width,height, getScrollPos})
   }
-  const style = {
-    width: '8500px',
-    height: '11000px',
-    display:'inline-block',
-    border: "1px solid rbga(255,255,255,1)",
-    padding: '0px',
-    margin: '0px'
-  }
-  function divRef(e) {
-    scrollDiv = e
-    const {top, left, bottom, right} = scrollDiv.getBoundingClientRect()
-    boundaryRect = {top,left,bottom,right, dirty: true}
+  const style1 = {overflowX:"scroll", overflowY: "scroll", width: '100%', height: '100%', display:'inline-block'}
 
-  }
-  return <div ref={divRef} style={{overflowX:"scroll", overflowY: "scroll", width, height, display:'inline-block'}} onScroll={onScroll}>
-    <div style={style}></div>
+  return <div ref={divRef} style={style1} onScroll={onScroll}>
+    <div style={overflowDivStyle}/>
     {rows.flatMap(r=>r)}
   </div>
 }

@@ -50,3 +50,6 @@ export function elById(id: string): HTMLElement {
   if (!ret) throw new Error("id not found")
   return ret
 }
+export function px(n:number) {
+  return n+'px'
+}
