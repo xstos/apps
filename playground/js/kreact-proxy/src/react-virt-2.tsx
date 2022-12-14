@@ -6,7 +6,7 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import {ipsum} from "./lorem"
 import {colortable} from "./common/colortable"
 import {numbersBetween} from "./util"
-import {elById, unmount} from "./domutil"
+import {elById, px, unmount} from "./domutil"
 
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return React.createElement(type,props,...children)
@@ -17,10 +17,11 @@ const floor = Math.floor
 let ctsplit = colortable.split('\n').map(line=>{
   return line.length === 0 ? ' ' : line
 })
-ctsplit[2]+=ipsum
+ctsplit[0]+=ipsum
 let testData = ctsplit.map(r=>r.split(''))
 function getInitialData() {
   const initialData = {
+    dirtyCallback: ()=>{},
     hasContainerBoundary: false,
     boundaryRect: {
       top: 0,
@@ -32,7 +33,9 @@ function getInitialData() {
     },
     maxRows: 0,
     maxCols: 0,
-    scrollDiv: null,
+    widestLineCount: 0,
+    overflowWidth: 0,
+    overflowHeight: 0,
     dirty: false,
     getScrollPos: ()=>({scrollLeft: 0, scrollTop: 0}),
     scrollY: 0,
@@ -47,21 +50,30 @@ function getInitialData() {
     numHeights: 0,
     rowInfo: testData.map((row,rowIndex)=>({
       numWidths: 0,
-      heightOffset: 0,
       els: testData[rowIndex].map((char,colIndex)=>({ visible:true, pos:[-1,-1,-1,-1]}))
     }))
   }
   return initialData
 }
-function makeTimeout(handler: TimerHandler, timeout: number | undefined) {
+function makeTimeout(timeout: number | undefined) {
   let myhandle = [false,NaN]
-  function enqueue() {
+  let pendingCallback: Function=()=>{}
+  function enqueue(callback: Function) {
+    pendingCallback = callback
     const [isSet,handle] = myhandle
     if (!isSet) {
-      myhandle = [true,setTimeout(handler,timeout)]
+      myhandle = [true,setTimeout(()=>{
+        pendingCallback()
+        myhandle=[false,NaN]
+      },timeout)]
     }
   }
   return enqueue
+}
+function getWidestLineCount() {
+  return testData.reduce((acc,value)=>{
+    return Math.max(acc,value.length)
+  },0)
 }
 function Example(props) {
   let setDirty=()=>{}
@@ -72,11 +84,15 @@ function Example(props) {
   let maxRows = floor(height/screenInfo.char.height)-1
   data.maxRows = maxRows
   data.maxCols = maxCols
+  data.widestLineCount = getWidestLineCount()
   data.visibleGrid.numRows = floor(height/screenInfo.char.height)
-  data.visibleGrid.numCols = floor(width/screenInfo.char.height)
-  const queueReflow = makeTimeout(()=>{
+  data.visibleGrid.numCols = floor(width/screenInfo.char.width)
+  data.overflowWidth = getWidestLineCount()*screenInfo.char.width
+  data.overflowHeight = testData.length*screenInfo.char.height
+  function firstTimeReflow() {
     if (reflow(data)) setDirty()
-  },100)
+  }
+  const queueReflow = makeTimeout(100)
   function getData() {
     return data
   }
@@ -94,16 +110,23 @@ function Example(props) {
     const {left,top,width,height, rowIndex, colIndex} = props
     const ri = data.rowInfo[rowIndex]
     ri.els[colIndex] = {
+      visible: true,
       pos: [left,top,width,height]
     }
-    queueReflow()
+    //log('onElementBoundaryChanged',rowIndex,colIndex, testData[rowIndex][colIndex])
+    queueReflow(firstTimeReflow)
   }
   function onScroll() {
     const {scrollLeft, scrollTop}=data.getScrollPos()
-    const vertPercent = scrollTop/11000
-    data.scrollY = vertPercent
-
+    const [scrollCol, scrollRow] = [data.overflowHeight/scrollTop, data.overflowWidth/scrollLeft]
+    const rowOffset = floor(scrollTop/screenInfo.char.height)
+    const colOffset = floor(scrollLeft/screenInfo.char.width)
+    data.visibleGrid.startRow = rowOffset
+    data.visibleGrid.startCol = colOffset
+    log('scroll',data.visibleGrid.startRow)
+    setDirty()
   }
+
   function onSetDirtyCallbackCreated(dirtyCallback) {
     setDirty = dirtyCallback
   }
@@ -125,17 +148,15 @@ function reflow(data) {
   let { startRow, startCol, numRows, numCols } = visibleGrid
   let [endRow,endCol] = [startRow+numRows-1, startCol+numCols-1]
 
-  //startRow = floor(data.scrollY*testData.length)
-  //endRow = startRow + data.maxRows
   let left = data.boundaryRect.left
-  let top = data.boundaryRect.top+data.rowInfo[startRow].heightOffset
+  let top = data.boundaryRect.top
   for (let r = startRow; r <= endRow; r++) {
     const ri = data.rowInfo[r]
     let usedHeight = 0
     let availableWidth = data.boundaryRect.width
-    for (let c = 0; c < ri.els.length; c++) {
-
+    for (let c = startCol; c <= endCol; c++) {
       const colInfo = ri.els[c]
+      if (colInfo===undefined) break
       const {pos} = colInfo
       const [_, __, width, height] = pos
       if (width===-1) {
@@ -155,7 +176,6 @@ function reflow(data) {
       usedHeight = Math.max(usedHeight, height)
     }
     top += usedHeight
-    ri.heightOffset = usedHeight
     left = data.boundaryRect.left
   }
 
@@ -186,6 +206,7 @@ function getSizeInfo() {
   rootEl.style.overflow=''
   const [scrollBarWidth, scrollBarHeight]=[clientWidth-clientWidth2,clientHeight-clientHeight2]
   unmount(char)
+
   const ret = {
     scrollBarWidth,
     scrollBarHeight,
@@ -201,14 +222,19 @@ function getSizeInfo() {
   return ret
 }
 
-const overflowDivStyle = {
-  width: '8500px',
-  height: '11000px',
-  display:'inline-block',
-  padding: '0px',
-  margin: '0px'
+function makeOverflowDivStyle(width:number,height:number) {
+  return {
+    width: px(width),
+    height: px(height),
+    display:'inline-block',
+    visibility: 'hidden',
+    padding: '0px',
+    margin: '0px'
+  }
 }
+let key = 0
 function Table(props) {
+  log('render table')
   const {
     width,
     height,
@@ -218,36 +244,52 @@ function Table(props) {
     onScroll,
     onSetDirtyCallbackCreated,
   } = props
-  const [dirty, setDirty] = useState(0)
-  const data = getData()
-  if (dirty===0) {
+  const [dirty, setDirty] = useState(1)
+  useEffect(()=>{
     function setDirty2() {
       setDirty(dirty+1)
     }
     onSetDirtyCallbackCreated(setDirty2)
-  }
-  const {startRow, numRows} = data.visibleGrid
+  },[])
+  const data = getData()
+  const {startRow, numRows, startCol, numCols} = data.visibleGrid
   const [r1,r2] = [startRow,startRow+numRows-1]
-  const rows = Array.from(numbersBetween(r1,r2),rowIndex=>{
+  const [c1,c2] = [startCol, startCol+numCols-1]
 
+
+  const rows = Array.from(numbersBetween(r1,r2),rowIndex=>{
+    //log('render row',rowIndex)
     function makeSpan(char, colIndex) {
       let style1 = {position: 'absolute'}
       const info = data.rowInfo[rowIndex].els[colIndex]
-      if (!info.visible) return null
+      if (!info.visible) {
+        log('not visible', rowIndex,colIndex)
+        return null
+      }
+      //log('makespan',rowIndex,colIndex)
       const [left,top] = info.pos
       style1.left = left+'px'
       style1.top = top+'px'
       return <span
         style={style1}
-        key={rowIndex + ' ' + colIndex}
+        key={(key++)+''}
         ref={el => {
+          //log('el ref',rowIndex,colIndex)
           if (!el) return
+
           const {left,top,width,height} = el.getBoundingClientRect()
           onElementBoundaryChanged({left,top,width,height,rowIndex,colIndex})
         }}>{char}
       </span>
     }
-    const row = testData[rowIndex].map(makeSpan)
+    const testDataAtRow = testData[rowIndex]
+
+    const row = Array.from(numbersBetween(c1,c2), c=>{
+      const char = testDataAtRow[c]
+      if (char===undefined) return null
+      return makeSpan(char,c)
+    })
+
     return row
   })
 
@@ -260,11 +302,19 @@ function Table(props) {
     }
     onContainerBoundaryChanged({top,left,bottom,right,width,height, getScrollPos})
   }
-  const style1 = {overflowX:"scroll", overflowY: "scroll", width: '100%', height: '100%', display:'inline-block'}
-
-  return <div ref={divRef} style={style1} onScroll={onScroll}>
-    <div style={overflowDivStyle}/>
-    {rows.flatMap(r=>r)}
+  const style1 = {
+    overflowX: "scroll",
+    overflowY: "scroll",
+    width: '100%',
+    height: '100%',
+    display:'inline-block',
+  }
+  if (dirty % 2 === 0) {
+    setDirty(dirty+1)
+  }
+  return <div key={"outer"} ref={divRef} style={style1} onScroll={onScroll}>
+    <div key={"overflow"} style={makeOverflowDivStyle(data.overflowWidth, data.overflowHeight)}/>
+    {dirty % 2 ? rows.flatMap(r=>r) : null}
   </div>
 }
 
