@@ -50,7 +50,7 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
 }
 function initHTML() {
   body.style.fontFamily = "monospace, sans-serif"
-  body.style.fontSize = "8pt"
+  body.style.fontSize = "12pt"
   //body.style.paddingLeft="0.5ch"
   //body.style.paddingRight= "1ch"
   //document.body.style.color = "grey"

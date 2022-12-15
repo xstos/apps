@@ -1,12 +1,9 @@
 import React, {useEffect, useMemo, useRef, useState} from 'react';
 import ReactDOM from 'react-dom';
-import {VariableSizeGrid as Grid, VariableSizeList as List} from 'react-window';
-import AutoSizer from "react-virtualized-auto-sizer";
 //https://codesandbox.io/s/github/bvaughn/react-window/tree/master/website/sandboxes/variable-size-grid?file=/index.js:70-86
 import {ipsum} from "./lorem"
 import {colortable} from "./common/colortable"
-import {numbersBetween} from "./util"
-import {elById, elById2, px, unmount} from "./domutil"
+import {elById, px, unmount} from "./domutil"
 
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return React.createElement(type,props,...children)
@@ -104,9 +101,6 @@ function Example(props) {
     }
   }
 
-  function getData() {
-    return data
-  }
   function onContainerBoundaryChanged(props) {
     let {top,left,bottom,right,width,height, getScrollPos} = props
     right=right-screenInfo.scrollBarWidth
@@ -142,7 +136,8 @@ function Example(props) {
     width={width}
     height={height}
     onContainerBoundaryChanged={onContainerBoundaryChanged}
-    getData={getData}
+    overflowHeight={data.overflowHeight}
+    overflowWidth={data.overflowWidth}
     onScroll={onScroll}
     spans={spans}
   />
@@ -289,14 +284,13 @@ function createSpans(data, onElementBoundaryChanged) {
 function Table(props) {
   log('render table')
   const {
-    width,
-    height,
+    overflowWidth,
+    overflowHeight,
     onContainerBoundaryChanged,
     getData,
     onScroll,
   } = props
   const spans: [] = props.spans
-  const data = getData()
   function divRef(el) {
     if (!el) return
     const {top, left, bottom, right, width, height} = el.getBoundingClientRect()
@@ -313,12 +307,12 @@ function Table(props) {
     height: '100%',
     display:'inline-block',
   }
-  const overflowDivStyle = makeOverflowDivStyle(data.overflowWidth, data.overflowHeight)
+  const overflowDivStyle = makeOverflowDivStyle(overflowWidth, overflowHeight)
   const rows = []
   for (let i = 0; i < spans.length; i++){
     const s = spans[i]
     const {style,key,char,onRef} = s
-    
+
     rows.push(<span key={key} style={style} ref={onRef}>{char}</span>)
   }
 
