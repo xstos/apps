@@ -50,6 +50,10 @@ export function elById(id: string): HTMLElement {
   if (!ret) throw new Error("id not found")
   return ret
 }
+export function elById2(id: string): HTMLElement | null {
+  const ret = document.getElementById(id)
+  return ret
+}
 export function px(n:number) {
   return n+'px'
 }

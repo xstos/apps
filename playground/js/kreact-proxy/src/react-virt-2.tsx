@@ -6,7 +6,7 @@ import AutoSizer from "react-virtualized-auto-sizer";
 import {ipsum} from "./lorem"
 import {colortable} from "./common/colortable"
 import {numbersBetween} from "./util"
-import {elById, px, unmount} from "./domutil"
+import {elById, elById2, px, unmount} from "./domutil"
 
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
   return React.createElement(type,props,...children)
@@ -94,7 +94,7 @@ function Example(props) {
   let setDirty=()=>{}
   log('render example')
   const myctx = useMemo(()=>getContext(),[])
-  const queueReflow = useMemo(()=> makeTimeout(100),[])
+  const queueReflow = useMemo(()=> makeTimeout(20),[])
   const [rerender,setReRender] = useState(1)
   let {data, screenInfo, width, height} = myctx
   const spans = createSpans(data,onElementBoundaryChanged)
@@ -138,17 +138,12 @@ function Example(props) {
     setReRender(rerender+1)
   }
 
-  function onSetDirtyCallbackCreated(dirtyCallback) {
-    setDirty = dirtyCallback
-  }
   return <Table
     width={width}
     height={height}
     onContainerBoundaryChanged={onContainerBoundaryChanged}
-    onElementBoundaryChanged={onElementBoundaryChanged}
     getData={getData}
     onScroll={onScroll}
-    onSetDirtyCallbackCreated={onSetDirtyCallbackCreated}
     spans={spans}
   />
 }
@@ -250,8 +245,9 @@ function createSpans(data, onElementBoundaryChanged) {
   const [r1, r2] = [startRow, startRow + numRows - 1]
   const [c1, c2] = [startCol, startCol + numCols - 1]
 
-  const rows = Array.from(numbersBetween(r1, r2), rowIndex => {
-    //log('render row',rowIndex)
+  const items = []
+  for (let rowIndex = r1; rowIndex <= r2; rowIndex++){
+    const testDataAtRow = testData[rowIndex]
     function makeSpan(char, colIndex) {
       let style1 = {position: 'absolute'}
       const info = data.rowInfo[rowIndex].els[colIndex]
@@ -263,7 +259,7 @@ function createSpans(data, onElementBoundaryChanged) {
       const [left, top] = info.pos
       style1.left = left + 'px'
       style1.top = top + 'px'
-      const key = rowIndex+' '+colIndex
+      const key = rowIndex + ' ' + colIndex
       function onRef(el) {
         //log('el ref',rowIndex,colIndex)
         if (!el) return
@@ -278,17 +274,17 @@ function createSpans(data, onElementBoundaryChanged) {
       }
       return spanInfo
     }
-    const testDataAtRow = testData[rowIndex]
 
-    const row = Array.from(numbersBetween(c1, c2), c => {
-      const char = testDataAtRow[c]
-      if (char === undefined) return null
-      return makeSpan(char, c)
-    })
+    for (let colIndex = c1; colIndex <= c2; colIndex++){
+      const char = testDataAtRow[colIndex]
+      if (char === undefined) break
+      const item = makeSpan(char, colIndex)
+      if (!item) break
 
-    return row
-  })
-  return rows
+      items.push(item)
+    }
+  }
+  return items
 }
 function Table(props) {
   log('render table')
@@ -297,11 +293,9 @@ function Table(props) {
     height,
     onContainerBoundaryChanged,
     getData,
-    onElementBoundaryChanged,
     onScroll,
-    onSetDirtyCallbackCreated,
-    spans,
   } = props
+  const spans: [] = props.spans
   const data = getData()
   function divRef(el) {
     if (!el) return
@@ -320,17 +314,15 @@ function Table(props) {
     display:'inline-block',
   }
   const overflowDivStyle = makeOverflowDivStyle(data.overflowWidth, data.overflowHeight)
-  const rows = spans.flatMap(row=>{
-    return row.map(s=>{
-      if (!s) {
-        return null
-      }
-      const {style,key,char,onRef} = s
-      return <span key={key} style={style} ref={onRef}>{char}</span>
-    })
-  })
+  const rows = []
+  for (let i = 0; i < spans.length; i++){
+    const s = spans[i]
+    const {style,key,char,onRef} = s
+    
+    rows.push(<span key={key} style={style} ref={onRef}>{char}</span>)
+  }
 
-  return <div key={"outer"} ref={divRef} style={style1} onScroll={onScroll}>
+  return <div id={"abc"} key={"outer"} ref={divRef} style={style1} onScroll={onScroll}>
     <div key={"overflow"} style={overflowDivStyle}/>
     <React.Fragment key={"els"}>
       {rows}
