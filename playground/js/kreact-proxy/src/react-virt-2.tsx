@@ -93,7 +93,7 @@ function getContext() {
   resize(data)
 
   data.widestLineCount = widestLineCount
-  data.overflowWidth = widestLineCount * sizeInfo.char.width
+  data.overflowWidth = (widestLineCount+1) * sizeInfo.char.width
   data.overflowHeight = testData.length * sizeInfo.char.height
   return {data, sizeInfo}
 }
@@ -160,7 +160,7 @@ function Example(props) {
     const colOffset = floor(scrollLeft/sizeInfo.char.width)
     data.visibleGrid.startRow = rowOffset
     data.visibleGrid.startCol = colOffset
-    //log('scroll',data.visibleGrid.startRow)
+    //log('scroll',scrollLeft,scrollTop)
     setReRender(rerender+1)
   }
 
@@ -284,11 +284,11 @@ function createSpans(data, onElementBoundaryChanged) {
       //log('makespan',rowIndex,colIndex)
       const [left, top] = info.pos
       if (left===-1) {
-        style1.visibility='hidden'
+        //style1.visibility='hidden'
         style1.left = px(-Number.MIN_VALUE)
         style1.top = px(-Number.MIN_VALUE)
       } else {
-        style1.visibility=undefined
+        //style1.visibility=undefined
         style1.left = px(left)
         style1.top = px(top)
       }
