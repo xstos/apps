@@ -3,8 +3,8 @@ html, body {
     /*overflow: hidden;*/
 }
 .root {
-    padding: 3px;
-    padding-bottom: 8px;
+    padding: 0px;
+    
 }
 .bcanv {
     height: 100%;
