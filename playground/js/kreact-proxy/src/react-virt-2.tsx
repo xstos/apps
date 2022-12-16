@@ -1,4 +1,4 @@
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import ReactDOM from 'react-dom';
 //https://codesandbox.io/s/github/bvaughn/react-window/tree/master/website/sandboxes/variable-size-grid?file=/index.js:70-86
 import {ipsum} from "./lorem"
@@ -16,9 +16,8 @@ let ctsplit = colortable.split('\n').map(line=>{
 })
 ctsplit[0]+=ipsum
 let testData = ctsplit.map(r=>r.split(''))
-function getInitialData() {
+function getInitialData(sizeInfo) {
   const initialData = {
-    dirtyCallback: ()=>{},
     hasContainerBoundary: false,
     boundaryRect: {
       top: 0,
@@ -42,12 +41,14 @@ function getInitialData() {
       startCol: 0,
       startRow: 0,
     },
+    sizeInfo,
     heightRemain: NaN,
     widthRemain: NaN,
     numHeights: 0,
     rowInfo: testData.map((row,rowIndex)=>({
       numWidths: 0,
-      els: testData[rowIndex].map((char,colIndex)=>({ visible:true, pos:[-1,-1,-1,-1]}))
+      els: testData[rowIndex].map((char,colIndex)=>
+        ({ visible:true, pos:[-1,-1,sizeInfo.char.width,sizeInfo.char.height]}))
     }))
   }
   return initialData
@@ -72,63 +73,94 @@ function getWidestLineCount() {
     return Math.max(acc,value.length)
   },0)
 }
-function getContext() {
-  const data = getInitialData()
-  let screenInfo = getSizeInfo()
-  const {width, height} = screenInfo
-  let maxCols = floor(width / screenInfo.char.width) - 1
-  let maxRows = floor(height / screenInfo.char.height) - 1
-  data.maxRows = maxRows
+function resize(data) {
+  const sizeInfo = data.sizeInfo
+  const {width, height} = sizeInfo
+  let maxCols = floor(width / sizeInfo.char.width)
+  let maxRows = floor(height / sizeInfo.char.height)
   data.maxCols = maxCols
-  data.widestLineCount = getWidestLineCount()
-  data.visibleGrid.numRows = floor(height / screenInfo.char.height)
-  data.visibleGrid.numCols = floor(width / screenInfo.char.width)
-  data.overflowWidth = getWidestLineCount() * screenInfo.char.width
-  data.overflowHeight = testData.length * screenInfo.char.height
-  return {data, screenInfo, width, height}
+  data.maxRows = maxRows
+  data.visibleGrid.numRows = floor(height / sizeInfo.char.height)
+  data.visibleGrid.numCols = floor(width / sizeInfo.char.width)
+}
+function getContext() {
+  log('getContext')
+  let sizeInfo = getSizeInfo()
+  const data = getInitialData(sizeInfo)
+  const widestLineCount = getWidestLineCount()
+  data.sizeInfo = sizeInfo
+
+  resize(data)
+
+  data.widestLineCount = widestLineCount
+  data.overflowWidth = widestLineCount * sizeInfo.char.width
+  data.overflowHeight = testData.length * sizeInfo.char.height
+  return {data, sizeInfo}
 }
 function Example(props) {
-  let setDirty=()=>{}
   log('render example')
   const myctx = useMemo(()=>getContext(),[])
   const queueReflow = useMemo(()=> makeTimeout(20),[])
   const [rerender,setReRender] = useState(1)
-  let {data, screenInfo, width, height} = myctx
+
+  let {data} = myctx
+  let {sizeInfo} = data
+  let {width,height} = data.sizeInfo
   const spans = createSpans(data,onElementBoundaryChanged)
   function firstTimeReflow() {
     if (reflow(data)) {
       setReRender(rerender+1)
     }
   }
-
+  useEffect(()=>{
+    function onresize() {
+      log('onresize')
+      const rootEl = elById('root')
+      let {top,left,bottom,right,width,height} = rootEl.getBoundingClientRect()
+      let props = {top,left,bottom,right,width,height, getScrollPos: data.getScrollPos}
+      const {clientWidth, clientHeight} = rootEl
+      data.sizeInfo.width = clientWidth
+      data.sizeInfo.height = clientHeight
+      onContainerBoundaryChanged(props)
+      resize(data)
+      setReRender(rerender+1)
+      queueReflow(firstTimeReflow)
+    }
+    window.addEventListener('resize',onresize)
+    return ()=>{
+      window.removeEventListener('resize',onresize)
+    }
+  })
   function onContainerBoundaryChanged(props) {
     let {top,left,bottom,right,width,height, getScrollPos} = props
-    right=right-screenInfo.scrollBarWidth
-    bottom=bottom-screenInfo.scrollBarHeight
-    width=width-screenInfo.scrollBarWidth
-    height=height-screenInfo.scrollBarHeight
+    right=right-sizeInfo.scrollBarWidth
+    bottom=bottom-sizeInfo.scrollBarHeight
+    width=width-sizeInfo.scrollBarWidth
+    height=height-sizeInfo.scrollBarHeight
     data.hasContainerBoundary = true
     data.boundaryRect = {top,left,bottom,right, height, width }
     data.getScrollPos = getScrollPos
   }
   function onElementBoundaryChanged(props) {
-    const {left,top,width,height, rowIndex, colIndex} = props
+    let {left,top,width,height, rowIndex, colIndex} = props
+    height = floor(height)
+    width=floor(width)
     const ri = data.rowInfo[rowIndex]
-    ri.els[colIndex] = {
-      visible: true,
-      pos: [left,top,width,height]
-    }
+    const colInfo = ri.els[colIndex]
+    colInfo.visible = true
+    colInfo.pos[2] = width
+    colInfo.pos[3] = height
     //log('onElementBoundaryChanged',rowIndex,colIndex, testData[rowIndex][colIndex])
     queueReflow(firstTimeReflow)
   }
   function onScroll() {
     const {scrollLeft, scrollTop}=data.getScrollPos()
     const [scrollCol, scrollRow] = [data.overflowHeight/scrollTop, data.overflowWidth/scrollLeft]
-    const rowOffset = floor(scrollTop/screenInfo.char.height)
-    const colOffset = floor(scrollLeft/screenInfo.char.width)
+    const rowOffset = floor(scrollTop/sizeInfo.char.height)
+    const colOffset = floor(scrollLeft/sizeInfo.char.width)
     data.visibleGrid.startRow = rowOffset
     data.visibleGrid.startCol = colOffset
-    log('scroll',data.visibleGrid.startRow)
+    //log('scroll',data.visibleGrid.startRow)
     setReRender(rerender+1)
   }
 
@@ -157,23 +189,23 @@ function reflow(data) {
     let usedHeight = 0
     let availableWidth = data.boundaryRect.width
     for (let c = startCol; c <= endCol; c++) {
-      const colInfo = ri.els[c]
-      if (colInfo===undefined) break
+      let colInfo = ri.els[c]
+      if (colInfo===undefined) {
+        //todo: clamp last known row width/height to fix this hack
+        colInfo = {
+          pos: [-1,-1,data.sizeInfo.char.width,data.sizeInfo.char.height]
+        }
+      }
       const {pos} = colInfo
       const [_, __, width, height] = pos
-      if (width===-1) {
-        log('reflow aborted')
-        return false
-      }
       availableWidth-=width
       if (availableWidth<0) {
         colInfo.visible=false
       } else {
         colInfo.visible=true
       }
-      pos[0] = left
-      pos[1] = top
-      colInfo.pos = pos
+      colInfo.pos[0] = left
+      colInfo.pos[1] = top
       left += width
       usedHeight = Math.max(usedHeight, height)
     }
@@ -198,7 +230,7 @@ function getSizeInfo() {
   function getCharSize() {
     const r =  char.getBoundingClientRect()
     const { width, height } = r
-    return r
+    return { width: floor(width), height: floor(height)}
   }
   const charSize = getCharSize()
 
@@ -208,7 +240,7 @@ function getSizeInfo() {
   rootEl.style.overflow=''
   const [scrollBarWidth, scrollBarHeight]=[clientWidth-clientWidth2,clientHeight-clientHeight2]
   unmount(char)
-
+  log({clientWidth2, clientHeight2})
   const ret = {
     scrollBarWidth,
     scrollBarHeight,
@@ -234,7 +266,6 @@ function makeOverflowDivStyle(width:number,height:number) {
     margin: '0px'
   }
 }
-let foo = 0
 function createSpans(data, onElementBoundaryChanged) {
   const {startRow, numRows, startCol, numCols} = data.visibleGrid
   const [r1, r2] = [startRow, startRow + numRows - 1]
@@ -252,8 +283,16 @@ function createSpans(data, onElementBoundaryChanged) {
       }
       //log('makespan',rowIndex,colIndex)
       const [left, top] = info.pos
-      style1.left = left + 'px'
-      style1.top = top + 'px'
+      if (left===-1) {
+        style1.visibility='hidden'
+        style1.left = px(-Number.MIN_VALUE)
+        style1.top = px(-Number.MIN_VALUE)
+      } else {
+        style1.visibility=undefined
+        style1.left = px(left)
+        style1.top = px(top)
+      }
+
       const key = rowIndex + ' ' + colIndex
       function onRef(el) {
         //log('el ref',rowIndex,colIndex)
@@ -287,7 +326,6 @@ function Table(props) {
     overflowWidth,
     overflowHeight,
     onContainerBoundaryChanged,
-    getData,
     onScroll,
   } = props
   const spans: [] = props.spans
