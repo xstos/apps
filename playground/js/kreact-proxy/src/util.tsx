@@ -1,3 +1,4 @@
+const proxies = new WeakSet();
 export function getAllIndexes<T>(arr: T[], predicate: (value: T) => boolean) {
   var indexes = []
   const len = arr.length
@@ -20,6 +21,8 @@ export function log(...items: any[]) {
 }
 export function proxy(ctor, get, apply) {
   let handler = null
+  let ret = null
+  const f = () => { }
   handler = {
     get(target, key) {
       if (key.startsWith('_')) {
@@ -27,27 +30,24 @@ export function proxy(ctor, get, apply) {
       }
       const data = target._data
       get(data,key)
-      return new Proxy(target, handler)
+      return ret
     },
-    /*
     apply(target, thisArg, args) {
       const data = target._data
-      data.args = args.map(a => {
-        if (a._data) {
-          a._data.root = false
-        }
-        return a._data ? a._data : a
-      })
-      return new Proxy(target, handler)
+      apply(data,args)
+      return ret
     },
-    */
   }
-
-  const f = () => { }
   const data = { }
   f._data = data
   ctor(data)
-  return new Proxy(f, handler)
+  ret = new Proxy(f, handler)
+  proxies.add(ret)
+  return ret
+}
+//https://stackoverflow.com/a/67382561/1618433
+export function isProxy(obj) {
+  return proxies.has(obj)
 }
 export function debouncer<T>(timeout: number, callback: (value: T) => void) {
   let lastValue: T, wasSet = false
@@ -76,8 +76,29 @@ export function numbersBetween(first: number,last: number): Iterable<number> {
         return {value: i++, done: false}
       },
     };
-  };
-  return {
-    [Symbol.iterator]: iter
   }
+  const ret = {
+    [Symbol.iterator]: iter,
+    map
+  }
+  function map<T>(mapfn: (v: number, i: number) => T) {
+    return Array.from(ret,mapfn)
+  }
+  return ret
+}
+export function typename(o) {
+  if (o===undefined) return "undefined"
+  else if (o===null) return "null"
+  if (Array.isArray(o)) return "array"
+  if (isProxy(o)) return "proxy"
+  const t = typeof o
+  return t
+}
+export function has(o: any,...keys:string[]): boolean {
+  if (typeof o !== "object") return false
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i]
+    if (!(key in o)) return false
+  }
+  return true
 }

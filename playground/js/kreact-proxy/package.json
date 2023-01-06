@@ -45,6 +45,7 @@
     "three": "^0.145.0",
     "three-fatline": "^0.5.3",
     "three.interactive": "^1.4.0",
+    "tree-crawl": "^1.2.1",
     "vectorize-text": "^3.2.2"
   },
   "browserslist": "> 0.5%, last 2 versions, not dead"
