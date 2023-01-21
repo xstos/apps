@@ -25,6 +25,7 @@ import {
 //import {BoxComponent, DragDropDemo} from "./dragdrop"
 import {getControllerById, ReactWindowExample} from "./react-virt"
 import {ReactWindowFlow} from "./react-virt-2"
+import {rxDomExperiment} from "./experiments/rx-dom"
 
 
 //const {observe, computed} = hyperactiv
@@ -40,8 +41,8 @@ const rootEL = elById('root')
 const body = document.body
 initHTML()
 
-ReactWindowFlow()
-
+//ReactWindowFlow()
+const foo = rxDomExperiment
 return
 
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
@@ -63,7 +64,7 @@ function initHTML() {
   //rootStyle.borderBottom = "1px solid cyan"
   //rootStyle.overflowX="scroll"
   //rootStyle.overflowY="scroll"
-  rootStyle.height="50vh"
+  rootStyle.height="97vh"
   rootStyle.width="97vw"
   //rootStyle.overflowWrap = "break-word"
   //rootStyle.maxWidth = "95vw"

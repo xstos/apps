@@ -1,3 +1,5 @@
+import clonedeep from "lodash.clonedeep"
+
 const proxies = new WeakSet();
 export function getAllIndexes<T>(arr: T[], predicate: (value: T) => boolean) {
   var indexes = []
@@ -20,28 +22,41 @@ export function log(...items: any[]) {
   console.log(count++,...items)
 }
 export function proxy(ctor, get, apply) {
-  let handler = null
+  let handler: ProxyHandler<any>
   let ret = null
-  const f = () => { }
+
+  function newTarget(data) {
+    const f = () => { }
+    f._data = data
+    return f
+  }
   handler = {
     get(target, key) {
+      if (typeof key === 'symbol') {
+        key = key.toString()
+      }
       if (key.startsWith('_')) {
         return target[key]
       }
-      const data = target._data
+      const data = clonedeep(target._data)
       get(data,key)
+      ret = createProxy(newTarget(data),handler)
       return ret
     },
     apply(target, thisArg, args) {
-      const data = target._data
+      const data = clonedeep(target._data)
       apply(data,args)
+      ret = createProxy(newTarget(data),handler)
       return ret
     },
   }
-  const data = { }
-  f._data = data
-  ctor(data)
-  ret = new Proxy(f, handler)
+  const t = newTarget({})
+  ctor(t._data)
+  ret = createProxy(t,handler)
+  return ret
+}
+function createProxy(f: any, handler: ProxyHandler<any>) {
+  let ret = new Proxy(f, handler)
   proxies.add(ret)
   return ret
 }
@@ -101,4 +116,12 @@ export function has(o: any,...keys:string[]): boolean {
     if (!(key in o)) return false
   }
   return true
+}
+
+export function equalsAny(value,...compare) {
+  return compare.some(c=>c===value)
+}
+export function idGenerator() {
+  let id = 1
+  return () => id++
 }
