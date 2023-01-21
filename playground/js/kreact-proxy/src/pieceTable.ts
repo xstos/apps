@@ -63,9 +63,6 @@ export function PieceTable<T>(fileContents: T[]) {
     const h =getHistory(history.size-1)
     log(h)
   }
-  function getHistoryLastIndex() {
-    return history.size-1
-  }
   function getHistory(index: number): T[] {
     const old = pieceTable
     pieceTable = history.get(index).map(h=>h.toJS())
@@ -76,25 +73,25 @@ export function PieceTable<T>(fileContents: T[]) {
   function getHistories() {
     return history.map((h,i)=>getHistory(i))
   }
-  function insert(str: T[], offset?: number) {
-    if (str.length === 0) {
+  function insert(items: T[], offset?: number) {
+    if (items.length === 0) {
       return;
     }
     offset = offset === undefined ? add.length : offset
     const addBufferOffset = add.length;
-    add = add.concat(str)
+    add.push(...items)
 
     const newPiece = {
       addBuffer: true,
       offset: addBufferOffset,
-      length: str.length
+      length: items.length
     }
 
     const [pieceIndex, bufferOffset] = sequenceOffsetToPieceIndexAndBufferOffset(offset);
     let originalPiece = pieceTable[pieceIndex];
     // If the piece points to the end of the add buffer, and we are inserting at its end, simply increase its length
     if (originalPiece.addBuffer && bufferOffset === originalPiece.offset + originalPiece.length && originalPiece.offset + originalPiece.length === addBufferOffset) {
-      originalPiece.length += str.length;
+      originalPiece.length += items.length;
       pushHistory()
       return;
     }
