@@ -1,0 +1,19 @@
+{
+    "manifest_version": 2,
+    "name": "My Chrome Extension",
+    "version": "1.0",
+    "description": "A simple extension that creates a floating button and injects it into the current page",
+    "browser_action": {
+      "default_popup": "popup.html"
+    },
+    "permissions": [
+      "activeTab"
+    ],
+    "content_scripts": [
+      {
+        "js": ["sidebar.js"],
+        "matches": ["<all_urls>"]
+      }
+    ]
+  }
+  

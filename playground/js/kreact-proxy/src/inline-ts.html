@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+
+</body>
+<head>
+    <script type="text/javascript">
+        const callback = (mutationList, observer) => {
+            for (const mutation of mutationList) {
+                if (mutation.type === 'childList') {
+                    console.log('A child node has been added or removed.');
+                } else if (mutation.type === 'attributes') {
+                    console.log(`The ${mutation.attributeName} attribute was modified.`);
+                }
+            }
+        };
+
+        const is = (el, className) => el.classList.contains(className);
+        const listen = (type, e, target) => (target || document).addEventListener(type, e);
+        const qsa = (s) => document.querySelectorAll(s)
+        const clsadd = (el, ...items) => el.classList.add(...items)
+        const clsrem = (el, ...items) => el.classList.remove(...items)
+        const el = (add, tag) => {
+            const ret = document.createElement(tag || "div")
+            add && document.body.appendChild(ret)
+            return ret
+        }
+        const box = (el) => {
+            const s = el.style
+            s.minWidth = "100px"
+            s.minHeight = "16px"
+            s.border = "1px solid red"
+            el.tabIndex = 0
+            listen("click", (e) => {
+
+            }, el)
+
+            el.appendChild()
+            clsadd(el, "box")
+        }
+        listen('click', (e) => {
+            let tag = e.target.tagName
+            if (tag === "HTML") {
+                box(el(true))
+            }
+
+        })
+
+    </script>
+</head>
+
+
+</html>

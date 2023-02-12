@@ -109,7 +109,9 @@ export function typename(o) {
   const t = typeof o
   return t
 }
+
 export function has(o: any,...keys:string[]): boolean {
+  if (o===undefined || o===null) return false
   if (typeof o !== "object") return false
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i]
@@ -124,4 +126,15 @@ export function equalsAny(value,...compare) {
 export function idGenerator() {
   let id = 1
   return () => id++
+}
+export function replace(input, map) {
+  debugger
+  if (has(map, input)) {
+    return map[input]
+  }
+  return input
+}
+
+function modulo(n, length, increment) {
+  return (n + length + increment) % length
 }
