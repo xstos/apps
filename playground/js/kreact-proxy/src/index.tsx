@@ -26,6 +26,7 @@ import {
 import {getControllerById, ReactWindowExample} from "./react-virt"
 import {ReactWindowFlow} from "./react-virt-2"
 import {rxDomExperiment} from "./experiments/rx-dom"
+import {imperReact} from "./experiments/imperative-react"
 
 
 //const {observe, computed} = hyperactiv
@@ -42,7 +43,8 @@ const body = document.body
 initHTML()
 
 //ReactWindowFlow()
-const foo = rxDomExperiment
+//const foo = rxDomExperiment
+const foo2 = imperReact
 return
 
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {

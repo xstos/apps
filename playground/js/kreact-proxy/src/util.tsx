@@ -128,7 +128,6 @@ export function idGenerator() {
   return () => id++
 }
 export function replace(input, map) {
-  debugger
   if (has(map, input)) {
     return map[input]
   }
@@ -137,4 +136,12 @@ export function replace(input, map) {
 
 function modulo(n, length, increment) {
   return (n + length + increment) % length
+}
+
+export type pairCB<T> = (a:T,b:T, i: number)=>any
+export function forEachPair<T>(items: T[], callback: pairCB<T>) {
+  const last = items.length-2
+  for (let i = 0; i < last; i++) {
+    callback(items[i], items[i+1], i)
+  }
 }
