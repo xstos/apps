@@ -1,13 +1,10 @@
-import React, {useState} from "react"
+import React from "react"
 import {cellx} from "cellx"
 import ReactDOM from "react-dom"
-import clonedeep from "lodash.clonedeep"
 
-import {forEachPair, forEachPosition, has, idGenerator, proxy} from "../util"
+import {has, idGenerator, proxy} from "../util"
 import {elById} from "../domutil"
 import {ipsum} from "../lorem"
-import {DirectedGraph} from "graphology"
-import {edgeBetween} from "./weak-graph"
 
 declare var v: any
 declare var o: any
@@ -23,10 +20,11 @@ function defGlobalProp(key, get) {
 defGlobalProp('cell', makeCellProxy)
 defGlobalProp('Ref',makeRefProxy)
 
+
 const getId = idGenerator()
 const cells = {}
 const log = console.log
-
+const jlog = (...items)=>log(...items.map(i=>JSON.stringify(i,null,2)))
 function makeCellProxy() {
   return proxy((data) => {
     data.path = []
@@ -75,57 +73,138 @@ function isNode(o) {
 function wrap(node) {
   if (has(node,'type')) return node
   return {
-    type: typeof node,
-    uid: getId(),
-    props: {},
+    type: 'primitive',
+    props: {uid: getId(), value: node},
     children: [],
-    value: node
   }
 }
-
-
-export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
-  let ret = {}
-  props=props||{}
-  children = children.flatMap((c, i) => {
-    return (Array.isArray(c) ? c.map(wrap) : [wrap(c)])
+function flatMapChildren(children) {
+  return children.flatMap((c, i) => {
+    return (Array.isArray(c) ? c : [c])
   })
-  if (type===React.Fragment) {
-    type='<>'
-  } else if (type._isPath) {
-    type=type._path.join('.')
+}
+function reactCreateElement(type, props=null, children=null) {
+  log('rce', type)
+  if (children) {
+    return React.createElement(type, props, ...children)
+  }
+  return React.createElement(type,props)
+}
+function reactify(node) {
+  if (!isNode(node)) return node
+  let {type,props,children} = node
+  if (!children || children.length<1) return reactCreateElement(type,props)
+  const mappedChildren = children.map(reactify)
+  return reactCreateElement(type,props,mappedChildren)
+}
+export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
+  if (props && props.react) {
+    delete props.react
+    return reactify({type, props, children})
   }
 
-  ret.uid=getId()
-
-  Object.assign(ret,{type,props,children})
-
-  if (has(props,'mount')) {
-
-    const el = elById(props.mount)
-    ret.el = el
-    function updateBounds() {
-      const { width, height, left, top } = el.getBoundingClientRect()
-      Object.assign(props,{ width, height, left, top })
-    }
-    updateBounds()
-    window.addEventListener("resize", updateBounds)
-    function processNode(node,index, parent) {
-      const {type,props,children, uid} = node
-      forEachPair(children,(a,b,i)=>{
-        edgeBetween(a,b,'->')
-      })
-    }
-    processNode(ret,0,null)
-
-  }
-
-  return ret
+  return {type,props,children}
 }
 //when rendering each line, we're creating a virtual box
 // representing the current line
 
+const toolbox=<Toolbox>
+  <Function>
+    <div>function <Str name={"function name"}/>(<Args />)
+      <FunctionBody/>
+    </div>
+  </Function>
+  <Args>
+    <Spread desc={"..."}>
+      <Arg/>
+    </Spread>
+  </Args>
+  <Arg>
+    <Str name="argument name"/>
+    <Any name="default value"/>
+  </Arg>
+  <FunctionBody>
+    func body
+  </FunctionBody>
+</Toolbox>
 
+function processNode(node, i) {
+  if (!has(node,'type')) return
+  let {type,props, children} = node
+  props=props||{}
+  node.index=i
+  if (isOurs(type)) {
+    node.name = type.name
+    node.render=function () {
+      const map = children.map(c => {
+        if (!isNode(c)) {
+          return c
+        }
+        return c.render()
+      })
+      const descName = props.desc ? props.desc : node.name
+      const fragment = <div react style={{padding: '1px', display:'inline-block'}}>
+        {descName}<div style={{padding: '1px', border: '1px dashed red'}}>{map}</div>
+      </div>
+      return fragment
+    }
+  } else {
+    node.render=function () {
+      const mappedChildren = children.map((childNode, childIx) => {
+        if (!isNode(childNode)) return childNode
+        const ret = childNode.render()
+        return ret
+      })
+
+      return reactCreateElement(type, props, mappedChildren)
+    }
+  }
+
+  children.forEach(processNode)
+  return node
+}
+processNode(toolbox,0)
+const render = toolbox.render()
+
+ReactDOM.render(<div react>{render}</div>,elById('root'))
+function Args() {
+
+}
+function Toolbox() {}
+function Function(node) {}
+function FunctionBody() {}
+function Str() {
+
+}
+function Any() {
+
+}
+function Spread() {
+
+}
+function Arg() {}
+function While(pred, body) {
+  while(pred) {
+    body()
+  }
+}
+function Join(props) {
+  return props.children.join(',')
+}
+function isOurs(f) {
+  const set = new Set([
+    Args,
+    Arg,
+    Function,
+    Str,
+    Any,
+    Spread,
+    FunctionBody,
+    Toolbox
+  ])
+
+  return set.has(f)
+}
 //todo time part of engine as variable
 
 const wordEls = words.map((word,i)=>{
@@ -134,8 +213,6 @@ const wordEls = words.map((word,i)=>{
 const rootEls = <div mount="root">
   {wordEls}
 </div>
-
-
 function makeIter() {
   const iter = { delta: [0,0], maxW: 120 }
   function next(w) {
@@ -161,3 +238,5 @@ document.addEventListener("pointermove",e=>{
 })
 
 export const rxDomExperiment = 2
+
+//named cols/rows

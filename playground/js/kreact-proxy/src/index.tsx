@@ -43,8 +43,8 @@ const body = document.body
 initHTML()
 
 //ReactWindowFlow()
-//const foo = rxDomExperiment
-const foo2 = imperReact
+const foo = rxDomExperiment
+//const foo2 = imperReact
 return
 
 export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
