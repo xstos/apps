@@ -9,6 +9,7 @@ import {ipsum} from "../lorem"
 declare var v: any
 declare var o: any
 declare var Ref: any
+declare var Def: any
 declare var global: any
 
 function defGlobalProp(key, get) {
@@ -19,6 +20,7 @@ function defGlobalProp(key, get) {
 
 defGlobalProp('cell', makeCellProxy)
 defGlobalProp('Ref',makeRefProxy)
+defGlobalProp('Def',makeRefProxy)
 
 
 const getId = idGenerator()
@@ -107,7 +109,58 @@ export function jsx(type: any, props: Record<string, any>, ...children: any[]) {
 }
 //when rendering each line, we're creating a virtual box
 // representing the current line
+// use puzzle interconnects between elements
+//bret victor deltas https://www.freecodecamp.org/news/thinking-reactively-how-to-animate-with-movement-objects-using-rxjs-692518b6f2ac/
+//defs are reactive tree merges
+//events create a spreadsheet with [#,event_type,timestamp]
+//derived data can be added as new cols (like odd/even for 0/1 alternating)
+//distinction between tree def vs tree label
+const components = <>
+  <ExpanderButton>
+    <expanded>{"open"}</expanded>
+    <Caption>
+      <match>
+        <Expanded/>
+        {"closed"}+
+        {"open"}-
+      </match>
+      <dbFoo>
+        <db key={"doo"}>
+          <expan></expan>
+        </db>
+      </dbFoo>
 
+    </Caption>
+    <body>
+      <button>
+        <click>
+          <Expanded>
+            <match>
+              <Expanded/>
+              {"closed"}{"open"}
+              {"open"}{"closed"}
+            </match>
+          </Expanded>
+        </click>
+        <body>
+          <Caption/>
+        </body>
+      </button>
+    </body>
+  </ExpanderButton>
+
+  <ExpanderPanel>
+    <body>
+      <ExpanderButton name={"MyExpander"}/>
+      <match>
+        <MyExpander><placeholder/></MyExpander>
+        {"closed"}<></>
+        {"open"}<Children/>
+      </match>
+    </body>
+  </ExpanderPanel>
+</>
+debugger
 const toolbox=<Toolbox>
   <Function>
     <div>function <Str name={"function name"}/>(<Args />)
@@ -126,6 +179,7 @@ const toolbox=<Toolbox>
   <FunctionBody>
     func body
   </FunctionBody>
+
 </Toolbox>
 
 function processNode(node, i) {
@@ -143,9 +197,12 @@ function processNode(node, i) {
         return c.render()
       })
       const descName = props.desc ? props.desc : node.name
-      const fragment = <div react style={{padding: '1px', display:'inline-block'}}>
-        {descName}<div style={{padding: '1px', border: '1px dashed red'}}>{map}</div>
-      </div>
+      const style = {padding: '1px', display:'inline-block'}
+      const style1 = {padding: '1px', border: '1px dashed red'}
+      const fragment = <span react style={style}>
+        {descName}<button>+</button><br/>
+        <span style={style1}>{map}</span>
+      </span>
       return fragment
     }
   } else {
@@ -167,6 +224,7 @@ processNode(toolbox,0)
 const render = toolbox.render()
 
 ReactDOM.render(<div react>{render}</div>,elById('root'))
+function ExpanderButton() {}
 function Args() {
 
 }
