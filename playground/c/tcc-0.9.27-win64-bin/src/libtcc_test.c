@@ -8,7 +8,7 @@
 #include <string.h>
 
 #include "libtcc.h"
-
+#include "winui.c"
 /* this function is called by the generated code */
 int add(int a, int b)
 {
