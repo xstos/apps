@@ -1,12 +1,15 @@
 /** @jsx JSX */
 
 const {cellx, Cell} = window.cellx
-
-const foo = <div></div>
-log(foo)
-function JSX(tag,props,children=[]) {
+const state = {
+    nodes: []
+}
+function nodes() {
+    return state.nodes
+}
+function JSX(type, props, children=[]) {
     props=props||{}
-    return {tag,props,children}
+    return {type,props,children}
 }
 
 function cursor() {
@@ -16,8 +19,6 @@ const data = reactive({
     nodes: [cursor()]
 })
 
-const derp = html`<div>hi</div>`
-
 const appElement = document.getElementById('app');
 const dockLeft = html`
 <div class="flex flex-row">
@@ -25,13 +26,21 @@ const dockLeft = html`
         ${()=>html`${listbox()}`}
     </div>
     <div class="flex-1">
-        ${()=>html`${data.nodes.join('')}`}
+        ${()=>html`${nodes().join('')}`}
     </div>
 </div>
 `
-function listbox() { return `
-    <select size="20">
-        <option>textbox</option>
+
+const names = {
+    entities: 'entities',
+    addTable: 'table.add'
+}
+
+function listbox() {
+
+    return `
+    <select id="${names.entities}" size="20">
+        <option>table</option>
         <option>button</option>
         <option>2</option>
         <option>2</option>
@@ -41,25 +50,63 @@ function listbox() { return `
     </select>
 `}
 
+
 const template = html`
 <div class="flex">
     ${dockLeft}
 </div>
 `
+function getId() {
+    return nodes().length
+}
+function addNode(n) {
+    n.id = getId()
+    nodes().push(n)
+}
+const itemVerbs = {
+    table() {
+        addNode({
+            type: "table",
+            rows: 1,
+            cols: 1,
+        })
+    }
+}
+const actionsById = {
+    [names.entities]: '',
+    [names.addTable]: ''
+}
+'change dblclick'.split(' ').map(type => {
+    document.addEventListener(type, e => {
+        onEvent(type, e)
+    })
+})
 
-document.addEventListener('change',(e)=>{
-    if (e.target.nodeType===1) { //element
-        if (e.target.nodeName==="SELECT") {
-            log(e.target.value)
+function onEvent(type,e) {
+    const el = e.target
+    log(type,el)
+    const { nodeType, nodeName, id } = el
+    const { activeElement} = document
+    if (nodeType===1) { //element
+        const action = actionsById[id]
+        if (!action) return
+        if (nodeName==="SELECT") {
+
+            actionsById[id](()=>{
+                //setSelectedVerb(el.options[el.selectedIndex])
+                //itemVerbs[el.value]()
+            })
         }
     }
-})
+}
 
 template(appElement)
 
+function onMsg(msg) {
+    log(msg)
+}
 
-
-
+bindkeys(onMsg)
 
 
 
@@ -90,9 +137,10 @@ function bindkeys(onkey, shouldHandleCallback) {
     });
     function pressed(e) {
         //console.log(e)
-        const o = { tag: "io",  key: e.key.toLowerCase() }
+        const o = { type: "io",  key: e.key.toLowerCase() }
         onkey(o)
     }
+
     /*
     document.addEventListener('click', (event)=> {
       console.log('emitting click events');
@@ -117,6 +165,36 @@ function bindkeys(onkey, shouldHandleCallback) {
     return onkey
 }
 
+//create renderer for jsx tree maybe cellx proxy wrapper
+//reactive assembler!!!
+//
+function cyclowJsx() {
+    return <div>
+        <counter>{0}</counter>
+        <inc plus$>
+            {1}
+        </inc>
+        <dec minus$>
+            {1}
+        </dec>
+        <_ pipe$>{1}<counter/></_>
+        <onClick fun$>
+            <_ pipe$><counter/><slot/><counter/></_>
+        </onClick>
+        <plus button$>
+            <caption>+</caption>
+            <click>
+                <cf-onClick><plus$/></cf-onClick>
+            </click>
+        </plus>
+        <minus button$>
+            <caption>-</caption>
+            <click>
+                <onClick figureOut$><minus$/></onClick>
+            </click>
+        </minus>
+    </div>
+}
 function cyclowExample() {
     const cyclow = window.cyclow
     const {Block, run} = cyclow
@@ -149,4 +227,10 @@ function cellxExample() {
     num(2)
 }
 
+//https://dev.to/132/fre-offscreen-rendering-the-fastest-vdom-algorithm-bfn
 //https://webreflection.medium.com/bringing-jsx-to-template-literals-1fdfd0901540
+//https://stackoverflow.com/questions/71958793/how-does-a-browser-transpile-jsx
+//for later https://medium.com/@keshavagrawal/electron-js-react-js-express-js-b0fb2aa8233f
+
+//cells emit change events
+//a1=2 b1=a1 is the same as a1 on change set b1=a1
