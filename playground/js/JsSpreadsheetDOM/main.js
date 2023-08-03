@@ -49,8 +49,31 @@ function listbox() {
 
     </select>
 `}
+function makeProxy() {
+    const f = ()=>{}
+    let get = myget
+    let set = myset
+    function myget(target, prop, receiver) {
+        log('get',prop)
+        return "world";
+    }
+    function myset(target, key, value) {
+        log('set',{key,value})
+        return true
+    }
+    const domProxy = new Proxy(f,{
+        get(target, prop, receiver) {
+            return get(target,prop,receiver)
+        },
+        set(target, key, value) {
+            return set(target,key,value)
+        },
+    })
+    return domProxy
+}
 
-
+const domProxy= makeProxy()
+domProxy[0]=<div>hi</div>
 const template = html`
 <div class="flex">
     ${dockLeft}
