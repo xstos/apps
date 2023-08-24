@@ -1,13 +1,14 @@
 /** @jsx JSX */
 const {html, reactive} = window.arrowJs
+const {h,render} = window.fre
 const log = console.log
-function JSX(type, props, children=[]) {
-    //for later :D
-    props=props||{}
-    return {type,props,children}
-}
 
-log(<div>hieeee</div>) //for later :D
+function JSX(type, props, children=[]) {
+
+    //props=props||{}
+    //return {type,props,children}
+    return h(type,props,...children)
+}
 
 const elementIds = {
     flip: 'flip'
