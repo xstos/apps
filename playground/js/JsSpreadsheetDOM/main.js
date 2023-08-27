@@ -1,104 +1,129 @@
 /** @jsx JSX */
 
 const {cellx, Cell} = window.cellx
-const state = {
-    nodes: []
+
+var myData = getMeta({
+    id: 0
+})
+function newId() {
+    const ret = myData.id
+    myData.id++
+    return ret
 }
-function nodes() {
-    return state.nodes
-}
+
 function JSX(type, props, children=[]) {
     props=props||{}
     return {type,props,children}
 }
 
-function cursor() {
-    return `<k-cursor active></k-cursor>`
-}
 const data = reactive({
-    nodes: [cursor()]
 })
 
 const appElement = document.getElementById('app');
 const dockLeft = html`
 <div class="flex flex-row">
     <div class="flex-none">
-        ${()=>html`${listbox()}`}
     </div>
     <div class="flex-1">
-        ${()=>html`${nodes().join('')}`}
     </div>
 </div>
-`
-
-const names = {
-    entities: 'entities',
-    addTable: 'table.add'
-}
-
+`;
 function listbox() {
-
     return `
-    <select id="${names.entities}" size="20">
+    <select id="lb" size="20">
         <option>table</option>
         <option>button</option>
         <option>2</option>
         <option>2</option>
         <option>2</option>
         <option>2</option>
-
     </select>
-`}
-function makeProxy() {
-    const f = ()=>{}
-    let get = myget
-    let set = myset
-    function myget(target, prop, receiver) {
-        log('get',prop)
-        return "world";
-    }
-    function myset(target, key, value) {
-        log('set',{key,value})
-        return true
-    }
-    const domProxy = new Proxy(f,{
-        get(target, prop, receiver) {
-            return get(target,prop,receiver)
-        },
-        set(target, key, value) {
-            return set(target,key,value)
-        },
-    })
-    return domProxy
+    `
 }
 
-const domProxy= makeProxy()
-domProxy[0]=<div>hi</div>
-const template = html`
-<div class="flex">
-    ${dockLeft}
-</div>
-`
-function getId() {
-    return nodes().length
+
+class CursorComp extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+    }
+    connectedCallback() {
+        (html`<div>▮</div>`)(this.shadowRoot)
+    }
+    attributeChangedCallback(attrName, oldVal, newVal) {
+
+    }
 }
-function addNode(n) {
-    n.id = getId()
-    nodes().push(n)
+customElements.define("x-cursor", CursorComp);
+
+class SearchBox extends HTMLElement {
+    constructor() {
+        super();
+        //this.attachShadow({ mode: 'open' });
+    }
+    connectedCallback() {
+        this.id = "searchbox";
+        const s = "padding-left: 3px";
+        (html`<input style="${s}" type="text" id="sbinput">`)(this)
+
+    }
+    attributeChangedCallback(attrName, oldVal, newVal) {
+
+    }
 }
-const itemVerbs = {
-    table() {
-        addNode({
-            type: "table",
-            rows: 1,
-            cols: 1,
+customElements.define("x-searchbox", SearchBox);
+
+function findAttr(attr, foundCallback) {
+    const ret = document.querySelectorAll(`[${attr}]`);
+    if (ret.length>0) {
+        foundCallback && foundCallback(ret)
+    }
+}
+
+function template() {
+    return html`
+        <div class="flex">
+        <x-cursor id="cursor" data-focused></x-cursor>
+        </div>
+`;
+}
+function elById(id, found, missing) {
+    const el = document.getElementById(id)
+    if (el) {
+        found && found(el)
+    } else {
+        missing && missing()
+    }
+}
+
+function insertAfter(el, newNode) {
+    el.parentNode.insertBefore(newNode, el.nextSibling);
+}
+
+const ioSwitch = {
+    ['`']() {
+        elById("searchbox",(el)=>{
+            el.remove()
+        }, ()=>{
+            elById("cursor", (el)=>{
+                insertAfter(el,document.createElement("x-searchbox"))
+
+            })
         })
     }
 }
-const actionsById = {
-    [names.entities]: '',
-    [names.addTable]: ''
+function onMsg(msg) {
+    log(msg)
+    if (msg.type==='io') {
+        elById("cursor",(el)=>{
+            isFocused(el) && ioSwitch[msg.key]()
+        })
+    }
 }
+function isFocused(el) {
+    return el.hasAttribute("data-focused")
+}
+
 'change dblclick'.split(' ').map(type => {
     document.addEventListener(type, e => {
         onEvent(type, e)
@@ -115,19 +140,13 @@ function onEvent(type,e) {
         if (!action) return
         if (nodeName==="SELECT") {
 
-            actionsById[id](()=>{
-                //setSelectedVerb(el.options[el.selectedIndex])
-                //itemVerbs[el.value]()
-            })
         }
     }
 }
 
-template(appElement)
+template()(appElement)
 
-function onMsg(msg) {
-    log(msg)
-}
+
 
 bindkeys(onMsg)
 
@@ -250,10 +269,76 @@ function cellxExample() {
     num(2)
 }
 
+function setMeta(o) {
+    const meta = document.getElementById('app')
+    Object.entries(o).forEach(([k,v])=>{
+        meta.setAttribute("data-"+k,v)
+    })
+}
+function getMeta(o) {
+    const meta = document.getElementById('app')
+    const ret = {}
+    Object.entries(o).forEach(([k,v])=>{
+        const hkey = "data-"+k
+        var foo = meta.getAttribute(hkey)
+        if (!foo) {
+            meta.setAttribute("data-"+k,v)
+            foo=v
+        }
+        ret[k]=foo
+    })
+    return ret
+}
+
+
 //https://dev.to/132/fre-offscreen-rendering-the-fastest-vdom-algorithm-bfn
 //https://webreflection.medium.com/bringing-jsx-to-template-literals-1fdfd0901540
 //https://stackoverflow.com/questions/71958793/how-does-a-browser-transpile-jsx
 //for later https://medium.com/@keshavagrawal/electron-js-react-js-express-js-b0fb2aa8233f
-
+//http://rickardlindberg.me/writing/alan-kay-notes/tr2009016_steps09.pdf
 //cells emit change events
 //a1=2 b1=a1 is the same as a1 on change set b1=a1
+
+function makeProxy() {
+    const f = ()=>{}
+    const dom = { type: 'body', props: {}, children: []}
+    let get = myget
+    let set = myset
+    let apply = myapply
+    let domProxy = null
+    const path = []
+    function myget(target, prop, receiver) {
+        log('get',prop)
+        return domProxy
+    }
+    function myset(target, key, value) {
+        log('set',{key,value})
+        let o = dom
+        path.forEach((i)=>{
+            let el=o.children[i]
+            if (!el) {
+                el={ type: '', props: {}, children: [] }
+                o.children[i]=el
+            }
+            o=el
+        })
+        return true
+    }
+    function myapply(target, thisArg, argumentsList) {
+        log('myapply', target, thisArg, argumentsList)
+        return domProxy
+    }
+    domProxy = new Proxy(f,{
+        get(target, prop, receiver) {
+            path.push(prop)
+            return get(target,prop,receiver)
+        },
+        set(target, key, value) {
+            return set(target,key,value)
+        },
+        apply(target, thisArg, argumentsList) {
+            return apply(target,thisArg,argumentsList)
+        },
+    })
+    return domProxy
+}
