@@ -1,7 +1,8 @@
 /** @jsx JSX */
 
 const {cellx, Cell} = window.cellx
-
+const {reactive, watch, html} = window.arrowJs
+const {h, create, diff, patch, VText} = window.virtualDom
 var myData = getMeta({
     id: 0
 })
@@ -11,12 +12,13 @@ function newId() {
     return ret
 }
 
-function JSX(type, props, children=[]) {
+function JSX(type, props, ...children) {
     props=props||{}
+
     return {type,props,children}
 }
 
-const data = reactive({
+const store = reactive({
 })
 
 const appElement = document.getElementById('app');
@@ -28,27 +30,16 @@ const dockLeft = html`
     </div>
 </div>
 `;
-function listbox() {
-    return `
-    <select id="lb" size="20">
-        <option>table</option>
-        <option>button</option>
-        <option>2</option>
-        <option>2</option>
-        <option>2</option>
-        <option>2</option>
-    </select>
-    `
-}
+
 
 
 class CursorComp extends HTMLElement {
     constructor() {
         super();
-        this.attachShadow({ mode: 'open' });
+        //this.attachShadow({ mode: 'open' });
     }
     connectedCallback() {
-        (html`<div>▮</div>`)(this.shadowRoot)
+        (html`▮`)(this)
     }
     attributeChangedCallback(attrName, oldVal, newVal) {
 
@@ -64,7 +55,23 @@ class SearchBox extends HTMLElement {
     connectedCallback() {
         this.id = "searchbox";
         const s = "padding-left: 3px";
-        (html`<input style="${s}" type="text" id="sbinput">`)(this)
+
+        (html`
+            <div>
+                <div class="flex-none">
+                    <input style="${s}" type="text" id="sbinput">
+                </div>
+                <div class="flex-1">
+                    <select tabindex="-1" id="sblist" size="3">
+                        <option>div</option>
+                        <option>span</option>
+                        <option>derp</option>
+                    </select>
+                </div>    
+            </div>
+            
+            
+        `)(this)
 
     }
     attributeChangedCallback(attrName, oldVal, newVal) {
@@ -72,18 +79,124 @@ class SearchBox extends HTMLElement {
     }
 }
 customElements.define("x-searchbox", SearchBox);
+const cells = {
 
-function findAttr(attr, foundCallback) {
-    const ret = document.querySelectorAll(`[${attr}]`);
-    if (ret.length>0) {
-        foundCallback && foundCallback(ret)
+}
+class XElement extends HTMLElement {
+    constructor() {
+        super();
+        const id = getId()
+        log('ctor XElement',id)
+        const that = this;
+        function makeId(name) {
+            return `${id}.${name}`
+        }
+        const renderId = makeId('render')
+
+        function field(name,value) {
+            return html`
+                ${name}
+                <div id="${id}" contenteditable="true"
+                     style="border: 1px solid black;padding: 1px; display: inline-block"
+                     @input="${(e)=>log("input",e)}"
+                >
+                    ${value}
+                </div>
+            `;
+        }
+        const template = html`
+                <div style="display: inline-block">
+                    ${()=>field("tag")}
+                    
+                    <button style="display: inline-block" @click="${()=>that.remove()}">X</button>
+                    <div id="${renderId}"></div>
+                </div>
+                    
+                `;
+        template(that);
+        function connectedCallback() {
+            log('connectedCallback',id)
+
+
+        };
+        function disconnectedCallback() {
+            log('disconnectedCallback',id)
+        }
+        function attributeChangedCallback(attrName, oldVal, newVal) {
+            log('attributeChangedCallback',{id, attrName,oldVal,newVal})
+        }
+        this.state = {
+            connectedCallback,
+            attributeChangedCallback,
+            disconnectedCallback,
+        }
+    }
+
+    /*
+    connectedCallback() {
+        const id = this._id
+        setTimeout(()=>{
+
+        })
+
+
+        (html`
+            <div>
+                ${this._id}
+                <input type="text" id="${this._id}" @input="${e => { data.value = e.target.value }}">
+                <div style="border: 1px solid black;padding: 1px">
+                </div>
+            </div>
+        `)(this.shadowRoot)
+
+    }
+    */
+
+    connectedCallback() {
+        return this.state.connectedCallback()
+    }
+    disconnectedCallback() {
+        return this.state.disconnectedCallback()
+    }
+    attributeChangedCallback(attrName, oldVal, newVal) {
+        return this.state.attributeChangedCallback(attrName, oldVal, newVal)
     }
 }
+customElements.define("x-e", XElement);
+
+
+function vn(txt) {
+    return h("div", {id: "11"}, [
+        String(txt)
+    ]);
+}
+
+function demo() {
+
+// 2: Initialise the document
+    var count = 0;      // We need some app data. Here we just store a count.
+
+    var tree = vn(count);               // We need an initial tree
+    var rootNode = create(tree);     // Create an initial root DOM node ...
+    elById("app2").appendChild(rootNode);    // ... and it should be in the document
+
+// 3: Wire up the update logic
+    setInterval(function () {
+        count++;
+
+        var newTree = vn(count);
+        var patches = diff(tree, newTree);
+        rootNode = patch(rootNode, patches);
+        tree = newTree;
+    }, 1000);
+}
+//demo()
+
 
 function template() {
     return html`
         <div class="flex">
-        <x-cursor id="cursor" data-focused></x-cursor>
+            <x-e></x-e>
         </div>
 `;
 }
@@ -94,36 +207,89 @@ function elById(id, found, missing) {
     } else {
         missing && missing()
     }
+    return el
 }
 
 function insertAfter(el, newNode) {
     el.parentNode.insertBefore(newNode, el.nextSibling);
 }
-
+function makeEl(tag) {
+    return document.createElement(tag)
+}
 const ioSwitch = {
-    ['`']() {
-        elById("searchbox",(el)=>{
-            el.remove()
-        }, ()=>{
-            elById("cursor", (el)=>{
-                insertAfter(el,document.createElement("x-searchbox"))
-
-            })
-        })
+    cursor: {
+        ['`'](e) {
+            e.preventDefault()
+            dispatch("insert-before",
+                elById("cursor"),
+                makeEl("x-searchbox"),
+            )
+            setIO("sbinput")
+            elById("sbinput").focus()
+        }
+    },
+    sbinput: {
+        ['arrowdown']() {
+            const el = elById("sblist")
+            if (el.selectedIndex>=el.options.length-1) return
+            el.selectedIndex+=1
+        },
+        ['arrowup']() {
+            const el = elById("sblist")
+            if (el.selectedIndex===0) return
+            el.selectedIndex-=1
+        }
     }
+}
+/*
+['']() {
+    elById("searchbox",(el)=>{
+        el.remove()
+    }, ()=>{
+        elById("cursor", (el)=>{
+            insertAfter(el,document.createElement("x-searchbox"))
+
+        })
+    })
+}
+*/
+const actions = {
+    ['insert-before'](before, ...items) {
+        const frag = document.createDocumentFragment()
+        items.forEach(item => {
+            frag.appendChild(item)
+        })
+        before.parentNode.insertBefore(frag,before)
+    }
+}
+function dispatch(op,target, ...args) {
+    actions[op](target,...args)
 }
 function onMsg(msg) {
     log(msg)
     if (msg.type==='io') {
-        elById("cursor",(el)=>{
-            isFocused(el) && ioSwitch[msg.key]()
+        findAttr("data-io", els=>{
+            const {id} = els[0];
+            safe(ioSwitch)[id][msg.key](msg.event)
         })
     }
 }
-function isFocused(el) {
-    return el.hasAttribute("data-focused")
-}
 
+function findAttr(attr, foundCallback) {
+    const ret = document.querySelectorAll(`[${attr}]`);
+    if (ret.length>0) {
+        foundCallback && foundCallback(ret)
+    }
+}
+function hasIO(el) {
+    return el.hasAttribute("data-io")
+}
+function setIO(id) {
+    findAttr("data-io", (els)=>{
+        els.forEach(el=>el.removeAttribute("data-io"))
+    })
+    elById(id,el=>el.setAttribute("data-io",""))
+}
 'change dblclick'.split(' ').map(type => {
     document.addEventListener(type, e => {
         onEvent(type, e)
@@ -136,8 +302,6 @@ function onEvent(type,e) {
     const { nodeType, nodeName, id } = el
     const { activeElement} = document
     if (nodeType===1) { //element
-        const action = actionsById[id]
-        if (!action) return
         if (nodeName==="SELECT") {
 
         }
@@ -145,7 +309,7 @@ function onEvent(type,e) {
 }
 
 template()(appElement)
-
+setIO("cursor")
 
 
 bindkeys(onMsg)
@@ -175,11 +339,11 @@ function bindkeys(onkey, shouldHandleCallback) {
             const shouldHandle = shouldHandleCallback(event, foo)
             if (shouldHandle === false) return
         }
-        pressed({ tag: 'io', key: foo })
+        pressed({ tag: 'io', key: foo, event })
     });
     function pressed(e) {
         //console.log(e)
-        const o = { type: "io",  key: e.key.toLowerCase() }
+        const o = { type: "io",  key: e.key.toLowerCase(), event: e.event}
         onkey(o)
     }
 
@@ -263,7 +427,7 @@ function cellxExample() {
     let num = cellx(1);
     let plusOne = cellx(() => num() + 1);
     plusOne.on(Cell.EVENT_CHANGE, (evt) => {
-        data.foo=evt.data.value
+        store.foo=evt.data.value
         console.log(JSON.stringify(evt.data)) // {"prevValue":2,"value":3}
     })
     num(2)
@@ -341,4 +505,41 @@ function makeProxy() {
         },
     })
     return domProxy
+}
+//noop proxy
+function noop() {
+    return new Proxy(()=>{}, {
+        get(target, p, receiver) {
+            return receiver
+        },
+        apply(target, thisArg, argArray) {
+            return thisArg
+        }
+    })
+
+}
+//safe proxy
+function safe(o) {
+    return new Proxy(()=>{},{
+        get(target, prop, receiver) {
+            if (prop in o) {
+                return safe(o[prop])
+            }
+            return noop()
+        },
+        apply(target, thisArg, argArray) {
+            if (typeof o === "function") {
+                return safe(o(...argArray))
+            }
+            return noop()
+        }
+    })
+}
+
+function getId(defaultSeed=1) {
+    if (Reflect.has(getId, "_seed")) {
+        return ++getId._seed
+    }
+    getId._seed=defaultSeed
+    return defaultSeed
 }
