@@ -31,8 +31,6 @@ const dockLeft = html`
 </div>
 `;
 
-
-
 class CursorComp extends HTMLElement {
     constructor() {
         super();
@@ -79,8 +77,42 @@ class SearchBox extends HTMLElement {
     }
 }
 customElements.define("x-searchbox", SearchBox);
-const cells = {
-
+function dynArrow(data) {
+    if (typeof data === 'string') return data
+    const {tag,props,children} = data
+    let {style, ...attr}=props
+    attr=Object.entries(attr)
+    function HTML(inner) {
+        return `html\`${inner}\``
+    }
+    function ATTR([name, value]) {
+        return `${name}="${value}"`
+    }
+    function PAIR([k,v]) {
+        return `${k}: ${v}`
+    }
+    function STYLE(o) {
+        const pairs = Object.entries(o)
+        if (pairs.length<1) return ''
+        return `style="${pairs.map(PAIR).join(";")}"`
+    }
+    function TAG(t, p, c) {
+        return `<${t}${p}>${c}</${t}>`
+    }
+    const stylePairs = STYLE(style)
+    log(stylePairs)
+    const attrs = []
+    if (stylePairs.length>0) {
+        attrs.push(...stylePairs)
+    }
+    if (attr.length>0) {
+        attrs.push(...attr.map(ATTR))
+    }
+    const attrStr = attrs.length>0 ? " "+attrs.join(' '): ''
+    const childStrs = children.map(dynArrow)
+    const foo = HTML(TAG(tag,`${attrStr}`,childStrs.join('\n')))
+    log(foo)
+    return foo
 }
 class XElement extends HTMLElement {
     constructor() {
@@ -92,13 +124,31 @@ class XElement extends HTMLElement {
             return `${id}.${name}`
         }
         const renderId = makeId('render')
+        const state = {
+            tag: '',
+            props: {
+                id,
+                style: {
+                }
+            },
+            children: [
+                'hi'
+            ]
+        }
 
+        store[id]=state
         function field(name,value) {
+            function onInput(e) {
+                const val = e.target.innerText
+                state.tag = val
+                dynArrow(state)
+            }
+
             return html`
                 ${name}
                 <div id="${id}" contenteditable="true"
-                     style="border: 1px solid black;padding: 1px; display: inline-block"
-                     @input="${(e)=>log("input",e)}"
+                     style="border: 1px solid black;padding: 5px; display: inline-block"
+                     @input="${onInput}"
                 >
                     ${value}
                 </div>
@@ -195,9 +245,9 @@ function demo() {
 
 function template() {
     return html`
-        <div class="flex">
-            <x-e></x-e>
-        </div>
+        <x-e></x-e><br/>
+        preview:
+        <div id="preview"></div>
 `;
 }
 function elById(id, found, missing) {
