@@ -17,8 +17,12 @@ function JSX(type, props, ...children) {
 
     return {type,props,children}
 }
+/*
+target: id, path: style.background-color, value: red
+ */
 
 const store = reactive({
+    nodes: []
 })
 
 const appElement = document.getElementById('app');
@@ -30,20 +34,6 @@ const dockLeft = html`
     </div>
 </div>
 `;
-
-class CursorComp extends HTMLElement {
-    constructor() {
-        super();
-        //this.attachShadow({ mode: 'open' });
-    }
-    connectedCallback() {
-        (html`▮`)(this)
-    }
-    attributeChangedCallback(attrName, oldVal, newVal) {
-
-    }
-}
-customElements.define("x-cursor", CursorComp);
 
 class SearchBox extends HTMLElement {
     constructor() {
@@ -114,59 +104,149 @@ function dynArrow(data) {
     log(foo)
     return foo
 }
+function focusin(el) {
+    el.setAttribute('x-focus','')
+    const attr=el.getAttribute('data-bind')
+    bindings().current(attr)
+
+}
+function focusout(el) {
+    el.removeAttribute('x-focus')
+}
+function makeBindings() {
+    const bindingTable = {}
+    let currentBinding = null
+    return {
+        bind(name, methods) {
+            log('bind', name, methods)
+            bindingTable[name] = methods
+            return name
+        },
+        current(name) {
+            currentBinding = bindingTable[name]
+            log('current binding=', name)
+            return currentBinding
+        },
+        dispatch(command, ...data) {
+            if (Reflect.has(currentBinding, command)) {
+                currentBinding[command](...data)
+            }
+        }
+    }
+}
+function bindings() {
+    return singleton(makeBindings)
+}
+
 class XElement extends HTMLElement {
     constructor() {
         super();
-        const id = getId()
-        log('ctor XElement',id)
         const that = this;
+        //that.attachShadow({ mode: 'open' });
+        function getOrCreate(key,ctor) {
+            let ret = that.getAttribute(key)
+            if (ret) {
+                return ret
+            }
+            ret = ctor()
+            that.setAttribute(key,ret)
+            return ret
+        }
+        const id = getOrCreate('id', getId)
+        log('ctor XElement',id)
+        function makeElState() {
+            return {
+                tag: '',
+                props: {
+                    id,
+                    style: {
+                        border: '1px solid red'
+                    }
+                },
+                children: [
+
+                ]
+            }
+        }
         function makeId(name) {
             return `${id}.${name}`
         }
-        const renderId = makeId('render')
-        const state = {
-            tag: '',
-            props: {
-                id,
-                style: {
-                }
-            },
-            children: [
-                'hi'
-            ]
+
+        store.nodes[id]=makeElState()
+        function thisState() {
+            return store.nodes[id]
+        }
+        const dispatchSwitch = {
+            addChild() {
+                thisState().children.push('child')
+            }
+        }
+        function dispatch2(msg) {
+            return (...params) => {
+                (safe(dispatchSwitch)[msg])(...params);
+            }
         }
 
-        store[id]=state
+        function getChildren() {
+            return thisState().children.map(c=>html`<div class="flex-1">${c}</div>`)
+        }
+
         function field(name,value) {
             function onInput(e) {
+                dispatch2("tagChanged")
                 const val = e.target.innerText
-                state.tag = val
-                dynArrow(state)
+                thisState().tag = val
+                dynArrow(thisState())
+                log("input",e, name)
             }
+            const intellisenseBindings = bindings().bind('intellisense', {
+                arrowdown(el) {
+                    log('arrowdown',el)
+                }
+            })
 
             return html`
-                ${name}
-                <div id="${id}" contenteditable="true"
-                     style="border: 1px solid black;padding: 5px; display: inline-block"
-                     @input="${onInput}"
-                >
-                    ${value}
-                </div>
+                <span class="input-container">
+                    <div
+                        data-bind="${intellisenseBindings}"
+                        class="input-field" 
+                        id="${id}" 
+                        contenteditable="true" 
+                        @input="${onInput}"
+                            
+                    >
+                        ${value}
+                    </div>
+                    <label for="${id}" class="lbl abs bgrad">
+                        ${name}
+                    </label>
+                    <select class=""  tabindex="-1" id="sblist" size="3">
+                        <option>div</option>
+                        <option>span</option>
+                        <option>derp</option>
+                    </select>
+                </span>
             `;
         }
         const template = html`
-                <div style="display: inline-block">
-                    ${()=>field("tag")}
+                <div style="display: inline-block;">
+                    ${()=>field("action")}
+                    <button class="btn" @click="${()=>that.remove()}">🗑️</button>
+                    <button class="btn" @click="${()=>{}}">style+</button>
+                    <button class="btn" @click="${()=>{}}">class+</button>
+                    <button class="btn" @click="${dispatch2("addChild")}">child+</button>
+                    <div class="flex flex-col" style="border: black">
+                        ${getChildren}    
+                    </div>
                     
-                    <button style="display: inline-block" @click="${()=>that.remove()}">X</button>
-                    <div id="${renderId}"></div>
                 </div>
-                    
                 `;
         template(that);
         function connectedCallback() {
             log('connectedCallback',id)
-
+            if (that.parentElement.tagName!=='X-E') {
+                that.setAttribute('x-root','true')
+            }
 
         };
         function disconnectedCallback() {
@@ -245,7 +325,9 @@ function demo() {
 
 function template() {
     return html`
-        <x-e></x-e><br/>
+        <x-e>
+        </x-e>
+        <br>
         preview:
         <div id="preview"></div>
 `;
@@ -291,18 +373,6 @@ const ioSwitch = {
         }
     }
 }
-/*
-['']() {
-    elById("searchbox",(el)=>{
-        el.remove()
-    }, ()=>{
-        elById("cursor", (el)=>{
-            insertAfter(el,document.createElement("x-searchbox"))
-
-        })
-    })
-}
-*/
 const actions = {
     ['insert-before'](before, ...items) {
         const frag = document.createDocumentFragment()
@@ -312,12 +382,10 @@ const actions = {
         before.parentNode.insertBefore(frag,before)
     }
 }
-function dispatch(op,target, ...args) {
-    actions[op](target,...args)
-}
 function onMsg(msg) {
     log(msg)
     if (msg.type==='io') {
+        bindings().dispatch(msg.key,msg.event)
         findAttr("data-io", els=>{
             const {id} = els[0];
             safe(ioSwitch)[id][msg.key](msg.event)
@@ -340,7 +408,7 @@ function setIO(id) {
     })
     elById(id,el=>el.setAttribute("data-io",""))
 }
-'change dblclick'.split(' ').map(type => {
+'change dblclick focusin focusout'.split(' ').map(type => {
     document.addEventListener(type, e => {
         onEvent(type, e)
     })
@@ -348,7 +416,14 @@ function setIO(id) {
 
 function onEvent(type,e) {
     const el = e.target
-    log(type,el)
+    if (type==="focusin") {
+        focusin(el)
+    }
+    if (type==="focusout") {
+        focusout(el)
+    }
+
+    log(type,e,el)
     const { nodeType, nodeName, id } = el
     const { activeElement} = document
     if (nodeType===1) { //element
@@ -359,6 +434,7 @@ function onEvent(type,e) {
 }
 
 template()(appElement)
+watchMutations(appElement)
 setIO("cursor")
 
 
@@ -504,7 +580,7 @@ function getMeta(o) {
     return ret
 }
 
-
+//https://www.tiny.cloud/blog/using-html-contenteditable/
 //https://dev.to/132/fre-offscreen-rendering-the-fastest-vdom-algorithm-bfn
 //https://webreflection.medium.com/bringing-jsx-to-template-literals-1fdfd0901540
 //https://stackoverflow.com/questions/71958793/how-does-a-browser-transpile-jsx
@@ -570,18 +646,33 @@ function noop() {
 }
 //safe proxy
 function safe(o) {
-    return new Proxy(()=>{},{
-        get(target, prop, receiver) {
-            if (prop in o) {
-                return safe(o[prop])
+    return new Proxy(o,{
+        get(target, property, receiver) {
+            if (property in target) {
+                const value = target[property];
+                if (typeof value === 'object' && value !== null) {
+                    // If the property is an object, create a safe proxy for it
+                    return safe(value);
+                } else if (typeof value === 'function') {
+                    // If the property is a function, return it
+                    return value.bind(target);
+                } else {
+                    // Return primitive values as is
+                    return value;
+                }
+            } else {
+                // Handle missing properties gracefully with a no-op
+                return noop();
             }
-            return noop()
         },
-        apply(target, thisArg, argArray) {
-            if (typeof o === "function") {
-                return safe(o(...argArray))
+        apply(target, thisArg, argumentsList) {
+            if (typeof target === 'function') {
+                // Check if the target is a function and call it
+                return target.apply(thisArg, argumentsList);
+            } else {
+                // Handle invalid function calls gracefully with a no-op
+                return noop();
             }
-            return noop()
         }
     })
 }
@@ -592,4 +683,27 @@ function getId(defaultSeed=1) {
     }
     getId._seed=defaultSeed
     return defaultSeed
+}
+
+function watchMutations(el) {
+    function callback(mutationList, observer) {
+        for (const mutation of mutationList) {
+            if (mutation.type === "childList") {
+                //console.log("A child node has been added or removed.");
+            } else if (mutation.type === "attributes") {
+                const {attributeName, oldValue, target}=mutation
+                onEvent('attributeChanged',{attributeName, oldValue, target, newValue: target.getAttribute(attributeName)})
+                //console.log(`The ${mutation.attributeName} attribute was modified.`);
+            }
+        }
+    }
+    new MutationObserver(callback).observe(el, {attributes: true, subtree: true});
+}
+
+function singleton(fun) {
+    if (Reflect.has(fun,'_value')) {
+        return fun._value
+    }
+    fun._value=fun()
+    return fun._value
 }
