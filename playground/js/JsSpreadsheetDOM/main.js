@@ -3,15 +3,10 @@
 const {cellx, Cell} = window.cellx
 const {reactive, watch, html} = window.arrowJs
 const {h, create, diff, patch, VText} = window.virtualDom
+
 var myData = getMeta({
     id: 0
 })
-function newId() {
-    const ret = myData.id
-    myData.id++
-    return ret
-}
-
 function JSX(type, props, ...children) {
     props=props||{}
 
@@ -22,7 +17,8 @@ target: id, path: style.background-color, value: red
  */
 
 const store = reactive({
-    nodes: []
+    nodes: [],
+    rv: {}
 })
 
 const appElement = document.getElementById('app');
@@ -138,11 +134,19 @@ function bindings() {
     return singleton(makeBindings)
 }
 
+class Sizer extends HTMLElement {
+    constructor() {
+        super();
+    }
+}
+customElements.define("x-sizer", Sizer);
+
 class XElement extends HTMLElement {
     constructor() {
         super();
         const that = this;
         //that.attachShadow({ mode: 'open' });
+
         function getOrCreate(key,ctor) {
             let ret = that.getAttribute(key)
             if (ret) {
@@ -201,16 +205,42 @@ class XElement extends HTMLElement {
             }
             const intellisenseBindings = bindings().bind('intellisense', {
                 arrowdown(el) {
+
                     log('arrowdown',el)
                 }
             })
+            const editId = `${id}.edit`
+            function tx(val) {
+                const r = reactive({ v: undefined})
+                setTimeout(()=>{
+                    r.v=val
+                },1)
+                return ()=>r.v
+            }
+            function getrv(name) {
+                if (!Reflect.has(store.rv,name)) {
+                    return false
+                }
+                return rv(name)
+            }
+            function getrv(name, getter) {
+                if (Reflect.has(store.rv, name)) return getter(store.rv[name])
+                return getter(undefined)
+            }
+            function derp() {
+                return `
+                min-width: 5ch;
+                ${getrv('foo.width', (v)=>v ? 'width:'+v+'px' : '') }
+                `
+            }
 
             return html`
                 <span class="input-container">
                     <div
                         data-bind="${intellisenseBindings}"
+                        data-tx-size="${tx('foo')}"
                         class="input-field" 
-                        id="${id}" 
+                        id="${editId}"
                         contenteditable="true" 
                         @input="${onInput}"
                             
@@ -220,11 +250,13 @@ class XElement extends HTMLElement {
                     <label for="${id}" class="lbl abs bgrad">
                         ${name}
                     </label>
-                    <select class=""  tabindex="-1" id="sblist" size="3">
+                    <select style="${derp}"
+                            class="" tabindex="-1" id="sblist" size="3">
                         <option>div</option>
                         <option>span</option>
                         <option>derp</option>
                     </select>
+                    
                 </span>
             `;
         }
@@ -242,6 +274,7 @@ class XElement extends HTMLElement {
                 </div>
                 `;
         template(that);
+
         function connectedCallback() {
             log('connectedCallback',id)
             if (that.parentElement.tagName!=='X-E') {
@@ -432,9 +465,9 @@ function onEvent(type,e) {
         }
     }
 }
-
-template()(appElement)
 watchMutations(appElement)
+template()(appElement)
+
 setIO("cursor")
 
 
@@ -685,21 +718,78 @@ function getId(defaultSeed=1) {
     return defaultSeed
 }
 
+
+
 function watchMutations(el) {
     function callback(mutationList, observer) {
         for (const mutation of mutationList) {
             if (mutation.type === "childList") {
+                log('mutate child', mutation)
                 //console.log("A child node has been added or removed.");
             } else if (mutation.type === "attributes") {
                 const {attributeName, oldValue, target}=mutation
-                onEvent('attributeChanged',{attributeName, oldValue, target, newValue: target.getAttribute(attributeName)})
+                const newValue = target.getAttribute(attributeName)
+                onEvent('attributeChanged',{attributeName, oldValue, target, newValue});
+                if (newValue!==null) {
+                    if (attributeName.startsWith('data-tx-')) {
+                        const key = attributeName.replace('data-tx-','')
+
+                        if (key==='size') {
+                            function handle(entry) {
+                                Object.entries(entry).forEach(([k,v])=>{
+                                    rv(`${newValue}.${k}`,v)
+                                })
+                            }
+
+                            resizeObserver(target, handle)
+                        }
+                    }
+                    if (attributeName.startsWith('data-rx-')) {
+                        debugger
+                        const [varname,...path] = attributeName.replace('data-rx-','').split('.')
+                        log(varname,...path)
+                    }
+                }
                 //console.log(`The ${mutation.attributeName} attribute was modified.`);
             }
         }
     }
-    new MutationObserver(callback).observe(el, {attributes: true, subtree: true});
+    new MutationObserver(callback).observe(el, {attributes: true, subtree: true, childList: true});
 }
 
+function rv(name,...value) {
+    if (value.length<1) {
+        return store.rv[name]
+    }
+    store.rv[name]=value[0]
+    watch(()=>store.rv[name], (val)=>log('rv set',name,val))
+}
+function resizeObserver(el, callback) {
+    log('observing size',el)
+    const ro = new ResizeObserver((entries) => {
+        const calcBorderRadius = (size1, size2) =>
+            `${Math.min(100, size1 / 10 + size2 / 10)}px`;
+
+        for (const entry of entries) {
+            const {width, height} = entry.contentRect
+            //log('size changed',entry.target, width,height)
+            callback({target: entry.target, width, height})
+            if (entry.borderBoxSize) {
+                entry.target.style.borderRadius = calcBorderRadius(
+                    entry.borderBoxSize[0].inlineSize,
+                    entry.borderBoxSize[0].blockSize,
+                );
+            } else {
+                entry.target.style.borderRadius = calcBorderRadius(
+                    entry.contentRect.width,
+                    entry.contentRect.height,
+                );
+            }
+        }
+    });
+
+    ro.observe(el);
+}
 function singleton(fun) {
     if (Reflect.has(fun,'_value')) {
         return fun._value
