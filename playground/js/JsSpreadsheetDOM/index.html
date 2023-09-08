@@ -15,10 +15,12 @@
     import flat from 'https://cdn.jsdelivr.net/npm/flat@5.0.2/+esm';
     import * as arrowJs from 'https://cdn.jsdelivr.net/npm/@arrow-js/core@1.0.0-alpha.9/+esm';
     import virtualDom from 'https://cdn.jsdelivr.net/npm/virtual-dom@2.1.1/+esm'
+    import clonedeep from 'https://cdn.jsdelivr.net/npm/lodash.clonedeep@4.5.0/+esm'
     Object.assign(window,{
         flat,
         arrowJs,
         virtualDom,
+        clonedeep
     })
 </script>
 <script src="https://cdn.tailwindcss.com"></script>
@@ -29,5 +31,6 @@
 <!--<script src="arrow-js.js"></script>-->
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script type="text/babel" src="main.js"></script>
+<script type="text/babel" src="svelteish.js"></script>
 </body>
 </html>

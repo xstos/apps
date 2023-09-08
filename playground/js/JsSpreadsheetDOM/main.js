@@ -3,7 +3,7 @@
 const {cellx, Cell} = window.cellx
 const {reactive, watch, html} = window.arrowJs
 const {h, create, diff, patch, VText} = window.virtualDom
-
+//need float below component
 var myData = getMeta({
     id: 0
 })
@@ -86,7 +86,7 @@ function dynArrow(data) {
         return `<${t}${p}>${c}</${t}>`
     }
     const stylePairs = STYLE(style)
-    log(stylePairs)
+    //log(stylePairs)
     const attrs = []
     if (stylePairs.length>0) {
         attrs.push(...stylePairs)
@@ -97,7 +97,7 @@ function dynArrow(data) {
     const attrStr = attrs.length>0 ? " "+attrs.join(' '): ''
     const childStrs = children.map(dynArrow)
     const foo = HTML(TAG(tag,`${attrStr}`,childStrs.join('\n')))
-    log(foo)
+    //log(foo)
     return foo
 }
 function focusin(el) {
@@ -114,16 +114,17 @@ function makeBindings() {
     let currentBinding = null
     return {
         bind(name, methods) {
-            log('bind', name, methods)
+            //log('bind', name, methods)
             bindingTable[name] = methods
             return name
         },
         current(name) {
             currentBinding = bindingTable[name]
-            log('current binding=', name)
+            //log('current binding=', name)
             return currentBinding
         },
         dispatch(command, ...data) {
+            if (!currentBinding) return
             if (Reflect.has(currentBinding, command)) {
                 currentBinding[command](...data)
             }
@@ -416,7 +417,7 @@ const actions = {
     }
 }
 function onMsg(msg) {
-    log(msg)
+    //log(msg)
     if (msg.type==='io') {
         bindings().dispatch(msg.key,msg.event)
         findAttr("data-io", els=>{
@@ -456,7 +457,7 @@ function onEvent(type,e) {
         focusout(el)
     }
 
-    log(type,e,el)
+    //log(type,e,el)
     const { nodeType, nodeName, id } = el
     const { activeElement} = document
     if (nodeType===1) { //element
@@ -478,7 +479,9 @@ bindkeys(onMsg)
 function log(...items) {
     console.log(...items)
 }
-
+function logj(...items) {
+    log(...items.map(i=>JSON.stringify(i,null,2)))
+}
 function lorem() { return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' }
 
 function bindkeys(onkey, shouldHandleCallback) {
@@ -724,7 +727,7 @@ function watchMutations(el) {
     function callback(mutationList, observer) {
         for (const mutation of mutationList) {
             if (mutation.type === "childList") {
-                log('mutate child', mutation)
+                //log('mutate child', mutation)
                 //console.log("A child node has been added or removed.");
             } else if (mutation.type === "attributes") {
                 const {attributeName, oldValue, target}=mutation
@@ -747,7 +750,7 @@ function watchMutations(el) {
                     if (attributeName.startsWith('data-rx-')) {
                         debugger
                         const [varname,...path] = attributeName.replace('data-rx-','').split('.')
-                        log(varname,...path)
+                        //log(varname,...path)
                     }
                 }
                 //console.log(`The ${mutation.attributeName} attribute was modified.`);
@@ -762,29 +765,16 @@ function rv(name,...value) {
         return store.rv[name]
     }
     store.rv[name]=value[0]
-    watch(()=>store.rv[name], (val)=>log('rv set',name,val))
+    //watch(()=>store.rv[name], (val)=>log('rv set',name,val))
 }
 function resizeObserver(el, callback) {
-    log('observing size',el)
+    //https://developer.mozilla.org/en-US/docs/Web/API/Resize_Observer_API
+    //log('observing size',el)
     const ro = new ResizeObserver((entries) => {
-        const calcBorderRadius = (size1, size2) =>
-            `${Math.min(100, size1 / 10 + size2 / 10)}px`;
-
         for (const entry of entries) {
             const {width, height} = entry.contentRect
             //log('size changed',entry.target, width,height)
             callback({target: entry.target, width, height})
-            if (entry.borderBoxSize) {
-                entry.target.style.borderRadius = calcBorderRadius(
-                    entry.borderBoxSize[0].inlineSize,
-                    entry.borderBoxSize[0].blockSize,
-                );
-            } else {
-                entry.target.style.borderRadius = calcBorderRadius(
-                    entry.contentRect.width,
-                    entry.contentRect.height,
-                );
-            }
         }
     });
 
