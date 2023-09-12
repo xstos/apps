@@ -7,19 +7,46 @@ const {h, create, diff, patch, VText} = window.virtualDom
 var myData = getMeta({
     id: 0
 })
+const store = reactive({
+    data: [],
+    entities: [],
+    clickable: [],
+    search: '',
+    mylist: rng(1,1000),
+})
+const builtin = generateBuiltins()
+store.entities.push(...builtin)
+store.clickable.push(...builtin.map(e=>e.index))
 function JSX(type, props, ...children) {
     props=props||{}
 
     return {type,props,children}
 }
+
 /*
 target: id, path: style.background-color, value: red
- */
 
-const store = reactive({
-    nodes: [],
-    rv: {}
-})
+virtualized html:
+number of children textbox
+
+ */
+function generateBuiltins() {
+    const {children: [c]} = <derp>
+        z
+        y
+        q
+    </derp>
+
+    return c.split(' ')
+        .map((cmd,i)=>{
+            return {
+                cmd: '+'+cmd,
+                selected: i===0,
+                hidden: false,
+                index: i
+            }
+        })
+}
 
 const appElement = document.getElementById('app');
 const dockLeft = html`
@@ -30,7 +57,11 @@ const dockLeft = html`
     </div>
 </div>
 `;
-
+/*
+tag last focused element
+tick mark jumps to search box
+jump back after
+ */
 class SearchBox extends HTMLElement {
     constructor() {
         super();
@@ -102,46 +133,225 @@ function dynArrow(data) {
 }
 function focusin(el) {
     el.setAttribute('x-focus','')
-    const attr=el.getAttribute('data-bind')
-    bindings().current(attr)
-
 }
 function focusout(el) {
     el.removeAttribute('x-focus')
 }
-function makeBindings() {
-    const bindingTable = {}
-    let currentBinding = null
-    return {
-        bind(name, methods) {
-            //log('bind', name, methods)
-            bindingTable[name] = methods
-            return name
-        },
-        current(name) {
-            currentBinding = bindingTable[name]
-            //log('current binding=', name)
-            return currentBinding
-        },
-        dispatch(command, ...data) {
-            if (!currentBinding) return
-            if (Reflect.has(currentBinding, command)) {
-                currentBinding[command](...data)
-            }
-        }
-    }
-}
-function bindings() {
-    return singleton(makeBindings)
-}
-
-class Sizer extends HTMLElement {
+class XSlot extends HTMLElement {
     constructor() {
         super();
+
     }
 }
-customElements.define("x-sizer", Sizer);
+customElements.define("x-slot", XSlot);
+class XVirtNode extends HTMLElement {
+    static get observedAttributes() {
+        return ['data-ix'];
+    }
+    constructor() {
+        super();
+        const id = getId()
+        const loc = window.store[this.getAttribute('data-src')]
+        function connectedCallback() {
+            log('connected',id)
+        }
+        function disconnectedCallback() {
+        }
+        function attributeChangedCallback(attrName, oldVal, newVal) {
+            //log('attrchg',attrName,newVal)
+            mystore.attr=newVal
+        }
+        this.state = {
+            connectedCallback,
+            attributeChangedCallback,
+            disconnectedCallback,
+        }
+        const that = this
+        function getIndex() {
+            const ret=Number(that.getAttribute('data-ix'))
 
+            return ret
+        }
+        const mystore=reactive({
+            attr: null
+        })
+
+        function cb() {
+            const x = mystore.attr
+            return loc[getIndex()];
+        }
+
+        const ret = html`<div class="block">${cb}</div>`
+        ret(this)
+    }
+
+    connectedCallback() {
+        return this.state.connectedCallback()
+    }
+    disconnectedCallback() {
+        return this.state.disconnectedCallback()
+    }
+    attributeChangedCallback(attrName, oldVal, newVal) {
+        return this.state.attributeChangedCallback(attrName, oldVal, newVal)
+    }
+}
+customElements.define("x-vn", XVirtNode);
+
+
+class XVirtEl extends HTMLElement {
+    constructor() {
+        super();
+        //this.attachShadow({ mode: 'open' });
+        const inner = this.innerHTML
+
+        this.innerHTML = ''
+        const cls = "bg-blue-500 hover:bg-blue-700 text-white font-bold rounded"
+        function disp(str) {
+            function handler(e) {
+                mystore.s+=1
+            }
+            return handler
+        }
+        const that = this
+        const [n,s] = [
+            Number(that.getAttribute('data-n')),
+            Number(that.getAttribute('data-s')),
+        ];
+        const mystore = reactive({
+            n,
+            s
+        });
+        function tx(val) {
+            const r = reactive({ v: 0})
+            setTimeout(()=>{
+                log('tx',val)
+                r.v=val
+            },0)
+            return ()=>r.v
+        }
+        const ret = html`
+            <button class="${cls}" @click="${disp('grow')}">grow</button>
+            <button class="${cls}" @click="${disp('shrink')}">shrink</button>
+            ${()=>{
+                const {s,n} = mystore
+                //log(s,s+n)
+                let num = 0
+                const dataSrc = that.getAttribute('data-src')
+                return rng(s,s+n-1).map(i=>{
+                    //log('foo',i)
+                    return html`<x-vn data-src="${dataSrc}" 
+                                      data-ix="${()=>i}" data-key="${num++}"></x-vn>`.key(String(num++))
+                })
+            }}
+        `;
+        ret(this)
+    }
+}
+
+customElements.define("x-virtel", XVirtEl);
+
+class XInput extends HTMLElement {
+    constructor() {
+        super();
+        const bind=this.getAttribute('data-bind')
+        const txt = this.innerText
+        this.innerHTML = ''
+
+        const ret = html`
+        <span class="input-container">
+            <div
+                class="input-field" 
+                contenteditable="true" 
+                @input="${(e)=>{
+                    store.search=e.target.innerText
+                    store.numresults = store.entities.length
+                    store.clickable.length=0
+                    let hasSel = false
+                    store.entities.forEach((e,i)=>{
+                        e.hidden = !e.cmd.includes(store.search)
+                        if (!e.hidden) store.clickable.push(e.index)
+                        if (e.hidden) {
+                            log('hide',e.cmd)
+                            e.selected=false
+                        }
+                        if (e.selected) hasSel = true
+                    })
+                    if (!hasSel && store.clickable.length>0) {
+                        store.entities[store.clickable[0]].selected=true
+                    } 
+                }}"
+                @keydown="${(e)=>{
+                    
+                    
+                    const clickable = store.clickable.map(i=>store.entities[i])
+                    const selIndex = clickable.findIndex((v,i)=>v.selected)
+                    log(e.keyCode)
+                    if (e.keyCode === 40) {
+                        
+                        if (selIndex<clickable.length-1) {
+                            clickable[selIndex].selected=false
+                            clickable[selIndex+1].selected=true
+                        }
+                    }
+                    
+                    log(JSON.stringify(store.entities))
+                }}"
+            >
+                
+            </div>
+            <label class="lbl abs bgrad">
+                ${txt}
+            </label>
+        </span>
+        `
+        ret(this)
+    }
+
+}
+customElements.define('x-input',XInput)
+function template() {
+    function searchResults() {
+        const searchText = store.search
+        return store.entities
+            .map((e)=>{
+                if (e.hidden) {
+                    return false
+                }
+            return html`<div class="block ${e.selected && 'sel'}">
+                ${e.cmd}
+            </div>`
+        })
+    }
+    return html`
+        <x-virtel data-n="5" data-s="0" data-src="mylist">
+            
+        </x-virtel>
+        <div class="flex flex-col">
+            
+            <div class="flex-none dbg">
+                <x-input>foo</x-input>    
+            </div>
+            <div class="flex-1 dbg">
+                ${searchResults}
+            </div>
+        </div>
+        <br>
+<!--        -->
+<!--        <x-s>-->
+<!--            <button>yo</button>-->
+<!--        </x-s>-->
+        <br>
+        
+        <div id="preview">preview</div>
+`;
+}
+function rng(start, end) {
+    let ret=[]
+    for (let i = start; i <= end; i++) {
+        ret.push(i)
+    }
+    return ret
+}
 class XElement extends HTMLElement {
     constructor() {
         super();
@@ -159,57 +369,15 @@ class XElement extends HTMLElement {
         }
         const id = getOrCreate('id', getId)
         log('ctor XElement',id)
-        function makeElState() {
-            return {
-                tag: '',
-                props: {
-                    id,
-                    style: {
-                        border: '1px solid red'
-                    }
-                },
-                children: [
-
-                ]
-            }
-        }
         function makeId(name) {
             return `${id}.${name}`
         }
 
-        store.nodes[id]=makeElState()
-        function thisState() {
-            return store.nodes[id]
-        }
-        const dispatchSwitch = {
-            addChild() {
-                thisState().children.push('child')
-            }
-        }
-        function dispatch2(msg) {
-            return (...params) => {
-                (safe(dispatchSwitch)[msg])(...params);
-            }
-        }
-
-        function getChildren() {
-            return thisState().children.map(c=>html`<div class="flex-1">${c}</div>`)
-        }
-
         function field(name,value) {
             function onInput(e) {
-                dispatch2("tagChanged")
                 const val = e.target.innerText
-                thisState().tag = val
-                dynArrow(thisState())
                 log("input",e, name)
             }
-            const intellisenseBindings = bindings().bind('intellisense', {
-                arrowdown(el) {
-
-                    log('arrowdown',el)
-                }
-            })
             const editId = `${id}.edit`
             function tx(val) {
                 const r = reactive({ v: undefined})
@@ -217,12 +385,6 @@ class XElement extends HTMLElement {
                     r.v=val
                 },1)
                 return ()=>r.v
-            }
-            function getrv(name) {
-                if (!Reflect.has(store.rv,name)) {
-                    return false
-                }
-                return rv(name)
             }
             function getrv(name, getter) {
                 if (Reflect.has(store.rv, name)) return getter(store.rv[name])
@@ -238,7 +400,6 @@ class XElement extends HTMLElement {
             return html`
                 <span class="input-container">
                     <div
-                        data-bind="${intellisenseBindings}"
                         data-tx-size="${tx('foo')}"
                         class="input-field" 
                         id="${editId}"
@@ -251,7 +412,7 @@ class XElement extends HTMLElement {
                     <label for="${id}" class="lbl abs bgrad">
                         ${name}
                     </label>
-                    <select style="${derp}"
+                    <select style="${derp};display: none;"
                             class="" tabindex="-1" id="sblist" size="3">
                         <option>div</option>
                         <option>span</option>
@@ -267,9 +428,9 @@ class XElement extends HTMLElement {
                     <button class="btn" @click="${()=>that.remove()}">🗑️</button>
                     <button class="btn" @click="${()=>{}}">style+</button>
                     <button class="btn" @click="${()=>{}}">class+</button>
-                    <button class="btn" @click="${dispatch2("addChild")}">child+</button>
+                    <button class="btn" @click="${''}">child+</button>
                     <div class="flex flex-col" style="border: black">
-                        ${getChildren}    
+                            
                     </div>
                     
                 </div>
@@ -325,6 +486,7 @@ class XElement extends HTMLElement {
     attributeChangedCallback(attrName, oldVal, newVal) {
         return this.state.attributeChangedCallback(attrName, oldVal, newVal)
     }
+
 }
 customElements.define("x-e", XElement);
 
@@ -357,15 +519,7 @@ function demo() {
 //demo()
 
 
-function template() {
-    return html`
-        <x-e>
-        </x-e>
-        <br>
-        preview:
-        <div id="preview"></div>
-`;
-}
+
 function elById(id, found, missing) {
     const el = document.getElementById(id)
     if (el) {
@@ -382,31 +536,6 @@ function insertAfter(el, newNode) {
 function makeEl(tag) {
     return document.createElement(tag)
 }
-const ioSwitch = {
-    cursor: {
-        ['`'](e) {
-            e.preventDefault()
-            dispatch("insert-before",
-                elById("cursor"),
-                makeEl("x-searchbox"),
-            )
-            setIO("sbinput")
-            elById("sbinput").focus()
-        }
-    },
-    sbinput: {
-        ['arrowdown']() {
-            const el = elById("sblist")
-            if (el.selectedIndex>=el.options.length-1) return
-            el.selectedIndex+=1
-        },
-        ['arrowup']() {
-            const el = elById("sblist")
-            if (el.selectedIndex===0) return
-            el.selectedIndex-=1
-        }
-    }
-}
 const actions = {
     ['insert-before'](before, ...items) {
         const frag = document.createDocumentFragment()
@@ -416,10 +545,9 @@ const actions = {
         before.parentNode.insertBefore(frag,before)
     }
 }
-function onMsg(msg) {
-    //log(msg)
+function onMsg(msg) {   //log(msg)
     if (msg.type==='io') {
-        bindings().dispatch(msg.key,msg.event)
+        return
         findAttr("data-io", els=>{
             const {id} = els[0];
             safe(ioSwitch)[id][msg.key](msg.event)
@@ -471,10 +599,7 @@ template()(appElement)
 
 setIO("cursor")
 
-
 bindkeys(onMsg)
-
-
 
 function log(...items) {
     console.log(...items)

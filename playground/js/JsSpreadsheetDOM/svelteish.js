@@ -1,6 +1,5 @@
 /** @jsx JSX */
 const {h, create, diff, patch, VText} = window.virtualDom
-//const template = Comp()
 function nid(cb) {
     let ret
     if (Reflect.has(nid, "_seed")) {
@@ -12,14 +11,14 @@ function nid(cb) {
     cb && cb(1)
     return 1
 }
-function JSX(type, props, ...kids) {
+function JSX(type, props, ...children) {
     const ret = {
         nid: undefined,
         root: undefined,
         type,
     }
-    if (kids.length>0) {
-        ret.kids=kids
+    if (children.length>0) {
+        ret.children=children
     }
     if (props && Object.keys(props).length>0) {
         ret.props=props
@@ -44,20 +43,9 @@ function Comp() {
 function hify(jsx) {
     if (typeof jsx==="string") return jsx
     const {type,props,children} = jsx
-    return h(type,props,children.map(hify))
+    return h(type,props||{},(children || []).map(hify))
 }
-function vars() {
-    if (vars._value) {
-        return vars._value
-    }
-    const ret = {
-        set(key,value) {
-
-        }
-    }
-    return ret
-}
-function process(node, groupName) {
+function flattenJsx(node, groupName) {
     const nodes = {}
     function selector(c,i,thisArg) {
         const myid = nid()
@@ -66,53 +54,77 @@ function process(node, groupName) {
             const oldc = c
             c = {
                 _nid: myid,
-                _root: false,
                 type: 'string',
-                kids: [oldc]
+                children: [oldc]
             }
         }
         c._nid=myid
-        c._root=false
         c._groupname=groupName
         nodes[myid]=c
-        if (!isStr && c.kids) {
-            c.kids = c.kids.map(selector)
+        if (!isStr && c.children) {
+            c.children = c.children.map(selector)
         }
-        c._numkids = c.kids ? c.kids.length : 0
+        c._numchildren = c.children ? c.children.length : 0
         return myid
     }
-    node._root=true
-    let rootId
+
     node._nid = nid(id=>{
         nodes[id]=node
-        rootId=id
+        node._root=true
     })
 
     node._groupname=groupName
-    if (node.kids.length>0) {
-        node.kids = node.kids.map(selector)
+    if (node.children.length>0) {
+        node.children = node.children.map(selector)
     }
-    node._numkids=node.kids.length
+    node._numchildren=node.children.length
     const flattened = flat(nodes)
     logj(flattened)
 
-    return {
-        nodes
-    }
+    return flattened
 }
 const foo = <root>
     <div id="derp" contentEditable={true}>
         <div>hi</div>
     </div>
 </root>
-process(Comp(),'derp')
+
+function path(p) {
+    return p.split('.')
+}
+function nodeIdsByType(o) {
+    let value
+    for (const key in o) {
+        value=o[key]
+        const [a,b,c] = path(key)
+        if (b==='type') {
+            if (value==='slot') {
+            }
+        }
+    }
+}
+
+
 function render() {
-    var tree = create(hify(foo));
+    var tree = create(hify(<div></div>));
 
     elById("app2").appendChild(tree)
 
-    var newTree = hify(<span>hi2</span>)
+    var newTree = hify(foo2)
     var patches = diff(tree, newTree);
     tree = patch(tree, patches);
 }
+function replaceByClassName(nodes, name) {
+
+}
+
+
+const foo2 = <div data-root="true">
+    <div className="me">hi</div>
+    <div className="me">hi2</div>
+</div>
+
+//render(foo2)
+const flatNodes = flattenJsx(foo2,'derp')
+
 

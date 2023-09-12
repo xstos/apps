@@ -40,6 +40,11 @@ body {
     transform-origin: top left;
     transform: translateY(-0.37em) translateX(0.5ch) scale(0.5);
     letter-spacing: 0.005em;
+    padding-left: 0.25ch;
+    padding-right: 0.25ch;
+}
+.sel {
+    font-weight: bold;
 }
 
 .input-field {
@@ -47,4 +52,7 @@ body {
     border-radius: 4px;
     padding-left: 0.3ch;
     padding-right: 0.3ch;
+}
+.dbg {
+    border: 1px solid red
 }
