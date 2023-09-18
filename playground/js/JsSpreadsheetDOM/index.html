@@ -9,8 +9,39 @@
 <div id="app"></div>
 <div id="app2"></div>
 
-
 <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/fast-json-patch/3.1.1/fast-json-patch.min.js"></script>-->
+
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+    function loadScript(url,type) {
+        let el = document.createElement("script");
+
+        el.setAttribute("src", url);
+        el.setAttribute("type", type);
+        el.setAttribute("async", "true");
+
+        el.addEventListener("load", () => {
+            console.log("File loaded")
+        });
+        el.addEventListener("error", (ev) => {
+            console.log("Error on loading file", ev);
+        });
+        document.body.appendChild(el);
+    }
+    window.mainReady = new Promise((res,rej)=>{
+        const ss = new CSSStyleSheet();
+        const link = document.querySelector(`link[href*='${'main.css'}']`)
+        fetch(link.href).then(resp=>{
+            resp.text().then(txt=>{
+                ss.replace(txt).then(()=>{
+                    window.ss = [ss];
+                    res()
+                })
+            })
+        })
+    })
+
+</script>
 <script type="module">
     import flat from 'https://cdn.jsdelivr.net/npm/flat@5.0.2/+esm';
     import * as arrowJs from 'https://cdn.jsdelivr.net/npm/@arrow-js/core@1.0.0-alpha.9/+esm';
@@ -25,13 +56,43 @@
         cellx,
     })
 </script>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="util.js"></script>
+<script>
+    window.mainReady.then(()=>{
+        loadScript("main.js","text/babel")
+    })
+</script>
 <!--<script src="https://unpkg.com/preact"></script>-->
 <!--<script src="https://unpkg.com/react@17/umd/react.development.js" crossorigin</script>-->
 <!--<script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js" crossorigin></script>-->
 <!--<script src="https://cdn.jsdelivr.net/npm/cyclow@0.5.3/dist/cyclow.min.js"></script>-->
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script type="text/babel" src="main.js"></script>
-<!--<script type="text/babel" src="svelteish.js"></script>-->
+
+<!--<script type="text/babel" src="svelteish.js"></script>
+<link
+        href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,900&display=swap"
+        rel="stylesheet" />
+<link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/tw-elements/dist/css/tw-elements.min.css" />
+<script src="https://cdn.tailwindcss.com/3.3.0"></script>
+<script>
+    tailwind.config = {
+        darkMode: "class",
+        theme: {
+            fontFamily: {
+                sans: ["Roboto", "sans-serif"],
+                body: ["Roboto", "sans-serif"],
+                mono: ["ui-monospace", "monospace"],
+            },
+        },
+        corePlugins: {
+            preflight: false,
+        },
+    };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/tw-elements/dist/js/tw-elements.umd.min.js"></script>
+-->
+<!--<script type="text/babel" src="main.js"></script>-->
+
 </body>
 </html>

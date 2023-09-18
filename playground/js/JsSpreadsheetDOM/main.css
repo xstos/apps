@@ -4,9 +4,22 @@ body {
     -moz-filter: invert(100%);
     -o-filter: invert(100%);
     -ms-filter: invert(100%);
-    font-family: Roboto, Helvetica, Arial, sans-serif;
+    font-family: monospace, sans-serif;
     padding: 5px;
     overflow-wrap: break-word;
+}
+.box {
+    display: inline-block;
+    border: 1px solid blue;
+    padding: 1px 0.5ch 1px 0.5ch;
+}
+.box2 {
+    border: 1px solid red;
+    padding: 1px 0.5ch 1px 0.5ch;
+
+}
+.hidden {
+    visibility: hidden;
 }
 .input-container {
     display: inline-block;
@@ -14,6 +27,7 @@ body {
     min-width: 3ch;
     min-height: 1em;
 }
+
 .abs {
     position: absolute;
     top: 0;

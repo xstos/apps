@@ -3,912 +3,143 @@
 const {cellx, Cell} = window.cellx
 const {reactive, watch, html} = window.arrowJs
 const {h, create, diff, patch, VText} = window.virtualDom
-//need float below component
-var myData = getMeta({
-    id: 0
-})
-const store = reactive({
-    data: [],
-    entities: [],
-    clickable: [],
-    search: '',
-    mylist: rng(1,1000),
-})
-const builtin = generateBuiltins()
-store.entities.push(...builtin)
-store.clickable.push(...builtin.map(e=>e.index))
-function JSX(type, props, ...children) {
-    props=props||{}
+const unflat = flat.unflatten
+const json = JSON.stringify
+const {rng} = window
+const refProto = {
+    deref() {
+        return store.nodes[this.rid]
+    },
+    isNull() {
+        return this.rid===null
+    },
+    fwdIter() {
+        return this.deref().fwdIter()
+    },
+    eq(other) {
+        other=other.ref()
+        return this.rid===other.rid
+    }
+}
+function nullRef() {
+    const ret = { rid: null }
+    Object.setPrototypeOf(ret,refProto)
+    return ret
+}
+const proto = {
+    msg(value) {
+        const {type,data}=value
+        if (type==='keydown') {
+            const k = data
+            if (k==='ctrl+s') {
+                const me = this
+                const stra = <string/>
 
-    return {type,props,children}
+            }
+        }
+    },
+    deref() {
+      return this
+    },
+    eq(other) {
+        other = other.deref()
+        return this.id===other.id
+    },
+    ref() {
+        const rid = this.id
+        const ret = { rid }
+        Object.setPrototypeOf(ret,refProto)
+        return ret
+    },
+    fwdIter() {
+        let current = this
+        let ret
+        let done = false
+        function myiter() {
+            if (done) {
+                return {done}
+            }
+
+            if (current.n.isNull()) {
+                done=true
+                return {value: current, done: false}
+            }
+            ret = current
+            current = current.n.deref()
+            return {value: ret, done: false}
+        }
+
+        return iter(myiter)
+    },
+    toFwdArray() {
+      return Array.from(this.fwdIter())
+    },
+    insertBefore(node) {
+        node=node.deref()
+        if (store.first.eq(this)) {
+            store.first = node
+        }
+        let [p,n] = this.links()
+        let [pb, nb] = node.links()
+        node.p=p
+        node.n=this.ref()
+        this.p=node.ref()
+    },
+    links() {
+        return [this.p, this.n]
+    },
+    render() {
+        const {type} = this
+        if (type==='cursor') {
+            return '█'
+        }
+        return type
+    }
+}
+// null.cur.null
+const store = reactive({})
+store.nodes = []
+store.cursor=<cursor single/>.ref()
+store.first = store.cursor
+
+store.cursor.deref().insertBefore(<foo/>)
+log(Array.from(store.first.fwdIter()))
+
+
+function makeNode(type, props) {
+    let ret = {type, ...props, p: nullRef(), n: nullRef()}
+    let id
+    Object.setPrototypeOf(ret, proto)
+    if (!Reflect.has(ret, 'id')) {
+        id = getId()
+        ret.id = id
+        store.nodes[id] = ret
+    }
+    return ret;
 }
 
-/*
-target: id, path: style.background-color, value: red
-
-virtualized html:
-number of children textbox
-
- */
-function generateBuiltins() {
-    const {children: [c]} = <derp>
-        z
-        y
-        q
-    </derp>
-
-    return c.split(' ')
-        .map((cmd,i)=>{
-            return {
-                cmd: '+'+cmd,
-                selected: i===0,
-                hidden: false,
-                index: i
-            }
-        })
+function JSX(type, props, ...children) {
+    props=props||{}
+    let openNode = makeNode(type, props);
+    if (!Reflect.has(openNode,'single')) {
+        const closingNode = makeNode('/'+type, {})
+        const openId = openNode.ref()
+        const closeId = closingNode.ref()
+        openNode.openId = closingNode.openId = openId
+        openNode.closeId = closingNode.closeId = closeId
+    }
+    return openNode
 }
 
 const appElement = document.getElementById('app');
-const dockLeft = html`
-<div class="flex flex-row">
-    <div class="flex-none">
-    </div>
-    <div class="flex-1">
-    </div>
-</div>
-`;
-/*
-tag last focused element
-tick mark jumps to search box
-jump back after
- */
-class SearchBox extends HTMLElement {
-    constructor() {
-        super();
-        //this.attachShadow({ mode: 'open' });
-    }
-    connectedCallback() {
-        this.id = "searchbox";
-        const s = "padding-left: 3px";
-
-        (html`
-            <div>
-                <div class="flex-none">
-                    <input style="${s}" type="text" id="sbinput">
-                </div>
-                <div class="flex-1">
-                    <select tabindex="-1" id="sblist" size="3">
-                        <option>div</option>
-                        <option>span</option>
-                        <option>derp</option>
-                    </select>
-                </div>    
-            </div>
-            
-            
-        `)(this)
-
-    }
-    attributeChangedCallback(attrName, oldVal, newVal) {
-
-    }
-}
-customElements.define("x-searchbox", SearchBox);
-function dynArrow(data) {
-    if (typeof data === 'string') return data
-    const {tag,props,children} = data
-    let {style, ...attr}=props
-    attr=Object.entries(attr)
-    function HTML(inner) {
-        return `html\`${inner}\``
-    }
-    function ATTR([name, value]) {
-        return `${name}="${value}"`
-    }
-    function PAIR([k,v]) {
-        return `${k}: ${v}`
-    }
-    function STYLE(o) {
-        const pairs = Object.entries(o)
-        if (pairs.length<1) return ''
-        return `style="${pairs.map(PAIR).join(";")}"`
-    }
-    function TAG(t, p, c) {
-        return `<${t}${p}>${c}</${t}>`
-    }
-    const stylePairs = STYLE(style)
-    //log(stylePairs)
-    const attrs = []
-    if (stylePairs.length>0) {
-        attrs.push(...stylePairs)
-    }
-    if (attr.length>0) {
-        attrs.push(...attr.map(ATTR))
-    }
-    const attrStr = attrs.length>0 ? " "+attrs.join(' '): ''
-    const childStrs = children.map(dynArrow)
-    const foo = HTML(TAG(tag,`${attrStr}`,childStrs.join('\n')))
-    //log(foo)
-    return foo
-}
-function focusin(el) {
-    el.setAttribute('x-focus','')
-}
-function focusout(el) {
-    el.removeAttribute('x-focus')
-}
-class XSlot extends HTMLElement {
-    constructor() {
-        super();
-
-    }
-}
-customElements.define("x-slot", XSlot);
-class XVirtNode extends HTMLElement {
-    static get observedAttributes() {
-        return ['data-ix'];
-    }
-    constructor() {
-        super();
-        const id = getId()
-        const loc = window.store[this.getAttribute('data-src')]
-        function connectedCallback() {
-            log('connected',id)
-        }
-        function disconnectedCallback() {
-        }
-        function attributeChangedCallback(attrName, oldVal, newVal) {
-            //log('attrchg',attrName,newVal)
-            mystore.attr=newVal
-        }
-        this.state = {
-            connectedCallback,
-            attributeChangedCallback,
-            disconnectedCallback,
-        }
-        const that = this
-        function getIndex() {
-            const ret=Number(that.getAttribute('data-ix'))
-
-            return ret
-        }
-        const mystore=reactive({
-            attr: null
-        })
-
-        function cb() {
-            const x = mystore.attr
-            return loc[getIndex()];
-        }
-
-        const ret = html`<div class="block">${cb}</div>`
-        ret(this)
-    }
-
-    connectedCallback() {
-        return this.state.connectedCallback()
-    }
-    disconnectedCallback() {
-        return this.state.disconnectedCallback()
-    }
-    attributeChangedCallback(attrName, oldVal, newVal) {
-        return this.state.attributeChangedCallback(attrName, oldVal, newVal)
-    }
-}
-customElements.define("x-vn", XVirtNode);
-
-
-class XVirtEl extends HTMLElement {
-    constructor() {
-        super();
-        //this.attachShadow({ mode: 'open' });
-        const inner = this.innerHTML
-
-        this.innerHTML = ''
-        const cls = "bg-blue-500 hover:bg-blue-700 text-white font-bold rounded"
-        function disp(str) {
-            function handler(e) {
-                mystore.s+=1
-            }
-            return handler
-        }
-        const that = this
-        const [n,s] = [
-            Number(that.getAttribute('data-n')),
-            Number(that.getAttribute('data-s')),
-        ];
-        const mystore = reactive({
-            n,
-            s
-        });
-        function tx(val) {
-            const r = reactive({ v: 0})
-            setTimeout(()=>{
-                log('tx',val)
-                r.v=val
-            },0)
-            return ()=>r.v
-        }
-        const ret = html`
-            <button class="${cls}" @click="${disp('grow')}">grow</button>
-            <button class="${cls}" @click="${disp('shrink')}">shrink</button>
-            ${()=>{
-                const {s,n} = mystore
-                //log(s,s+n)
-                let num = 0
-                const dataSrc = that.getAttribute('data-src')
-                return rng(s,s+n-1).map(i=>{
-                    //log('foo',i)
-                    return html`<x-vn data-src="${dataSrc}" 
-                                      data-ix="${()=>i}" data-key="${num++}"></x-vn>`.key(String(num++))
-                })
-            }}
-        `;
-        ret(this)
-    }
-}
-
-customElements.define("x-virtel", XVirtEl);
-
-class XInput extends HTMLElement {
-    constructor() {
-        super();
-        const bind=this.getAttribute('data-bind')
-        const txt = this.innerText
-        this.innerHTML = ''
-
-        const ret = html`
-        <span class="input-container">
-            <div
-                class="input-field" 
-                contenteditable="true" 
-                @input="${(e)=>{
-                    store.search=e.target.innerText
-                    store.numresults = store.entities.length
-                    store.clickable.length=0
-                    let hasSel = false
-                    store.entities.forEach((e,i)=>{
-                        e.hidden = !e.cmd.includes(store.search)
-                        if (!e.hidden) store.clickable.push(e.index)
-                        if (e.hidden) {
-                            log('hide',e.cmd)
-                            e.selected=false
-                        }
-                        if (e.selected) hasSel = true
-                    })
-                    if (!hasSel && store.clickable.length>0) {
-                        store.entities[store.clickable[0]].selected=true
-                    } 
-                }}"
-                @keydown="${(e)=>{
-                    
-                    
-                    const clickable = store.clickable.map(i=>store.entities[i])
-                    const selIndex = clickable.findIndex((v,i)=>v.selected)
-                    log(e.keyCode)
-                    if (e.keyCode === 40) {
-                        
-                        if (selIndex<clickable.length-1) {
-                            clickable[selIndex].selected=false
-                            clickable[selIndex+1].selected=true
-                        }
-                    }
-                    
-                    log(JSON.stringify(store.entities))
-                }}"
-            >
-                
-            </div>
-            <label class="lbl abs bgrad">
-                ${txt}
-            </label>
-        </span>
-        `
-        ret(this)
-    }
-
-}
-customElements.define('x-input',XInput)
-function template() {
-    function searchResults() {
-        const searchText = store.search
-        return store.entities
-            .map((e)=>{
-                if (e.hidden) {
-                    return false
-                }
-            return html`<div class="block ${e.selected && 'sel'}">
-                ${e.cmd}
-            </div>`
-        })
-    }
-    return html`
-        <x-virtel data-n="5" data-s="0" data-src="mylist">
-            
-        </x-virtel>
-        <div class="flex flex-col">
-            
-            <div class="flex-none dbg">
-                <x-input>foo</x-input>    
-            </div>
-            <div class="flex-1 dbg">
-                ${searchResults}
-            </div>
-        </div>
-        <br>
-<!--        -->
-<!--        <x-s>-->
-<!--            <button>yo</button>-->
-<!--        </x-s>-->
-        <br>
-        
-        <div id="preview">preview</div>
-`;
-}
-function rng(start, end) {
-    let ret=[]
-    for (let i = start; i <= end; i++) {
-        ret.push(i)
-    }
-    return ret
-}
-class XElement extends HTMLElement {
-    constructor() {
-        super();
-        const that = this;
-        //that.attachShadow({ mode: 'open' });
-
-        function getOrCreate(key,ctor) {
-            let ret = that.getAttribute(key)
-            if (ret) {
-                return ret
-            }
-            ret = ctor()
-            that.setAttribute(key,ret)
-            return ret
-        }
-        const id = getOrCreate('id', getId)
-        log('ctor XElement',id)
-        function makeId(name) {
-            return `${id}.${name}`
-        }
-
-        function field(name,value) {
-            function onInput(e) {
-                const val = e.target.innerText
-                log("input",e, name)
-            }
-            const editId = `${id}.edit`
-            function tx(val) {
-                const r = reactive({ v: undefined})
-                setTimeout(()=>{
-                    r.v=val
-                },1)
-                return ()=>r.v
-            }
-            function getrv(name, getter) {
-                if (Reflect.has(store.rv, name)) return getter(store.rv[name])
-                return getter(undefined)
-            }
-            function derp() {
-                return `
-                min-width: 5ch;
-                ${getrv('foo.width', (v)=>v ? 'width:'+v+'px' : '') }
-                `
-            }
-
-            return html`
-                <span class="input-container">
-                    <div
-                        data-tx-size="${tx('foo')}"
-                        class="input-field" 
-                        id="${editId}"
-                        contenteditable="true" 
-                        @input="${onInput}"
-                            
-                    >
-                        ${value}
-                    </div>
-                    <label for="${id}" class="lbl abs bgrad">
-                        ${name}
-                    </label>
-                    <select style="${derp};display: none;"
-                            class="" tabindex="-1" id="sblist" size="3">
-                        <option>div</option>
-                        <option>span</option>
-                        <option>derp</option>
-                    </select>
-                    
-                </span>
-            `;
-        }
-        const template = html`
-                <div style="display: inline-block;">
-                    ${()=>field("action")}
-                    <button class="btn" @click="${()=>that.remove()}">🗑️</button>
-                    <button class="btn" @click="${()=>{}}">style+</button>
-                    <button class="btn" @click="${()=>{}}">class+</button>
-                    <button class="btn" @click="${''}">child+</button>
-                    <div class="flex flex-col" style="border: black">
-                            
-                    </div>
-                    
-                </div>
-                `;
-        template(that);
-
-        function connectedCallback() {
-            log('connectedCallback',id)
-            if (that.parentElement.tagName!=='X-E') {
-                that.setAttribute('x-root','true')
-            }
-
-        };
-        function disconnectedCallback() {
-            log('disconnectedCallback',id)
-        }
-        function attributeChangedCallback(attrName, oldVal, newVal) {
-            log('attributeChangedCallback',{id, attrName,oldVal,newVal})
-        }
-        this.state = {
-            connectedCallback,
-            attributeChangedCallback,
-            disconnectedCallback,
-        }
-    }
-
-    /*
-    connectedCallback() {
-        const id = this._id
-        setTimeout(()=>{
-
-        })
-
-
-        (html`
-            <div>
-                ${this._id}
-                <input type="text" id="${this._id}" @input="${e => { data.value = e.target.value }}">
-                <div style="border: 1px solid black;padding: 1px">
-                </div>
-            </div>
-        `)(this.shadowRoot)
-
-    }
-    */
-
-    connectedCallback() {
-        return this.state.connectedCallback()
-    }
-    disconnectedCallback() {
-        return this.state.disconnectedCallback()
-    }
-    attributeChangedCallback(attrName, oldVal, newVal) {
-        return this.state.attributeChangedCallback(attrName, oldVal, newVal)
-    }
-
-}
-customElements.define("x-e", XElement);
-
-
-function vn(txt) {
-    return h("div", {id: "11"}, [
-        String(txt)
-    ]);
-}
-
-function demo() {
-
-// 2: Initialise the document
-    var count = 0;      // We need some app data. Here we just store a count.
-
-    var tree = vn(count);               // We need an initial tree
-    var rootNode = create(tree);     // Create an initial root DOM node ...
-    elById("app2").appendChild(rootNode);    // ... and it should be in the document
-
-// 3: Wire up the update logic
-    setInterval(function () {
-        count++;
-
-        var newTree = vn(count);
-        var patches = diff(tree, newTree);
-        rootNode = patch(rootNode, patches);
-        tree = newTree;
-    }, 1000);
-}
-//demo()
 
 
 
-function elById(id, found, missing) {
-    const el = document.getElementById(id)
-    if (el) {
-        found && found(el)
-    } else {
-        missing && missing()
-    }
-    return el
-}
 
-function insertAfter(el, newNode) {
-    el.parentNode.insertBefore(newNode, el.nextSibling);
-}
-function makeEl(tag) {
-    return document.createElement(tag)
-}
-const actions = {
-    ['insert-before'](before, ...items) {
-        const frag = document.createDocumentFragment()
-        items.forEach(item => {
-            frag.appendChild(item)
-        })
-        before.parentNode.insertBefore(frag,before)
-    }
-}
-function onMsg(msg) {   //log(msg)
-    if (msg.type==='io') {
-        return
-        findAttr("data-io", els=>{
-            const {id} = els[0];
-            safe(ioSwitch)[id][msg.key](msg.event)
-        })
-    }
-}
+document.addEventListener('keydown', (e)=>{
+    const k =getKey(e)
+    store.cursor.msg({type: 'keydown', data: k})
 
-function findAttr(attr, foundCallback) {
-    const ret = document.querySelectorAll(`[${attr}]`);
-    if (ret.length>0) {
-        foundCallback && foundCallback(ret)
-    }
-}
-function hasIO(el) {
-    return el.hasAttribute("data-io")
-}
-function setIO(id) {
-    findAttr("data-io", (els)=>{
-        els.forEach(el=>el.removeAttribute("data-io"))
-    })
-    elById(id,el=>el.setAttribute("data-io",""))
-}
-'change dblclick focusin focusout'.split(' ').map(type => {
-    document.addEventListener(type, e => {
-        onEvent(type, e)
-    })
 })
 
-function onEvent(type,e) {
-    const el = e.target
-    if (type==="focusin") {
-        focusin(el)
-    }
-    if (type==="focusout") {
-        focusout(el)
-    }
-
-    //log(type,e,el)
-    const { nodeType, nodeName, id } = el
-    const { activeElement} = document
-    if (nodeType===1) { //element
-        if (nodeName==="SELECT") {
-
-        }
-    }
-}
-watchMutations(appElement)
-template()(appElement)
-
-setIO("cursor")
-
-bindkeys(onMsg)
-
-function log(...items) {
-    console.log(...items)
-}
-function logj(...items) {
-    log(...items.map(i=>JSON.stringify(i,null,2)))
-}
-function lorem() { return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' }
-
-function bindkeys(onkey, shouldHandleCallback) {
-
-    document.addEventListener('keydown', event => {
-        const key = event.key.toLowerCase()
-
-        if (key==="control" || key==="alt" || key==="shift") return
-        const mod = [
-            event.ctrlKey && "ctrl",
-            event.altKey && "alt",
-            event.shiftKey && "shift"]
-            .filter(v=>v)
-
-        const foo = [...mod, key].join("+")
-        if (shouldHandleCallback) {
-            const shouldHandle = shouldHandleCallback(event, foo)
-            if (shouldHandle === false) return
-        }
-        pressed({ tag: 'io', key: foo, event })
-    });
-    function pressed(e) {
-        //console.log(e)
-        const o = { type: "io",  key: e.key.toLowerCase(), event: e.event}
-        onkey(o)
-    }
-
-    /*
-    document.addEventListener('click', (event)=> {
-      console.log('emitting click events');
-    })
-
-    document.addEventListener('dblclick',(event)=>{
-      console.log('emitting double click events');
-    } )
-
-    document.addEventListener('contextmenu', (event)=>{
-      console.log('emitting right click events');
-    })
-
-    document.addEventListener('mouseenter',(event)=> {
-      console.log("mouse enter, hovering started")
-    })
-
-    document.addEventListener('mouseleave', (event)=> {
-      console.log("hovering finished")
-    })
-    */
-    return onkey
-}
-
-//create renderer for jsx tree maybe cellx proxy wrapper
-//reactive assembler!!!
-//
-function cyclowJsx() {
-    return <div>
-        <counter>{0}</counter>
-        <inc plus$>
-            {1}
-        </inc>
-        <dec minus$>
-            {1}
-        </dec>
-        <_ pipe$>{1}<counter/></_>
-        <onClick fun$>
-            <_ pipe$><counter/><slot/><counter/></_>
-        </onClick>
-        <plus button$>
-            <caption>+</caption>
-            <click>
-                <cf-onClick><plus$/></cf-onClick>
-            </click>
-        </plus>
-        <minus button$>
-            <caption>-</caption>
-            <click>
-                <onClick figureOut$><minus$/></onClick>
-            </click>
-        </minus>
-    </div>
-}
-function cyclowExample() {
-    const cyclow = window.cyclow
-    const {Block, run} = cyclow
-
-    const Counter = () => Block({
-        on: {
-            'in.init':  () => counter => 0,
-            'dom.increment': () => counter => counter + 1,
-            'dom.decrement': () => counter => counter - 1
-        },
-        view: counter => ({tag:'div#app', content: [
-                {tag: 'div.counter', content: `${counter}`},
-                {tag: 'div.buttons', content: [
-                        {tag: 'button', on: {click: 'decrement'}, content: '-'},
-                        {tag: 'button', on: {click: 'increment'}, content: '+'}
-                    ]}
-            ]})
-    })
-
-    run(Counter, {target: 'app2'})
-}
-
-function cellxExample() {
-    let num = cellx(1);
-    let plusOne = cellx(() => num() + 1);
-    plusOne.on(Cell.EVENT_CHANGE, (evt) => {
-        store.foo=evt.data.value
-        console.log(JSON.stringify(evt.data)) // {"prevValue":2,"value":3}
-    })
-    num(2)
-}
-
-function setMeta(o) {
-    const meta = document.getElementById('app')
-    Object.entries(o).forEach(([k,v])=>{
-        meta.setAttribute("data-"+k,v)
-    })
-}
-function getMeta(o) {
-    const meta = document.getElementById('app')
-    const ret = {}
-    Object.entries(o).forEach(([k,v])=>{
-        const hkey = "data-"+k
-        var foo = meta.getAttribute(hkey)
-        if (!foo) {
-            meta.setAttribute("data-"+k,v)
-            foo=v
-        }
-        ret[k]=foo
-    })
-    return ret
-}
-
-//https://www.tiny.cloud/blog/using-html-contenteditable/
-//https://dev.to/132/fre-offscreen-rendering-the-fastest-vdom-algorithm-bfn
-//https://webreflection.medium.com/bringing-jsx-to-template-literals-1fdfd0901540
-//https://stackoverflow.com/questions/71958793/how-does-a-browser-transpile-jsx
-//for later https://medium.com/@keshavagrawal/electron-js-react-js-express-js-b0fb2aa8233f
-//http://rickardlindberg.me/writing/alan-kay-notes/tr2009016_steps09.pdf
-//cells emit change events
-//a1=2 b1=a1 is the same as a1 on change set b1=a1
-
-function makeProxy() {
-    const f = ()=>{}
-    const dom = { type: 'body', props: {}, children: []}
-    let get = myget
-    let set = myset
-    let apply = myapply
-    let domProxy = null
-    const path = []
-    function myget(target, prop, receiver) {
-        log('get',prop)
-        return domProxy
-    }
-    function myset(target, key, value) {
-        log('set',{key,value})
-        let o = dom
-        path.forEach((i)=>{
-            let el=o.children[i]
-            if (!el) {
-                el={ type: '', props: {}, children: [] }
-                o.children[i]=el
-            }
-            o=el
-        })
-        return true
-    }
-    function myapply(target, thisArg, argumentsList) {
-        log('myapply', target, thisArg, argumentsList)
-        return domProxy
-    }
-    domProxy = new Proxy(f,{
-        get(target, prop, receiver) {
-            path.push(prop)
-            return get(target,prop,receiver)
-        },
-        set(target, key, value) {
-            return set(target,key,value)
-        },
-        apply(target, thisArg, argumentsList) {
-            return apply(target,thisArg,argumentsList)
-        },
-    })
-    return domProxy
-}
-//noop proxy
-function noop() {
-    return new Proxy(()=>{}, {
-        get(target, p, receiver) {
-            return receiver
-        },
-        apply(target, thisArg, argArray) {
-            return thisArg
-        }
-    })
-
-}
-//safe proxy
-function safe(o) {
-    return new Proxy(o,{
-        get(target, property, receiver) {
-            if (property in target) {
-                const value = target[property];
-                if (typeof value === 'object' && value !== null) {
-                    // If the property is an object, create a safe proxy for it
-                    return safe(value);
-                } else if (typeof value === 'function') {
-                    // If the property is a function, return it
-                    return value.bind(target);
-                } else {
-                    // Return primitive values as is
-                    return value;
-                }
-            } else {
-                // Handle missing properties gracefully with a no-op
-                return noop();
-            }
-        },
-        apply(target, thisArg, argumentsList) {
-            if (typeof target === 'function') {
-                // Check if the target is a function and call it
-                return target.apply(thisArg, argumentsList);
-            } else {
-                // Handle invalid function calls gracefully with a no-op
-                return noop();
-            }
-        }
-    })
-}
-
-function getId(defaultSeed=1) {
-    if (Reflect.has(getId, "_seed")) {
-        return ++getId._seed
-    }
-    getId._seed=defaultSeed
-    return defaultSeed
-}
-
-
-
-function watchMutations(el) {
-    function callback(mutationList, observer) {
-        for (const mutation of mutationList) {
-            if (mutation.type === "childList") {
-                //log('mutate child', mutation)
-                //console.log("A child node has been added or removed.");
-            } else if (mutation.type === "attributes") {
-                const {attributeName, oldValue, target}=mutation
-                const newValue = target.getAttribute(attributeName)
-                onEvent('attributeChanged',{attributeName, oldValue, target, newValue});
-                if (newValue!==null) {
-                    if (attributeName.startsWith('data-tx-')) {
-                        const key = attributeName.replace('data-tx-','')
-
-                        if (key==='size') {
-                            function handle(entry) {
-                                Object.entries(entry).forEach(([k,v])=>{
-                                    rv(`${newValue}.${k}`,v)
-                                })
-                            }
-
-                            resizeObserver(target, handle)
-                        }
-                    }
-                    if (attributeName.startsWith('data-rx-')) {
-                        debugger
-                        const [varname,...path] = attributeName.replace('data-rx-','').split('.')
-                        //log(varname,...path)
-                    }
-                }
-                //console.log(`The ${mutation.attributeName} attribute was modified.`);
-            }
-        }
-    }
-    new MutationObserver(callback).observe(el, {attributes: true, subtree: true, childList: true});
-}
-
-function rv(name,...value) {
-    if (value.length<1) {
-        return store.rv[name]
-    }
-    store.rv[name]=value[0]
-    //watch(()=>store.rv[name], (val)=>log('rv set',name,val))
-}
-function resizeObserver(el, callback) {
-    //https://developer.mozilla.org/en-US/docs/Web/API/Resize_Observer_API
-    //log('observing size',el)
-    const ro = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-            const {width, height} = entry.contentRect
-            //log('size changed',entry.target, width,height)
-            callback({target: entry.target, width, height})
-        }
-    });
-
-    ro.observe(el);
-}
-function singleton(fun) {
-    if (Reflect.has(fun,'_value')) {
-        return fun._value
-    }
-    fun._value=fun()
-    return fun._value
-}
+html`${store.first.toFwdArray().map(n=>n.render())}`(appElement)

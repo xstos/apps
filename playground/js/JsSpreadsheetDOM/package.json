@@ -4,7 +4,7 @@
   "description": "",
   "main": "main.js",
   "scripts": {
-    "dev": "npx live-server -q"
+    "dev": "npx live-server -q --port=8123"
   },
   "author": "",
   "license": "ISC"
