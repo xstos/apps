@@ -7,7 +7,13 @@ const unflat = flat.unflatten
 const json = JSON.stringify
 const {rng} = window
 const refProto = {
+    ref() {
+        return this
+    },
     deref() {
+        if (this.isNull()) {
+            return this
+        }
         return store.nodes[this.rid]
     },
     isNull() {
@@ -19,6 +25,16 @@ const refProto = {
     eq(other) {
         other=other.ref()
         return this.rid===other.rid
+    },
+    delete() {
+        if (this.isNull()) {
+            log('warning deleting null')
+            return
+        }
+        this.deref().delete()
+    },
+    render() {
+        return ''
     }
 }
 function nullRef() {
@@ -35,11 +51,21 @@ const proto = {
                 const me = this
                 const stra = <string/>
 
+            } else if (k==='backspace') {
+                store.cursor.deref().deleteBefore()
+            } else {
+                store.cursor.deref().insertBefore(<txt>{k}</txt>)
             }
+
+
         }
     },
+
     deref() {
       return this
+    },
+    isNull() {
+        return false
     },
     eq(other) {
         other = other.deref()
@@ -74,40 +100,81 @@ const proto = {
     toFwdArray() {
       return Array.from(this.fwdIter())
     },
+    setNext(node) {
+        this.n = node.ref()
+        node.p = this.ref()
+    },
+    refresh() {
+        const arr = Array.from(store.first.deref().fwdIter())
+        log(...arr.map(v=>v.value))
+        var i =0
+        const r = store.renderNodes
+        r.length = 0
+        r.push(...arr)
+    },
     insertBefore(node) {
         node=node.deref()
-        if (store.first.eq(this)) {
-            store.first = node
-        }
+
         let [p,n] = this.links()
-        let [pb, nb] = node.links()
-        node.p=p
-        node.n=this.ref()
-        this.p=node.ref()
+
+        if (p.isNull()) {
+            store.first = node.ref()
+        } else {
+            p.setNext(node)
+        }
+        node.setNext(this)
+
+        this.refresh()
+    },
+    deleteBefore() {
+        let [p,n] = this.links()
+        if (p.isNull()) {
+            return
+        } else {
+            let [p1,n1] = p.deref().links()
+
+            this.p = p1
+            if (p1.isNull()) {
+                store.first = this.ref()
+            } else {
+                p1.setNext(this)
+            }
+        }
+
+        this.refresh()
     },
     links() {
-        return [this.p, this.n]
+        return [this.p.deref(), this.n.deref()]
     },
     render() {
         const {type} = this
-        if (type==='cursor') {
-            return '█'
-        }
-        return type
+        return html`<span>${this.value}</span>`
+    },
+    toString() {
+        return this.value
+    },
+    isSingle() {
+        return this.type==='cursor' || this.type === 'txt'
     }
 }
-// null.cur.null
-const store = reactive({})
+
+const store = reactive({
+    renderNodes: []
+})
 store.nodes = []
 store.cursor=<cursor single/>.ref()
 store.first = store.cursor
+store.renderNodes.push(store.cursor.deref())
+//store.num=1
 
-store.cursor.deref().insertBefore(<foo/>)
-log(Array.from(store.first.fwdIter()))
-
-
-function makeNode(type, props) {
+function makeNode(type, props, ...children) {
     let ret = {type, ...props, p: nullRef(), n: nullRef()}
+    if (type==="txt") {
+        ret.value=children[0]
+    } else if (type==="cursor") {
+        ret.value='█'
+    }
+
     let id
     Object.setPrototypeOf(ret, proto)
     if (!Reflect.has(ret, 'id')) {
@@ -120,8 +187,9 @@ function makeNode(type, props) {
 
 function JSX(type, props, ...children) {
     props=props||{}
-    let openNode = makeNode(type, props);
-    if (!Reflect.has(openNode,'single')) {
+    let openNode = makeNode(type, props, ...children);
+
+    if (!openNode.isSingle()) {
         const closingNode = makeNode('/'+type, {})
         const openId = openNode.ref()
         const closeId = closingNode.ref()
@@ -133,13 +201,10 @@ function JSX(type, props, ...children) {
 
 const appElement = document.getElementById('app');
 
-
-
-
 document.addEventListener('keydown', (e)=>{
     const k =getKey(e)
-    store.cursor.msg({type: 'keydown', data: k})
+    store.cursor.deref().msg({type: 'keydown', data: k})
 
 })
 
-html`${store.first.toFwdArray().map(n=>n.render())}`(appElement)
+html`${()=>store.renderNodes.map(n=>n.deref().render())}`(appElement)
