@@ -33,7 +33,14 @@ class ConsoleArea extends HTMLElement {
         const els = mystore.chars
         function announce(el) {
             const id=el.id
-            html`<span>${()=>els[id]}</span>`.key(id)(el)
+            function makeEl() {
+                const value = els[id]
+                if (value==='enter') {
+                    return html`<br>`
+                }
+                return html`<span>${()=>els[id]}</span>`.key(id)
+            }
+            html`${makeEl}`(el)
             const observer = new IntersectionObserver((entries) => {
                 if(entries[0].isIntersecting){
 
