@@ -8,6 +8,19 @@ body {
     padding: 5px;
     overflow-wrap: break-word;
 }
+.foc {
+    -webkit-box-shadow:inset 0px 0px 0px 1px #f00;
+    -moz-box-shadow:inset 0px 0px 0px 1px #f00;
+    box-shadow:inset 0px 0px 0px 1px #f00;
+}
+.dock-container-rows {
+    display: flex;
+    flex-direction: column;
+}
+.dock-container-cols {
+    display: flex;
+    flex-direction: row;
+}
 .box {
     display: inline-block;
     border: 1px solid blue;

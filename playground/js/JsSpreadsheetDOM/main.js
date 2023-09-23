@@ -6,6 +6,91 @@ const {h, create, diff, patch, VText} = window.virtualDom
 const unflat = flat.unflatten
 const json = JSON.stringify
 const {rng} = window
+
+function frag(html) {
+    const df = document.createElement('span')
+    df.innerHTML = html
+    return df.firstChild
+}
+class ConsoleChar extends HTMLElement {
+    constructor() {
+        super();
+    }
+    connectedCallback() {
+        const conArea = this.parentElement.parentElement
+        conArea.announce(this)
+    }
+
+}
+customElements.define("x-cc", ConsoleChar);
+class ConsoleArea extends HTMLElement {
+    constructor() {
+        super();
+    }
+    connectedCallback() {
+        const mystore = reactive({chars: []})
+        const that = this
+        const els = mystore.chars
+        function announce(el) {
+            const id=el.id
+            html`<span>${()=>els[id]}</span>`.key(id)(el)
+            const observer = new IntersectionObserver((entries) => {
+                if(entries[0].isIntersecting){
+
+                } else {
+                    log('hidden',el)
+                    // el is not visible
+                }
+            }, {threshold: 1.0});
+            observer.observe(el)
+        }
+        this.announce = announce;
+        this.setAttribute('id','console-area')
+        html`<div style="width: 100%;height: 100%; overflow-y: hidden"><span style="visibility: collapse">&nbsp</span>${()=>mystore.chars.map((c,i)=>html`<x-cc id="${i}"></x-cc>`)}
+        </div>`(this);
+        mystore.chars.push(' ')
+        const container = this.firstElementChild
+        const firstChar = container.firstElementChild
+        const {width,height} = container.getBoundingClientRect()
+
+        const { width: cw, height: ch } = firstChar.getBoundingClientRect()
+        let [nx,ny] = [width/cw, height/ch]
+        nx=Math.floor(nx)
+        ny=Math.floor(ny)
+        const numChars = nx*ny-1
+        firstChar.remove()
+        mystore.chars.push(...rng(1,numChars-1).map(c=>' '))
+        setTimeout(()=>{
+            for (let i = 0; i < container.childNodes.length; i++) {
+                const myel = container.childNodes[0]
+                //log(myel)
+            }
+        },1000)
+
+        function setChars(offset,...items) {
+            for (let i = 0; i < items.length; i++) {
+                mystore.chars[i]=items[i]
+            }
+            for (let i = items.length; i < mystore.chars.length; i++) {
+                mystore.chars[i]=' '
+            }
+        }
+        this.setChars = setChars
+
+        resizeObserver(this.firstElementChild,e=>{
+            log('resize',e)
+        })
+    }
+}
+customElements.define("x-ca", ConsoleArea);
+
+
+function nullRef() {
+    const ret = { rid: null }
+    Object.setPrototypeOf(ret,refProto)
+    return ret
+}
+
 const refProto = {
     ref() {
         return this
@@ -37,27 +122,26 @@ const refProto = {
         return ''
     }
 }
-function nullRef() {
-    const ret = { rid: null }
-    Object.setPrototypeOf(ret,refProto)
-    return ret
-}
+
 const proto = {
     msg(value) {
         const {type,data}=value
         if (type==='keydown') {
             const k = data
+            let cur = store.cursor.deref();
             if (k==='ctrl+s') {
                 const me = this
-                const stra = <string/>
+                const [openstr,closestr] = <string/>
+
+                cur.surround(openstr,closestr)
 
             } else if (k==='backspace') {
-                store.cursor.deref().deleteBefore()
+                    cur.deleteBefore()
             } else {
-                store.cursor.deref().insertBefore(<txt>{k}</txt>)
+                    cur.insertBefore(<c>{k}</c>)
             }
 
-
+            cur.refresh()
         }
     },
 
@@ -105,12 +189,11 @@ const proto = {
         node.p = this.ref()
     },
     refresh() {
-        const arr = Array.from(store.first.deref().fwdIter())
-        log(...arr.map(v=>v.value))
+        const arr = Array.from(store.rootOpen.deref().fwdIter())
+        //log(store.rootOpen.deref().id,...store.nodes)
         var i =0
-        const r = store.renderNodes
-        r.length = 0
-        r.push(...arr)
+        const items = arr.map(o=> o.render())
+        elById('console-area').setChars(0,...items)
     },
     insertBefore(node) {
         node=node.deref()
@@ -118,69 +201,115 @@ const proto = {
         let [p,n] = this.links()
 
         if (p.isNull()) {
-            store.first = node.ref()
+            store.rootOpen = node.ref()
         } else {
             p.setNext(node)
         }
         node.setNext(this)
 
-        this.refresh()
     },
     deleteBefore() {
         let [p,n] = this.links()
-        if (p.isNull()) {
+        if (!p.canDel() || p.isOpeningNode() || p.isClosingNode()) {
             return
-        } else {
-            let [p1,n1] = p.deref().links()
-
-            this.p = p1
-            if (p1.isNull()) {
-                store.first = this.ref()
-            } else {
-                p1.setNext(this)
-            }
         }
+        p.type="deleted"
+        const [pPrev] = p.links()
+        connectNodes(pPrev,this)
+    },
+    deleteAfter() {
 
-        this.refresh()
+    },
+    insertAfter(node) {
+        node=node.deref()
+
+        let [p,n] = this.links()
+
+        if (n.isNull()) {
+            this.setNext(node)
+        } else {
+            node.setNext(n)
+            this.setNext(node)
+        }
+    },
+    surround(before,after) {
+        this.insertBefore(before)
+        this.insertAfter(after)
     },
     links() {
         return [this.p.deref(), this.n.deref()]
     },
     render() {
-        const {type} = this
-        return html`<span>${this.value}</span>`
+        let {type, value} = this
+        //log('render',this)
+
+        return value
     },
     toString() {
         return this.value
     },
     isSingle() {
-        return this.type==='cursor' || this.type === 'txt'
+        const t = this.type
+        return t==='cursor' || t === 'c'
+    },
+    canDel() {
+        const t = this.type
+        return !(t==='root')
+    },
+    isOpeningNode() {
+        if (!Reflect.has(this,'openId')) return false
+        return this.eq(this.openId)
+    },
+    isClosingNode() {
+        if (!Reflect.has(this,'closeId')) return false
+        return this.eq(this.closeId)
     }
 }
 
 const store = reactive({
-    renderNodes: []
+    renderNodes: [],
+    nodes: [],
+    toolbox: [],
 })
-store.nodes = []
-store.cursor=<cursor single/>.ref()
-store.first = store.cursor
-store.renderNodes.push(store.cursor.deref())
-//store.num=1
+const cursor = <cursor/>.ref()
+store.cursor = cursor
+const [rootOpen,rootClosed] = <root/>
+store.rootOpen = rootOpen.ref()
+store.rootClosed = rootClosed.ref()
+connectNodes(rootOpen,cursor,rootClosed)
 
-function makeNode(type, props, ...children) {
-    let ret = {type, ...props, p: nullRef(), n: nullRef()}
-    if (type==="txt") {
-        ret.value=children[0]
-    } else if (type==="cursor") {
-        ret.value='█'
+function connectNodes(...nodes) {
+    for (let i = 1; i < nodes.length; i++) {
+        const a = nodes[i-1].deref()
+        const b = nodes[i].deref()
+        a.n = b.ref()
+        b.p = a.ref()
     }
-
+}
+log(rootOpen,cursor,rootClosed)
+function makeNode(type, props, ...children) {
+    let closing = Reflect.has(props,'closing')
+    delete props.closing
+    let ret = {type, ...props, p: nullRef(), n: nullRef()}
     let id
     Object.setPrototypeOf(ret, proto)
     if (!Reflect.has(ret, 'id')) {
         id = getId()
         ret.id = id
         store.nodes[id] = ret
+    }
+    if (type==="c") {
+        ret.value=`${children[0]}`
+    } else if (type==="cursor") {
+        ret.value='█'
+    } else if (type==="root") {
+        let prefix = ''
+        if (closing) {
+            prefix = '/'
+        }
+        ret.value=`{${prefix}${type}}`
+    } else {
+        ret.value=`[${type}${id}]`
     }
     return ret;
 }
@@ -190,11 +319,12 @@ function JSX(type, props, ...children) {
     let openNode = makeNode(type, props, ...children);
 
     if (!openNode.isSingle()) {
-        const closingNode = makeNode('/'+type, {})
+        const closingNode = makeNode(type, { closing: true })
         const openId = openNode.ref()
         const closeId = closingNode.ref()
         openNode.openId = closingNode.openId = openId
         openNode.closeId = closingNode.closeId = closeId
+        return [openNode,closingNode]
     }
     return openNode
 }
@@ -202,9 +332,50 @@ function JSX(type, props, ...children) {
 const appElement = document.getElementById('app');
 
 document.addEventListener('keydown', (e)=>{
-    const k =getKey(e)
-    store.cursor.deref().msg({type: 'keydown', data: k})
+    if (e.target.classList.contains('foc')) {
+        const k = getKey(e)
+        if (k==="control") return
+        if (k==="ctrl+s") e.preventDefault()
+        store.cursor.deref().msg({type: 'keydown', data: k})
+    }
+
 
 })
 
-html`${()=>store.renderNodes.map(n=>n.deref().render())}`(appElement)
+html`<div style="width: 100%" class="dock-container-cols" >
+    <div class="" style="max-height: 100vh">
+        
+        <select style="max-height: 100vh" tabindex="-1" size="100">
+            ${rng(1,1000).map(i=>html`<option>${i}derpderp</option>`)}
+        </select>
+    </div>
+    <div style="width:100%; border: 1px dashed red" class="dock-container-rows"  >
+        <div class="focusbox" 
+             style="
+                display: block;
+                height: 50%;
+                width: 100%;
+                border-bottom: 1px solid black;
+                overflow-wrap: anywhere;
+             "
+             tabindex="0" 
+             @focusin="${(e)=>{
+                 e.target.classList.toggle('foc')
+                 log('hi')
+             }}"
+             @focusout="${e=>{
+                 e.target.classList.toggle('foc')
+             }}"
+             @click="${e=>{
+                 e.target.focus()
+             }}"
+        ><x-ca/></div>
+        <div>preview</div>
+    </div>
+</div>
+ `(appElement)
+
+cursor.deref().refresh()
+
+
+

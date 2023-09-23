@@ -116,6 +116,7 @@ function resizeObserver(el, callback) {
     });
 
     ro.observe(el);
+    return () => ro.unobserve(el)
 }
 
 function insertAfter(el, newNode) {
@@ -182,8 +183,7 @@ function htmlMount(strings,...expSlots) {
 }
 function getKey(event) {
     const key = event.key.toLowerCase()
-
-    if (key==="control" || key==="alt" || key==="shift") return
+    if (key==="control" || key==="alt" || key==="shift") return key
     const mod = [
         event.ctrlKey && "ctrl",
         event.altKey && "alt",
