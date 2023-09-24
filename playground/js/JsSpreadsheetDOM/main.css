@@ -17,6 +17,9 @@ body {
     display: flex;
     flex-direction: column;
 }
+.vh {
+    visibility: hidden;
+}
 .dock-container-cols {
     display: flex;
     flex-direction: row;

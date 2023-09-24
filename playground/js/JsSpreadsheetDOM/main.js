@@ -5,6 +5,7 @@ const {reactive, watch, html} = window.arrowJs
 const {h, create, diff, patch, VText} = window.virtualDom
 const unflat = flat.unflatten
 const json = JSON.stringify
+const logj = (...items) => log(json(...items))
 const {rng} = window
 
 function frag(html) {
@@ -12,67 +13,86 @@ function frag(html) {
     df.innerHTML = html
     return df.firstChild
 }
-class ConsoleChar extends HTMLElement {
-    constructor() {
-        super();
-    }
-    connectedCallback() {
-        const conArea = this.parentElement.parentElement
-        conArea.announce(this)
-    }
 
-}
-customElements.define("x-cc", ConsoleChar);
 class ConsoleArea extends HTMLElement {
     constructor() {
         super();
+        this.store = reactive({chars: []})
     }
     connectedCallback() {
-        const mystore = reactive({chars: []})
+
+        const mystore = this.store
         const that = this
+        const root = that
         const els = mystore.chars
-        function announce(el) {
-            const id=el.id
-            function makeEl() {
-                const value = els[id]
+        that.setAttribute('id','console-area');
+        html`<div style="display: block">${derp}</div>`(root);
+
+        function derp() {
+            return mystore.chars.map(derp2);
+
+            function derp2(c, i) {
+                const value = els[i]
+                const id = i+''
                 if (value==='enter') {
-                    return html`<br>`
+                    return html`<span id="${id}">${getc2}⏎</span><br>`
+
+                    function getc2() {
+                        var dummy = els[id];
+                        return ''
+                    }
                 }
-                return html`<span>${()=>els[id]}</span>`.key(id)
+
+                return html`<span id="${id}">${getc}</span>`
+
+                function getc() {
+                    const ret = els[id]
+                    return value===' ' ? html`&nbsp` : html`${ret}`
+                }
+
+                //return html`<x-cc id="${i}">${c}</x-cc>`;
             }
-            html`${makeEl}`(el)
-            const observer = new IntersectionObserver((entries) => {
-                if(entries[0].isIntersecting){
-
-                } else {
-                    log('hidden',el)
-                    // el is not visible
-                }
-            }, {threshold: 1.0});
-            observer.observe(el)
         }
-        this.announce = announce;
-        this.setAttribute('id','console-area')
-        html`<div style="width: 100%;height: 100%; overflow-y: hidden"><span style="visibility: collapse">&nbsp</span>${()=>mystore.chars.map((c,i)=>html`<x-cc id="${i}"></x-cc>`)}
-        </div>`(this);
-        mystore.chars.push(' ')
-        const container = this.firstElementChild
-        const firstChar = container.firstElementChild
+        function sizerSpan() {
+            const sp = document.createElement('span')
+            sp.textContent='A'
+            return sp
+        }
+        const container = root.firstElementChild
+        const sizer = sizerSpan()
+        container.appendChild(sizer)
         const {width,height} = container.getBoundingClientRect()
-
-        const { width: cw, height: ch } = firstChar.getBoundingClientRect()
+        const { width: cw, height: ch } = sizer.getBoundingClientRect()
+        sizer.remove()
         let [nx,ny] = [width/cw, height/ch]
         nx=Math.floor(nx)
         ny=Math.floor(ny)
         const numChars = nx*ny-1
-        firstChar.remove()
         mystore.chars.push(...rng(1,numChars-1).map(c=>' '))
-        setTimeout(()=>{
-            for (let i = 0; i < container.childNodes.length; i++) {
-                const myel = container.childNodes[0]
-                //log(myel)
+        function callback(mutationList, observer) {
+            for (const mutation of mutationList) {
+                if (mutation.type !== "childList") continue
+                const {addedNodes}=mutation
+                let node = null
+                for (let i = 0; i < addedNodes.length; i++) {
+                    node=addedNodes[i]
+                    watchVisibility(node)
+                }
             }
-        },1000)
+        }
+        function watchVisibility(myel) {
+            const observer = new IntersectionObserver((entries) => {
+                if(entries[0].isIntersecting) { //visible
+                    myel.classList.remove('vh')
+                } else {
+                    myel.classList.add('vh')
+                }
+            }, {threshold: 1.0});
+            observer.observe(myel)
+            return ()=>observer.disconnect()
+        }
+        const mo = new MutationObserver(callback)
+        mo.observe(container, {childList: true});
 
         function setChars(offset,...items) {
             for (let i = 0; i < items.length; i++) {
@@ -82,10 +102,10 @@ class ConsoleArea extends HTMLElement {
                 mystore.chars[i]=' '
             }
         }
-        this.setChars = setChars
+        that.setChars = setChars
 
-        resizeObserver(this.firstElementChild,e=>{
-            log('resize',e)
+        resizeObserver(root.firstElementChild,e=>{
+            log('resize!',e)
         })
     }
 }
@@ -248,8 +268,6 @@ const proto = {
     },
     render() {
         let {type, value} = this
-        //log('render',this)
-
         return value
     },
     toString() {
@@ -277,7 +295,17 @@ const store = reactive({
     renderNodes: [],
     nodes: [],
     toolbox: [],
+    mode: '_',
+    keybindings: {
+        ...flat({
+            ['_']: {
+                arrowLeft: 'cursor.moveLeft',
+                arrowRight: 'cursor.moveRight',
+            }
+        })
+    }
 })
+logj(store.keybindings)
 const cursor = <cursor/>.ref()
 store.cursor = cursor
 const [rootOpen,rootClosed] = <root/>
@@ -314,7 +342,7 @@ function makeNode(type, props, ...children) {
         if (closing) {
             prefix = '/'
         }
-        ret.value=`{${prefix}${type}}`
+        ret.value=`[${prefix}${type}]`
     } else {
         ret.value=`[${type}${id}]`
     }
@@ -361,9 +389,11 @@ html`<div style="width: 100%" class="dock-container-cols" >
              style="
                 display: block;
                 height: 50%;
+                max-height: 50%;
                 width: 100%;
                 border-bottom: 1px solid black;
                 overflow-wrap: anywhere;
+                overflow: hidden;
              "
              tabindex="0" 
              @focusin="${(e)=>{
@@ -376,8 +406,13 @@ html`<div style="width: 100%" class="dock-container-cols" >
              @click="${e=>{
                  e.target.focus()
              }}"
-        ><x-ca/></div>
-        <div>preview</div>
+        ><x-ca></x-ca></div>
+        <div style="display: block;
+                height: 50%;
+                max-height: 50%;
+                width: 100%;
+                overflow-wrap: anywhere;
+                overflow: hidden;">preview</div>
     </div>
 </div>
  `(appElement)
