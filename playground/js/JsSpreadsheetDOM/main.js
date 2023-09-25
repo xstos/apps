@@ -4,7 +4,7 @@ const {cellx, Cell} = window.cellx
 const {reactive, watch, html} = window.arrowJs
 const {h, create, diff, patch, VText} = window.virtualDom
 const unflat = flat.unflatten
-const json = JSON.stringify
+const json = (o)=>JSON.stringify(o,null,2)
 const logj = (...items) => log(json(...items))
 const {rng} = window
 
@@ -20,9 +20,9 @@ class ConsoleArea extends HTMLElement {
         this.store = reactive({chars: []})
     }
     connectedCallback() {
-
-        const mystore = this.store
         const that = this
+        const mystore = that.store
+
         const root = that
         const els = mystore.chars
         that.setAttribute('id','console-area');
@@ -156,13 +156,23 @@ const proto = {
         if (type==='keydown') {
             const k = data
             let cur = store.cursor.deref();
+            function keq(v) {
+                return k===v
+            }
             if (k==='ctrl+s') {
                 const me = this
                 const [openstr,closestr] = <string/>
 
                 cur.surround(openstr,closestr)
 
-            } else if (k==='backspace') {
+            } else if (k==='arrowleft') {
+                cur.moveLeft()
+            } else if (k==='arrowright') {
+                cur.moveRight()
+            } else if (k==='delete') {
+                cur.deleteAfter()
+            }
+            else if (k==='backspace') {
                     cur.deleteBefore()
             } else {
                     cur.insertBefore(<c>{k}</c>)
@@ -215,12 +225,28 @@ const proto = {
         this.n = node.ref()
         node.p = this.ref()
     },
+    setPrev(node) {
+        this.p = node.ref()
+        node.n = this.ref()
+    },
     refresh() {
         const arr = Array.from(store.rootOpen.deref().fwdIter())
         //log(store.rootOpen.deref().id,...store.nodes)
         var i =0
         const items = arr.map(o=> o.render())
         elById('console-area').setChars(0,...items)
+    },
+    moveLeft() {
+        let [p,n] = this.links()
+
+        if (p.type==='root') return
+        this.swap(p)
+    },
+    moveRight() {
+        let [p,n] = this.links()
+
+        if (n.type==='root') return
+        n.swap(this)
     },
     insertBefore(node) {
         node=node.deref()
@@ -241,11 +267,17 @@ const proto = {
             return
         }
         p.type="deleted"
-        const [pPrev] = p.links()
+        const [pPrev,_] = p.links()
         connectNodes(pPrev,this)
     },
     deleteAfter() {
-
+        let [p,n] = this.links()
+        if (!n.canDel() || n.isOpeningNode() || n.isClosingNode()) {
+            return
+        }
+        n.type="deleted"
+        const [_,sib] = n.links()
+        connectNodes(this,sib)
     },
     insertAfter(node) {
         node=node.deref()
@@ -262,6 +294,17 @@ const proto = {
     surround(before,after) {
         this.insertBefore(before)
         this.insertAfter(after)
+    },
+    swap(otherNode) {
+        otherNode=otherNode.deref()
+        let [p,n] = this.links()
+        let [p2,n2] = otherNode.links()
+
+        if (n.eq(otherNode)) {
+            connectNodes(p,otherNode,this,n)
+        } else if (otherNode.eq(p)) {
+            connectNodes(p2,this,otherNode,n)
+        }
     },
     links() {
         return [this.p.deref(), this.n.deref()]
@@ -290,22 +333,12 @@ const proto = {
         return this.eq(this.closeId)
     }
 }
-
 const store = reactive({
     renderNodes: [],
     nodes: [],
     toolbox: [],
-    mode: '_',
-    keybindings: {
-        ...flat({
-            ['_']: {
-                arrowLeft: 'cursor.moveLeft',
-                arrowRight: 'cursor.moveRight',
-            }
-        })
-    }
 })
-logj(store.keybindings)
+
 const cursor = <cursor/>.ref()
 store.cursor = cursor
 const [rootOpen,rootClosed] = <root/>
