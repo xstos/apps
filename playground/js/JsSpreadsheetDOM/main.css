@@ -18,7 +18,7 @@ body {
     flex-direction: column;
 }
 .vh {
-    visibility: hidden;
+    visibility: collapse;
 }
 .dock-container-cols {
     display: flex;
