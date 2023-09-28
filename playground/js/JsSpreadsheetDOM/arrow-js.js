@@ -1,4 +1,3 @@
-//stolen from https://www.arrow-js.com/docs/ cuz CDN didn't work
 (function arrowJs() {
     /**
      * A queue of expressions to run as soon as an async slot opens up.
@@ -8,7 +7,7 @@
      * A stack of functions to run on the next tick.
      */
     const nextTicks = new Set();
-    
+
     /**
      * Adds the ability to listen to the next tick.
      * @param  {CallableFunction} fn?

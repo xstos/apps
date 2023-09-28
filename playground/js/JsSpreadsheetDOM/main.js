@@ -1,7 +1,7 @@
 /** @jsx JSX */
 
 const {cellx, Cell} = window.cellx
-const {reactive, watch, html} = window.arrowJs
+const {reactive, watch, html, nextTick} = window.arrowJs
 const {h, create, diff, patch, VText} = window.virtualDom
 const unflat = flat.unflatten
 const json = (o)=>JSON.stringify(o,null,2)
@@ -13,6 +13,91 @@ function frag(html) {
     df.innerHTML = html
     return df.firstChild
 }
+function F(cb) {
+    return cb()
+}
+class SW extends HTMLElement {
+    static get observedAttributes() {
+        return ['data-br'];
+    }
+    static ctor = F(()=>{
+        const ro = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                const id = Number(entry.target.id)
+                const rect = entry.target.getBoundingClientRect()
+
+                const data = SW.map.get(id)
+                data.top=rect.top
+                if (id===0) {
+                    data.row=0
+                    data.col=0
+                } else {
+                    const prev = SW.map.get(id-1)
+                    data.row=prev.row
+                    data.col=prev.col+1
+                    const rowChanged = rect.top>prev.top
+                    if (rowChanged) {
+                        data.col=0
+                        data.row=prev.row+1
+                    }
+                    log('resize', entry.target, rect, data.row,data.col)
+                }
+            }
+        });
+        const clipper = new IntersectionObserver((entries) => {
+            for (let i = 0; i < entries.length; i++) {
+                const entry = entries[i]
+                if (!entry.isIntersecting) {
+                    entry.target.classList.add('vh')
+                } else {
+
+                    entry.target.classList.remove('vh')
+                }
+            }
+        }, {threshold: 0.95});
+        const map = new Map()
+        Object.assign(SW,{
+            ro,
+            map,
+            clipper,
+        })
+
+    })
+    constructor() {
+        super();
+    }
+    connectedCallback() {
+        const parent = this.parentElement
+        const nid = Number(parent.id)
+        SW.ro.observe(parent)
+        //SW.clipper.observe(parent)
+        SW.map.set(nid,{
+            row: 0,
+            col: 0,
+        })
+        //log('connected',parent)
+    }
+    attributeChangedCallback(attrName, oldVal, newVal) {
+        if (attrName==='data-br') {
+            const parent = this.parentElement
+
+            if (oldVal===newVal) return
+            log('char br',parent,{oldVal,newVal})
+            if (newVal==='') {
+                parent.insertAdjacentElement("afterend",document.createElement('br'))
+            } else {
+                parent.nextElementSibling.remove()
+            }
+        }
+    }
+    disconnectedCallback() {
+        const parent = this.parentElement
+        log('disconnected',parent)
+        SW.ro.unobserve(parent)
+        SW.clipper.unobserve(parent)
+    }
+}
+customElements.define("x-sw", SW);
 
 class ConsoleArea extends HTMLElement {
     constructor() {
@@ -26,33 +111,31 @@ class ConsoleArea extends HTMLElement {
         const root = that
         const els = mystore.chars
         that.setAttribute('id','console-area');
-        html`<div style="display: block">${derp}</div>`(root);
+        html`<div id="spancon" style="display: block; height: 100%; max-height: 100%;">${mapChars}</div>`(root);
 
-        function derp() {
-            return mystore.chars.map(derp2);
+        function mapChars() {
+            return mystore.chars.map(mapChar);
 
-            function derp2(c, i) {
-                const value = els[i]
+            function mapChar(c, i) {
+                let value = els[i].value //keep this line for arrow-js to detect dependencies
                 const id = i+''
-                if (value==='enter') {
-                    return html`<span id="${id}">${getc2}⏎</span><br>`
-
-                    function getc2() {
-                        var dummy = els[id];
+                function isBreak() {
+                    if (els[i].value==="enter") {
                         return ''
                     }
+                    return false
                 }
 
-                return html`<span id="${id}">${getc}</span>`
-
-                function getc() {
-                    const ret = els[id]
-                    return value===' ' ? html`&nbsp` : html`${ret}`
+                function getValue() {
+                    let value = els[i].value
+                    if (value===" ") value="&nbsp"
+                    if (value==="enter") value="⏎"
+                    return html`${value}`
                 }
-
-                //return html`<x-cc id="${i}">${c}</x-cc>`;
+                return html`<span class="bb" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
             }
         }
+
         function sizerSpan() {
             const sp = document.createElement('span')
             sp.textContent='A'
@@ -67,45 +150,25 @@ class ConsoleArea extends HTMLElement {
         let [nx,ny] = [width/cw, height/ch]
         nx=Math.floor(nx)
         ny=Math.floor(ny)
-        const numChars = nx*ny-1
-        mystore.chars.push(...rng(1,numChars-1).map(c=>' '))
-        function callback(mutationList, observer) {
-            for (const mutation of mutationList) {
-                if (mutation.type !== "childList") continue
-                const {addedNodes}=mutation
-                let node = null
-                for (let i = 0; i < addedNodes.length; i++) {
-                    node=addedNodes[i]
-                    watchVisibility(node)
-                }
-            }
+        const numChars = 50 //nx*ny-1
+        for (let i = 0; i < numChars-1; i++) {
+            mystore.chars[i]={ value: ' ' }
         }
-        function watchVisibility(myel) {
-            const observer = new IntersectionObserver((entries) => {
-                if(entries[0].isIntersecting) { //visible
-                    myel.classList.remove('vh')
-                } else {
-                    myel.classList.add('vh')
-                }
-            }, {threshold: 1.0});
-            observer.observe(myel)
-            return ()=>observer.disconnect()
-        }
-        const mo = new MutationObserver(callback)
-        mo.observe(container, {childList: true});
 
-        function setChars(offset,...items) {
+        function setChars(items) {
             for (let i = 0; i < items.length; i++) {
                 mystore.chars[i]=items[i]
             }
             for (let i = items.length; i < mystore.chars.length; i++) {
-                mystore.chars[i]=' '
+                mystore.chars[i]={ value: ' '}
             }
+            nextTick(()=>{
+            })
         }
         that.setChars = setChars
 
         resizeObserver(root.firstElementChild,e=>{
-            log('resize!',e)
+            //log('resize!',e)
         })
     }
 }
@@ -232,9 +295,8 @@ const proto = {
     refresh() {
         const arr = Array.from(store.rootOpen.deref().fwdIter())
         //log(store.rootOpen.deref().id,...store.nodes)
-        var i =0
-        const items = arr.map(o=> o.render())
-        elById('console-area').setChars(0,...items)
+        const items = arr.map(o=> ({value: o.render(), node: o}))
+        elById('console-area').setChars(items)
     },
     moveLeft() {
         let [p,n] = this.links()
@@ -278,6 +340,9 @@ const proto = {
         n.type="deleted"
         const [_,sib] = n.links()
         connectNodes(this,sib)
+    },
+    delete() {
+
     },
     insertAfter(node) {
         node=node.deref()
@@ -354,7 +419,7 @@ function connectNodes(...nodes) {
         b.p = a.ref()
     }
 }
-log(rootOpen,cursor,rootClosed)
+//log(rootOpen,cursor,rootClosed)
 function makeNode(type, props, ...children) {
     let closing = Reflect.has(props,'closing')
     delete props.closing
@@ -404,17 +469,17 @@ document.addEventListener('keydown', (e)=>{
         const k = getKey(e)
         if (k==="control") return
         if (k==="ctrl+s") e.preventDefault()
-        store.cursor.deref().msg({type: 'keydown', data: k})
+        setTimeout(()=>{
+            store.cursor.deref().msg({type: 'keydown', data: k})
+        },1)
     }
-
-
 })
 
 html`<div style="width: 100%" class="dock-container-cols" >
     <div class="" style="max-height: 100vh">
         
         <select style="max-height: 100vh" tabindex="-1" size="100">
-            ${rng(1,1000).map(i=>html`<option>${i}derpderp</option>`)}
+            ${rng(1,1000).map(i=>html`<option>entity${i}</option>`)}
         </select>
     </div>
     <div style="width:100%; border: 1px dashed red" class="dock-container-rows"  >
@@ -425,6 +490,7 @@ html`<div style="width: 100%" class="dock-container-cols" >
                 max-height: 50%;
                 width: 100%;
                 border-bottom: 1px solid black;
+                
                 overflow-wrap: anywhere;
                 overflow: hidden;
              "

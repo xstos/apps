@@ -109,9 +109,9 @@ function resizeObserver(el, callback) {
     //log('observing size',el)
     const ro = new ResizeObserver((entries) => {
         for (const entry of entries) {
-            const {width, height} = entry.contentRect
+            const {width, height, x, y, left, top, bottom, right} = entry.contentRect
             //log('size changed',entry.target, width,height)
-            callback({target: entry.target, width, height})
+            callback({target: entry.target, width, height, x, y, left, top, bottom, right})
         }
     });
 
