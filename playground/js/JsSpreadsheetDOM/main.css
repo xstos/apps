@@ -1,20 +1,28 @@
 * {
     box-sizing: border-box;
 }
+:focus {
+    box-sizing: border-box;
+    outline: 1px dashed rgba(255,0,0,0.5);
+
+}
 body {
-    background-color: black;
-    -webkit-filter: invert(100%);
-    -moz-filter: invert(100%);
-    -o-filter: invert(100%);
-    -ms-filter: invert(100%);
+    background-color: white;
+
+    /*-webkit-filter: invert(100%);*/
+    /*-moz-filter: invert(100%);*/
+    /*-o-filter: invert(100%);*/
+    /*-ms-filter: invert(100%);*/
+
     font-family: monospace, sans-serif;
     padding: 5px;
     overflow-wrap: break-word;
 }
 .foc {
-    -webkit-box-shadow:inset 0px 0px 0px 1px #f00;
-    -moz-box-shadow:inset 0px 0px 0px 1px #f00;
-    box-shadow:inset 0px 0px 0px 1px #f00;
+    --focus-color: rgba(255,0,0,0.5);
+    box-shadow:inset 0px 0px 0px 1px var(--focus-color);
+    -webkit-box-shadow:inset 0px 0px 0px 1px var(--focus-color);
+    -moz-box-shadow:inset 0px 0px 0px 1px var(--focus-color);
 }
 .dock-container-rows {
     display: flex;

@@ -40,18 +40,22 @@ class SW extends HTMLElement {
                         data.col=0
                         data.row=prev.row+1
                     }
-                    log('resize', entry.target, rect, data.row,data.col)
+                    //log('resize', entry.target, rect, data.row,data.col)
                 }
             }
         });
         const clipper = new IntersectionObserver((entries) => {
             for (let i = 0; i < entries.length; i++) {
                 const entry = entries[i]
-                if (!entry.isIntersecting) {
-                    entry.target.classList.add('vh')
-                } else {
+                const target = entry.target
+                const id = Number(target.id)
+                const data = SW.map.get(id)
 
-                    entry.target.classList.remove('vh')
+                if (entry.isIntersecting) {
+                    target.classList.remove('vh')
+                } else {
+                    //log('clipped',entry.target)
+                    target.classList.add('vh')
                 }
             }
         }, {threshold: 0.95});
@@ -70,7 +74,7 @@ class SW extends HTMLElement {
         const parent = this.parentElement
         const nid = Number(parent.id)
         SW.ro.observe(parent)
-        //SW.clipper.observe(parent)
+        SW.clipper.observe(parent)
         SW.map.set(nid,{
             row: 0,
             col: 0,
@@ -98,7 +102,28 @@ class SW extends HTMLElement {
     }
 }
 customElements.define("x-sw", SW);
+function sizerSpan() {
+    const s = document.createElement('span')
+    s.appendChild(document.createTextNode('A'))
+    return s
+}
+function renderNode(c, i, getValue2) {
+    const id = i+''
+    function isBreak() {
+        if (getValue2()==="enter") {
+            return ''
+        }
+        return false
+    }
 
+    function getValue() {
+        let value = getValue2()
+        if (value===" ") value="&nbsp"
+        if (value==="enter") value="⏎"
+        return html`${value}`
+    }
+    return html`<span class="bb" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
+}
 class ConsoleArea extends HTMLElement {
     constructor() {
         super();
@@ -114,33 +139,14 @@ class ConsoleArea extends HTMLElement {
         html`<div id="spancon" style="display: block; height: 100%; max-height: 100%;">${mapChars}</div>`(root);
 
         function mapChars() {
-            return mystore.chars.map(mapChar);
-
-            function mapChar(c, i) {
-                let value = els[i].value //keep this line for arrow-js to detect dependencies
-                const id = i+''
-                function isBreak() {
-                    if (els[i].value==="enter") {
-                        return ''
-                    }
-                    return false
-                }
-
+            return mystore.chars.map((c,i)=>{
                 function getValue() {
-                    let value = els[i].value
-                    if (value===" ") value="&nbsp"
-                    if (value==="enter") value="⏎"
-                    return html`${value}`
+                    return els[i].value
                 }
-                return html`<span class="bb" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
-            }
+                return renderNode(c,i, getValue)
+            });
         }
 
-        function sizerSpan() {
-            const sp = document.createElement('span')
-            sp.textContent='A'
-            return sp
-        }
         const container = root.firstElementChild
         const sizer = sizerSpan()
         container.appendChild(sizer)
@@ -150,7 +156,7 @@ class ConsoleArea extends HTMLElement {
         let [nx,ny] = [width/cw, height/ch]
         nx=Math.floor(nx)
         ny=Math.floor(ny)
-        const numChars = 50 //nx*ny-1
+        const numChars = nx*ny-1
         for (let i = 0; i < numChars-1; i++) {
             mystore.chars[i]={ value: ' ' }
         }
@@ -166,9 +172,8 @@ class ConsoleArea extends HTMLElement {
             })
         }
         that.setChars = setChars
-
         resizeObserver(root.firstElementChild,e=>{
-            //log('resize!',e)
+            log('resize!',e)
         })
     }
 }
@@ -261,6 +266,9 @@ const proto = {
         Object.setPrototypeOf(ret,refProto)
         return ret
     },
+    iter() {
+
+    },
     fwdIter() {
         let current = this
         let ret
@@ -293,9 +301,17 @@ const proto = {
         node.n = this.ref()
     },
     refresh() {
-        const arr = Array.from(store.rootOpen.deref().fwdIter())
+        var currentLine = []
+        var lines = [currentLine]
+        function iter() {
+            return store.rootOpen.deref().fwdIter()
+        }
+
+        for (const node of iter()) {
+
+        }
         //log(store.rootOpen.deref().id,...store.nodes)
-        const items = arr.map(o=> ({value: o.render(), node: o}))
+        const items = Array.from(iter()).map(o=> ({value: o.render(), node: o}))
         elById('console-area').setChars(items)
     },
     moveLeft() {
@@ -475,22 +491,21 @@ document.addEventListener('keydown', (e)=>{
     }
 })
 
+
 html`<div style="width: 100%" class="dock-container-cols" >
     <div class="" style="max-height: 100vh">
-        
         <select style="max-height: 100vh" tabindex="-1" size="100">
             ${rng(1,1000).map(i=>html`<option>entity${i}</option>`)}
         </select>
     </div>
-    <div style="width:100%; border: 1px dashed red" class="dock-container-rows"  >
+    <div style="width:100%; border: 1px dashed rgba(255,0,0,0.5)" class="dock-container-rows"  >
         <div class="focusbox" 
              style="
                 display: block;
                 height: 50%;
                 max-height: 50%;
                 width: 100%;
-                border-bottom: 1px solid black;
-                
+                border-bottom: 1px solid white;
                 overflow-wrap: anywhere;
                 overflow: hidden;
              "
@@ -516,7 +531,17 @@ html`<div style="width: 100%" class="dock-container-cols" >
 </div>
  `(appElement)
 
-cursor.deref().refresh()
+document.addEventListener('click', (e)=>{
+    log('click',e)
+})
 
+cursor.deref().refresh()
+lorem().split('').forEach((c)=>{
+    store.cursor.deref().msg({type: 'keydown', data: c})
+})
+lorem().split('').forEach((c)=>{
+    store.cursor.deref().msg({type: 'keydown', data: c})
+})
+function lorem() { return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' }
 
 
