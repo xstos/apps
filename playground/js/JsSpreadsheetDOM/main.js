@@ -7,12 +7,7 @@ const unflat = flat.unflatten
 const json = (o)=>JSON.stringify(o,null,2)
 const logj = (...items) => log(json(...items))
 const {rng} = window
-
-function frag(html) {
-    const df = document.createElement('span')
-    df.innerHTML = html
-    return df.firstChild
-}
+let refreshConsole = ()=>{}
 function F(cb) {
     return cb()
 }
@@ -23,9 +18,11 @@ class SW extends HTMLElement {
     static ctor = F(()=>{
         const ro = new ResizeObserver((entries) => {
             for (const entry of entries) {
+                return
                 const id = Number(entry.target.id)
-                const rect = entry.target.getBoundingClientRect()
-
+                const target = entry.target
+                const rect = target.getBoundingClientRect()
+                debugger
                 const data = SW.map.get(id)
                 data.top=rect.top
                 if (id===0) {
@@ -35,8 +32,9 @@ class SW extends HTMLElement {
                     const prev = SW.map.get(id-1)
                     data.row=prev.row
                     data.col=prev.col+1
-                    const rowChanged = rect.top>prev.top
+                    const rowChanged = rect.top>prev.top+2 //+2 is jitter
                     if (rowChanged) {
+
                         data.col=0
                         data.row=prev.row+1
                     }
@@ -64,6 +62,7 @@ class SW extends HTMLElement {
             ro,
             map,
             clipper,
+            gridSize: { rows: 0, cols: 0 }
         })
 
     })
@@ -84,7 +83,7 @@ class SW extends HTMLElement {
     attributeChangedCallback(attrName, oldVal, newVal) {
         if (attrName==='data-br') {
             const parent = this.parentElement
-
+            return
             if (oldVal===newVal) return
             log('char br',parent,{oldVal,newVal})
             if (newVal==='') {
@@ -103,11 +102,11 @@ class SW extends HTMLElement {
 }
 customElements.define("x-sw", SW);
 function sizerSpan() {
-    const s = document.createElement('span')
-    s.appendChild(document.createTextNode('A'))
-    return s
+    return (htmlMount`<span class="ib"><span class="bb">⏎</span></span>`).childNodes[0]
 }
-function renderNode(c, i, getValue2) {
+
+function renderNode(i, getValue2, cw) {
+    log('render',i)
     const id = i+''
     function isBreak() {
         if (getValue2()==="enter") {
@@ -115,65 +114,178 @@ function renderNode(c, i, getValue2) {
         }
         return false
     }
-
+    getValue2()
     function getValue() {
         let value = getValue2()
-        if (value===" ") value="&nbsp"
-        if (value==="enter") value="⏎"
-        return html`${value}`
+        function makeChar(txt) {
+            return html`<span class="ib" style="width: ${cw}px">${txt}</span>`
+        }
+        if (value===" ") {
+            return makeChar("&nbsp")
+
+        }
+        if (value==="enter") {
+            return makeChar("⏎")
+        }
+        const chars = getValue2().split('')
+
+        return html`${()=>chars.map(makeChar)}`
     }
-    return html`<span class="bb" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
+
+    return html`<span class="bb ib" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
 }
+var s
 class ConsoleArea extends HTMLElement {
     constructor() {
         super();
-        this.store = reactive({chars: []})
+        s = reactive({chars: []})
+        this.store = s
     }
     connectedCallback() {
         const that = this
         const mystore = that.store
 
         const root = that
-        const els = mystore.chars
         that.setAttribute('id','console-area');
-        html`<div id="spancon" style="display: block; height: 100%; max-height: 100%;">${mapChars}</div>`(root);
+        const style = `display: block; height: 100%; max-height: 100%;padding: 0px;margin: 0px;`;
+        html`<div id="spancon" style="${style}">${mapChars}</div>`(root);
+        function onResize() {
+            const containerRect = container.getBoundingClientRect()
+            const sizer = sizerSpan()
+            container.appendChild(sizer)
+            const sizerRect = sizer.getBoundingClientRect()
+            sizer.remove()
+
+            width = containerRect.width
+            height = containerRect.height
+            cw = sizerRect.width
+            ch = sizerRect.height
+            numCols = Math.floor(width/cw)
+            numRows = Math.floor(height/ch)
+            log(numCols,numRows)
+            numChars = numCols*numRows
+            let val
+            for (let i = 0; i < numChars; i++) {
+                //val = ((i+1)%10)+''
+                val = ' '
+
+                mystore.chars[i]={ value: val }
+
+            }
+        }
+
+        const container = root.firstElementChild
+        let width,height, cw, ch, numCols, numRows, numChars
+
+        onResize()
 
         function mapChars() {
             return mystore.chars.map((c,i)=>{
                 function getValue() {
-                    return els[i].value
+                    return mystore.chars[i].value
                 }
-                return renderNode(c,i, getValue)
+                return renderNode(i, getValue, cw)
             });
         }
 
-        const container = root.firstElementChild
-        const sizer = sizerSpan()
-        container.appendChild(sizer)
-        const {width,height} = container.getBoundingClientRect()
-        const { width: cw, height: ch } = sizer.getBoundingClientRect()
-        sizer.remove()
-        let [nx,ny] = [width/cw, height/ch]
-        nx=Math.floor(nx)
-        ny=Math.floor(ny)
-        const numChars = nx*ny-1
-        for (let i = 0; i < numChars-1; i++) {
-            mystore.chars[i]={ value: ' ' }
+        function fwdIter() {
+            return store.rootOpen.deref().fwdIter()
         }
-
         function setChars(items) {
-            for (let i = 0; i < items.length; i++) {
-                mystore.chars[i]=items[i]
+            const iter = fwdIter()
+
+            var widthRemaining = numCols
+            var currentRow = []
+            var lines=[]
+            var cursorLineIndex = 0
+            var charIndex = 0
+            var current
+            var node
+            var i,j
+            function step() {
+                current = iter()
+                node = current.value
             }
-            for (let i = items.length; i < mystore.chars.length; i++) {
-                mystore.chars[i]={ value: ' '}
+
+            function nextRow() {
+                for (var i = 0; i < widthRemaining; i++) {
+                    currentRow.push(spaceNode())
+                }
+
+                lines.push(currentRow)
+                currentRow = []
+                widthRemaining = numCols
             }
+            step()
+            while(!current.done) {
+                const {width} = node.size()
+                if (node.type==="cursor") {
+                    cursorLineIndex=lines.length-1
+                }
+
+                if (width>widthRemaining) {
+                    nextRow()
+                } else if (node.type==="c" && node.value==="enter") {
+                    widthRemaining -= width
+                    currentRow.push(node)
+                    nextRow()
+                } else {
+                    widthRemaining -= width
+                    currentRow.push(node)
+                }
+
+                step()
+                if (current.done) {
+                    nextRow()
+                }
+            }
+            function blankLine() {
+                return rng(0,numCols-1).map(spaceNode)
+            }
+            /*
+            for (i = ll; i < numRows; i++) {
+                var blankline = rng(0,numCols-1).map(spaceNode)
+                lines.push(blankline)
+            }
+             */
+
+
+            const halfRows = Math.floor(numRows/2)
+            var start = Math.max(cursorLineIndex-halfRows,0)
+            var end = cursorLineIndex+halfRows
+            start=0
+            end=20
+            charIndex=0
+            var curLine
+            for (i = start; i < end; i++) {
+                curLine = lines[i]
+                if (!curLine) {
+                    curLine = blankLine()
+                }
+                for (j = 0; j < curLine.length; j++) {
+                    node = curLine[j]
+                    if (!node) {
+                        node = spaceNode()
+                    }
+                    const newval = node.render()
+                    const old = mystore.chars[charIndex].value
+                    if (old!==newval) {
+                        //log(charIndex,old,newval)
+                        mystore.chars[charIndex]={value: newval}
+                    }
+
+                    charIndex++
+                }
+            }
+
             nextTick(()=>{
             })
         }
         that.setChars = setChars
         resizeObserver(root.firstElementChild,e=>{
             log('resize!',e)
+            onResize()
+            setChars('')
         })
     }
 }
@@ -186,38 +298,11 @@ function nullRef() {
     return ret
 }
 
-const refProto = {
-    ref() {
-        return this
-    },
-    deref() {
-        if (this.isNull()) {
-            return this
-        }
-        return store.nodes[this.rid]
-    },
-    isNull() {
-        return this.rid===null
-    },
-    fwdIter() {
-        return this.deref().fwdIter()
-    },
-    eq(other) {
-        other=other.ref()
-        return this.rid===other.rid
-    },
-    delete() {
-        if (this.isNull()) {
-            log('warning deleting null')
-            return
-        }
-        this.deref().delete()
-    },
-    render() {
-        return ''
-    }
-}
 
+function refresh() {
+    let cur = store.cursor.deref();
+    cur.refresh()
+}
 const proto = {
     msg(value) {
         const {type,data}=value
@@ -245,8 +330,6 @@ const proto = {
             } else {
                     cur.insertBefore(<c>{k}</c>)
             }
-
-            cur.refresh()
         }
     },
 
@@ -266,9 +349,6 @@ const proto = {
         Object.setPrototypeOf(ret,refProto)
         return ret
     },
-    iter() {
-
-    },
     fwdIter() {
         let current = this
         let ret
@@ -287,10 +367,7 @@ const proto = {
             return {value: ret, done: false}
         }
 
-        return iter(myiter)
-    },
-    toFwdArray() {
-      return Array.from(this.fwdIter())
+        return myiter
     },
     setNext(node) {
         this.n = node.ref()
@@ -300,18 +377,25 @@ const proto = {
         this.p = node.ref()
         node.n = this.ref()
     },
+    size() {
+        if (this.type==='c' && this.value==="enter") {
+            return { width: 1, height: 1}
+        }
+        return { width: this.render().length, height: 1 }
+    },
     refresh() {
-        var currentLine = []
-        var lines = [currentLine]
-        function iter() {
+        function fwdIter() {
             return store.rootOpen.deref().fwdIter()
         }
-
-        for (const node of iter()) {
-
-        }
+        let items = []
+        /*
         //log(store.rootOpen.deref().id,...store.nodes)
-        const items = Array.from(iter()).map(o=> ({value: o.render(), node: o}))
+        items = Array.from(iter(fwdIter())).map(o=> {
+            let ret = {value: o.render(), node: o}
+            return ret
+        })
+        */
+
         elById('console-area').setChars(items)
     },
     moveLeft() {
@@ -412,6 +496,47 @@ const proto = {
     isClosingNode() {
         if (!Reflect.has(this,'closeId')) return false
         return this.eq(this.closeId)
+    },
+}
+
+function spaceNode() {
+    if (!spaceNode._value) {
+        const spcNode = makeNode('c',{},' ')
+        Object.seal(spcNode)
+        spaceNode._value = spcNode
+    }
+    return spaceNode._value
+}
+const refProto = {
+    ref() {
+        return this
+    },
+    deref() {
+        if (this.isNull()) {
+            return this
+        }
+        return store.nodes[this.rid]
+    },
+    isNull() {
+        return this.rid===null
+    },
+    fwdIter() {
+        return this.deref().fwdIter()
+    },
+    eq(other) {
+        other=other.ref()
+        return this.rid===other.rid
+    },
+    delete() {
+        if (this.isNull()) {
+            log('warning deleting null')
+            return
+        }
+        this.deref().delete()
+    },
+    render() {
+        throw new Error('oops')
+        return ''
     }
 }
 const store = reactive({
@@ -439,7 +564,7 @@ function connectNodes(...nodes) {
 function makeNode(type, props, ...children) {
     let closing = Reflect.has(props,'closing')
     delete props.closing
-    let ret = {type, ...props, p: nullRef(), n: nullRef()}
+    let ret = {value: null, type, ...props, p: nullRef(), n: nullRef()}
     let id
     Object.setPrototypeOf(ret, proto)
     if (!Reflect.has(ret, 'id')) {
@@ -487,6 +612,7 @@ document.addEventListener('keydown', (e)=>{
         if (k==="ctrl+s") e.preventDefault()
         setTimeout(()=>{
             store.cursor.deref().msg({type: 'keydown', data: k})
+            refresh()
         },1)
     }
 })
@@ -535,13 +661,17 @@ document.addEventListener('click', (e)=>{
     log('click',e)
 })
 
-cursor.deref().refresh()
-lorem().split('').forEach((c)=>{
-    store.cursor.deref().msg({type: 'keydown', data: c})
-})
-lorem().split('').forEach((c)=>{
-    store.cursor.deref().msg({type: 'keydown', data: c})
-})
+function keys(...k) {
+    const cur = store.cursor.deref()
+    k.forEach(c=>cur.msg({type: 'keydown', data:c}))
+}
+
+keys('a','enter','b')
+
+refresh()
 function lorem() { return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' }
 
 
+function test(i,c) {
+    s.chars[i]= { value: c }
+}

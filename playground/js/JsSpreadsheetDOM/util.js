@@ -176,7 +176,7 @@ function insertNodeAtCursor(el) {
 function frag(arrowFunc) {
     const frag = document.createDocumentFragment()
     arrowFunc(frag)
-    return frag.childNodes[0]
+    return frag
 }
 function htmlMount(strings,...expSlots) {
     return frag(html(strings,...expSlots))
@@ -216,4 +216,9 @@ function iter(next, target) {
         }
     }
     return target
+}
+function divmod(x,y) {
+    const mod = x%y
+    const div = (x-mod)/y
+    return [div,mod]
 }

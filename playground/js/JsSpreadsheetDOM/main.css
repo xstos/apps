@@ -1,5 +1,12 @@
 * {
     box-sizing: border-box;
+    -moz-box-sizing: border-box;
+    -webkit-box-sizing: border-box;
+    font-family: "Courier New", monospace;
+}
+span {
+    padding: 0px;
+    margin: 0px;
 }
 :focus {
     box-sizing: border-box;
@@ -14,8 +21,8 @@ body {
     /*-o-filter: invert(100%);*/
     /*-ms-filter: invert(100%);*/
 
-    font-family: monospace, sans-serif;
-    padding: 5px;
+
+    /*padding: 5px;*/
     overflow-wrap: break-word;
 }
 .foc {
@@ -31,8 +38,17 @@ body {
 .vh {
     visibility: collapse;
 }
+.ib {
+    display: inline-block;
+}
+.c{
+
+}
 .bb {
-    border: 1px solid rgba(0,255,0,0.2);
+    --b-color: inset 0px 0px 0px 1px rgba(255,0,0,0.5);
+    box-shadow:var(--b-color);
+    -webkit-box-shadow:var(--b-color);
+    -moz-box-shadow:var(--b-color);
 }
 .dock-container-cols {
     display: flex;
@@ -42,11 +58,6 @@ body {
     display: inline-block;
     border: 1px solid blue;
     padding: 1px 0.5ch 1px 0.5ch;
-}
-.box2 {
-    border: 1px solid red;
-    padding: 1px 0.5ch 1px 0.5ch;
-
 }
 .hidden {
     visibility: hidden;
