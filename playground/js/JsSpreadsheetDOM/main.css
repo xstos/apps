@@ -42,7 +42,9 @@ body {
     display: inline-block;
 }
 .c{
-
+    font-family: MonoLisa, Menlo, Monaco, "Courier New", monospace;
+    font-weight: normal;
+    letter-spacing: 0px;
 }
 .bb {
     --b-color: inset 0px 0px 0px 1px rgba(255,0,0,0.5);

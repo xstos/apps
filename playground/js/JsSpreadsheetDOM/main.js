@@ -106,7 +106,7 @@ function sizerSpan() {
 }
 
 function renderNode(i, getValue2, cw) {
-    log('render',i)
+    //log('render',i)
     const id = i+''
     function isBreak() {
         if (getValue2()==="enter") {
@@ -118,41 +118,43 @@ function renderNode(i, getValue2, cw) {
     function getValue() {
         let value = getValue2()
         function makeChar(txt) {
+            return html`${txt}`
             return html`<span class="ib" style="width: ${cw}px">${txt}</span>`
         }
         if (value===" ") {
+            return html`&nbsp`
             return makeChar("&nbsp")
 
         }
         if (value==="enter") {
+            return html`⏎`
             return makeChar("⏎")
         }
         const chars = getValue2().split('')
-
+        return makeChar(value)
         return html`${()=>chars.map(makeChar)}`
     }
 
-    return html`<span class="bb ib" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
+    return html`<span class="bb" id="${id}">${getValue}<x-sw data-br="${isBreak}"></x-sw></span>`.key(id);
 }
-var s
+var mystore
 class ConsoleArea extends HTMLElement {
     constructor() {
         super();
-        s = reactive({chars: []})
-        this.store = s
     }
     connectedCallback() {
+        mystore = reactive({chars: []})
+        onResize(this.parentElement)
         const that = this
-        const mystore = that.store
-
         const root = that
         that.setAttribute('id','console-area');
         const style = `display: block; height: 100%; max-height: 100%;padding: 0px;margin: 0px;`;
         html`<div id="spancon" style="${style}">${mapChars}</div>`(root);
-        function onResize() {
-            const containerRect = container.getBoundingClientRect()
+
+        function onResize(container1) {
+            const containerRect = container1.getBoundingClientRect()
             const sizer = sizerSpan()
-            container.appendChild(sizer)
+            container1.appendChild(sizer)
             const sizerRect = sizer.getBoundingClientRect()
             sizer.remove()
 
@@ -168,8 +170,11 @@ class ConsoleArea extends HTMLElement {
             for (let i = 0; i < numChars; i++) {
                 //val = ((i+1)%10)+''
                 val = ' '
-
-                mystore.chars[i]={ value: val }
+                if (!mystore.chars[i]) {
+                    mystore.chars[i]={ value: val }
+                } else {
+                    mystore.chars[i].value=' '
+                }
 
             }
         }
@@ -177,7 +182,7 @@ class ConsoleArea extends HTMLElement {
         const container = root.firstElementChild
         let width,height, cw, ch, numCols, numRows, numChars
 
-        onResize()
+        onResize(container)
 
         function mapChars() {
             return mystore.chars.map((c,i)=>{
@@ -253,7 +258,7 @@ class ConsoleArea extends HTMLElement {
             const halfRows = Math.floor(numRows/2)
             var start = Math.max(cursorLineIndex-halfRows,0)
             var end = cursorLineIndex+halfRows
-            start=0
+            //start=0
             end=20
             charIndex=0
             var curLine
@@ -270,8 +275,8 @@ class ConsoleArea extends HTMLElement {
                     const newval = node.render()
                     const old = mystore.chars[charIndex].value
                     if (old!==newval) {
-                        //log(charIndex,old,newval)
-                        mystore.chars[charIndex]={value: newval}
+                        log(charIndex,old,newval)
+                        mystore.chars[charIndex].value=newval
                     }
 
                     charIndex++
@@ -284,14 +289,115 @@ class ConsoleArea extends HTMLElement {
         that.setChars = setChars
         resizeObserver(root.firstElementChild,e=>{
             log('resize!',e)
-            onResize()
+            onResize(container)
             setChars('')
         })
     }
 }
 customElements.define("x-ca", ConsoleArea);
+var sync
+class ConsoleArea2 extends HTMLElement {
+    constructor() {
+        super();
 
+    }
+    connectedCallback() {
+        var store = reactive({
+            size: { w:0, h:0},
+        })
+        function render() {
+            log('render')
+            return html`<span>${()=>rng(0,store.size.h-1).map(mapRows)}</span>`
 
+            function mapRows(lineIndex) {
+                const {w,h} = store.size
+                return html`<span id="r${lineIndex}">
+                ${()=>rng(0, store.size.w-1).map(mapCols)}
+            </span><br>`.key("r" + lineIndex)
+
+                function mapCols(colIndex) {
+                    const {w,h} = store.size
+                    const id = `r${lineIndex}c${colIndex}`
+                    return html`<span class="bb c" id="${id}">&nbsp</span>`.key(id)
+                }
+            }
+        }
+        html`${render}`(this)
+        const that = this.parentElement
+        var size
+        resizeObserver(this,(data)=>{
+            const containerRect = that.getBoundingClientRect()
+            const sizer = sizerSpan()
+            that.appendChild(sizer)
+            const sizerRect = sizer.getBoundingClientRect()
+            sizer.remove()
+
+            var width = containerRect.width
+            var height = containerRect.height
+            var cw = sizerRect.width
+            var ch = sizerRect.height
+            var numCols = Math.floor(width/cw)
+            var numRows = Math.floor(height/ch)
+            log(numCols,numRows)
+            size=[numCols,numRows]
+            mysync()
+        })
+
+        function mysync() {
+            let cr=0,cc=0
+            var line = []
+            var lines = [line]
+            var maxw = 0
+            var node
+            for (const n of iter(fwdIter())) {
+                line.push(n)
+
+                if (n.type==='cursor') {
+                    cr=lines.length-1
+                    cc=line.length-1
+                }
+                if (n.type==='c' && n.value==="enter") {
+                    maxw = Math.max(maxw,line.length)
+                    line=[]
+                    lines.push(line)
+                }
+            }
+            maxw = Math.max(maxw,lines[lines.length-1].length)
+            log({maxw})
+            store.size.w=maxw
+            store.size.h=lines.length
+            function spray() {
+                for (let i = 0; i < lines.length; i++) {
+                    line = lines[i]
+                    for (let j = 0; j < maxw; j++) {
+                        node= line[j]
+
+                        const el = elById("r"+i+"c"+j)
+                        if (!el) {
+                            break
+                        } else {
+                            if (node) {
+                                el.innerText=node.value
+                            } else {
+                                el.innerText=' '
+                            }
+                        }
+
+                    }
+                }
+            }
+            nextTick(()=>{
+                spray()
+            })
+
+        }
+        sync=mysync
+    }
+}
+customElements.define("x-ca2", ConsoleArea2);
+function fwdIter() {
+    return store.rootOpen.deref().fwdIter()
+}
 function nullRef() {
     const ret = { rid: null }
     Object.setPrototypeOf(ret,refProto)
@@ -384,9 +490,7 @@ const proto = {
         return { width: this.render().length, height: 1 }
     },
     refresh() {
-        function fwdIter() {
-            return store.rootOpen.deref().fwdIter()
-        }
+
         let items = []
         /*
         //log(store.rootOpen.deref().id,...store.nodes)
@@ -395,8 +499,8 @@ const proto = {
             return ret
         })
         */
-
-        elById('console-area').setChars(items)
+        sync()
+        //elById('console-area').setChars(items)
     },
     moveLeft() {
         let [p,n] = this.links()
@@ -617,7 +721,11 @@ document.addEventListener('keydown', (e)=>{
     }
 })
 
-
+/*
+focusbox
+overflow-wrap: anywhere;
+overflow: hidden;
+ */
 html`<div style="width: 100%" class="dock-container-cols" >
     <div class="" style="max-height: 100vh">
         <select style="max-height: 100vh" tabindex="-1" size="100">
@@ -632,8 +740,7 @@ html`<div style="width: 100%" class="dock-container-cols" >
                 max-height: 50%;
                 width: 100%;
                 border-bottom: 1px solid white;
-                overflow-wrap: anywhere;
-                overflow: hidden;
+                white-space: nowrap;
              "
              tabindex="0" 
              @focusin="${(e)=>{
@@ -646,7 +753,7 @@ html`<div style="width: 100%" class="dock-container-cols" >
              @click="${e=>{
                  e.target.focus()
              }}"
-        ><x-ca></x-ca></div>
+        ><x-ca2></x-ca2></div>
         <div style="display: block;
                 height: 50%;
                 max-height: 50%;
