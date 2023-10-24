@@ -15,7 +15,7 @@ span {
 }
 body {
     background-color: white;
-
+    overflow: hidden;
     /*-webkit-filter: invert(100%);*/
     /*-moz-filter: invert(100%);*/
     /*-o-filter: invert(100%);*/
@@ -23,7 +23,6 @@ body {
 
 
     /*padding: 5px;*/
-    overflow-wrap: break-word;
 }
 .foc {
     --focus-color: rgba(255,0,0,0.5);

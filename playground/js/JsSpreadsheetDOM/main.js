@@ -8,6 +8,7 @@ const json = (o)=>JSON.stringify(o,null,2)
 const logj = (...items) => log(json(...items))
 const {rng} = window
 let refreshConsole = ()=>{}
+const newline = "↵"
 function F(cb) {
     return cb()
 }
@@ -102,7 +103,7 @@ class SW extends HTMLElement {
 }
 customElements.define("x-sw", SW);
 function sizerSpan() {
-    return (htmlMount`<span class="ib"><span class="bb">⏎</span></span>`).childNodes[0]
+    return (htmlMount`<span class="ib"><span class="bb">a</span></span>`).childNodes[0]
 }
 
 function renderNode(i, getValue2, cw) {
@@ -324,23 +325,32 @@ class ConsoleArea2 extends HTMLElement {
         }
         html`${render}`(this)
         const that = this.parentElement
-        var size
-        resizeObserver(this,(data)=>{
+        var numCols, numRows
+        that.addEventListener('scroll',(e)=>{
+            log(e)
+        })
+        function resize() {
             const containerRect = that.getBoundingClientRect()
             const sizer = sizerSpan()
             that.appendChild(sizer)
             const sizerRect = sizer.getBoundingClientRect()
             sizer.remove()
-
             var width = containerRect.width
             var height = containerRect.height
             var cw = sizerRect.width
             var ch = sizerRect.height
-            var numCols = Math.floor(width/cw)
-            var numRows = Math.floor(height/ch)
+            numCols = Math.floor(width/cw)
+            numRows = Math.floor(height/ch)
             log(numCols,numRows)
-            size=[numCols,numRows]
-            mysync()
+        }
+        resize()
+        resizeObserver(this.parentElement,(data)=>{
+            store.size.w=0
+            store.size.h=0
+            nextTick(()=>{
+                resize()
+                mysync()
+            })
         })
 
         function mysync() {
@@ -363,10 +373,11 @@ class ConsoleArea2 extends HTMLElement {
                 }
             }
             maxw = Math.max(maxw,lines[lines.length-1].length)
-            log({maxw})
-            store.size.w=maxw
-            store.size.h=lines.length
+            //log({maxw})
+            store.size.w=Math.min(maxw, numCols)
+            store.size.h=Math.min(lines.length,numRows)
             function spray() {
+
                 for (let i = 0; i < lines.length; i++) {
                     line = lines[i]
                     for (let j = 0; j < maxw; j++) {
@@ -377,12 +388,20 @@ class ConsoleArea2 extends HTMLElement {
                             break
                         } else {
                             if (node) {
-                                el.innerText=node.value
+                                var value = node.value
+                                if (value===' ') {
+                                    el.innerHTML="&nbsp"
+                                } else if (value==="enter") {
+                                    value=newline
+                                    el.innerText = newline
+                                } else {
+                                    el.innerText=value
+                                }
                             } else {
                                 el.innerText=' '
+
                             }
                         }
-
                     }
                 }
             }
@@ -395,6 +414,7 @@ class ConsoleArea2 extends HTMLElement {
     }
 }
 customElements.define("x-ca2", ConsoleArea2);
+
 function fwdIter() {
     return store.rootOpen.deref().fwdIter()
 }
@@ -403,8 +423,6 @@ function nullRef() {
     Object.setPrototypeOf(ret,refProto)
     return ret
 }
-
-
 function refresh() {
     let cur = store.cursor.deref();
     cur.refresh()
@@ -726,13 +744,13 @@ focusbox
 overflow-wrap: anywhere;
 overflow: hidden;
  */
-html`<div style="width: 100%" class="dock-container-cols" >
+html`<div style="width: 100%;" class="dock-container-cols" >
     <div class="" style="max-height: 100vh">
         <select style="max-height: 100vh" tabindex="-1" size="100">
             ${rng(1,1000).map(i=>html`<option>entity${i}</option>`)}
         </select>
     </div>
-    <div style="width:100%; border: 1px dashed rgba(255,0,0,0.5)" class="dock-container-rows"  >
+    <div style="width:100%; border: 1px dashed rgba(255,0,0,0.5);" class="dock-container-rows"  >
         <div class="focusbox" 
              style="
                 display: block;
@@ -773,12 +791,13 @@ function keys(...k) {
     k.forEach(c=>cur.msg({type: 'keydown', data:c}))
 }
 
-keys('a','enter','b')
+keys('a','enter','b', ...lorem(), 'enter', ...lorem(), 'enter')
 
 refresh()
-function lorem() { return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.' }
+function lorem() { return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.'.split('') }
 
 
 function test(i,c) {
     s.chars[i]= { value: c }
 }
+
