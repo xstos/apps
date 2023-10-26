@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rectangles Per Second</title>
+</head>
+<body>
+<p>Rects per sec: <span id="fps">0</span></p>
+<canvas id="canvas" width="1920" height="1080"></canvas>
+<script>
+    function rng(start, end) {
+        let ret=[]
+        for (let i = start; i <= end; i++) {
+            ret.push(i)
+        }
+        return ret
+    }
+    const canvas = document.getElementById("canvas");
+    const context = canvas.getContext("2d");
+    const fpsElement = document.getElementById("fps");
+    function makeRect() {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const width = Math.random() * 100 + 50;
+        const height = Math.random() * 100 + 50;
+        const color = `rgb(${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)}, ${Math.floor(Math.random() * 256)})`;
+        return [x,y,width,height,color]
+    }
+    let numRects = 1000000
+    const rects = rng(1,numRects).map(makeRect)
+
+    var rectIx = 0
+    var r
+    function drawRandomRectangle() {
+        r = rects[rectIx++]
+        const x = r[0]
+        const y = r[1]
+        const width = r[2]
+        const height = r[3]
+        const color = r[4]
+
+        context.fillStyle = color;
+        context.fillRect(x, y, width, height);
+    }
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    var start,end
+    start= performance.now();
+    for (let i = 0; i < numRects; i++) {
+        drawRandomRectangle();
+    }
+    end = performance.now();
+    var numSec = (end-start)/1000
+    var rectPerSec = numRects / numSec
+    fpsElement.textContent = (rectPerSec).toString()
+</script>
+</body>
+</html>
