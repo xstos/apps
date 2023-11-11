@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <LINK href="main.css" rel="stylesheet" type="text/css">
+</head>
+<body style="min-height: 100vh; width: 100vw; margin: 0px;padding: 0px;">
+
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script>
+    function loadScript(url,type) {
+        let el = document.createElement("script");
+
+        el.setAttribute("src", url);
+        el.setAttribute("type", type);
+        el.setAttribute("async", "true");
+
+        el.addEventListener("load", () => {
+            console.log("File loaded")
+        });
+        el.addEventListener("error", (ev) => {
+            console.log("Error on loading file", ev);
+        });
+        document.body.appendChild(el);
+    }
+    window.mainReady = new Promise((res,rej)=>{
+        const ss = new CSSStyleSheet();
+        const link = document.querySelector(`link[href*='${'main.css'}']`)
+        fetch(link.href).then(resp=>{
+            resp.text().then(txt=>{
+                ss.replace(txt).then(()=>{
+                    window.ss = [ss];
+                    res()
+                })
+            })
+        })
+    })
+
+</script>
+<script src="arrow-js.js"></script>
+<script type="module">
+    import flat from 'https://cdn.jsdelivr.net/npm/flat@5.0.2/+esm';
+    //import * as arrowJs from 'https://cdn.jsdelivr.net/npm/@arrow-js/core@1.0.0-alpha.9/+esm';
+    import virtualDom from 'https://cdn.jsdelivr.net/npm/virtual-dom@2.1.1/+esm'
+    import clonedeep from 'https://cdn.jsdelivr.net/npm/lodash.clonedeep@4.5.0/+esm'
+    import cellx from 'https://cdn.jsdelivr.net/npm/cellx@1.10.30/+esm'
+    Object.assign(window,{
+        flat,
+        //arrowJs,
+        virtualDom,
+        clonedeep,
+        cellx,
+    })
+</script>
+<script src="util.js"></script>
+<script>
+    window.mainReady.then(()=>{
+        loadScript("main.js","text/babel")
+    })
+</script>
+
+</body>
+</html>
