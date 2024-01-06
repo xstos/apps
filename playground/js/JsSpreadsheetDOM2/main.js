@@ -17,38 +17,27 @@ const entities={}
 //layers are operators, i.e. create a block then on top of it put uppercase operator
 //search layer is a search box at top with mag on left with results below
 //viewport layer is below search
-//use nearby to collide with boundaries
+//use nearby to collide with boundaries or //keep two maps: includes/not includes
+//spec: newline delim, read verb, then push curry to right and repeat until line end
 function cmd(str) {
     const lines=str.trim().split('\n')
     log(lines)
 }
 const backtick = '`'
-//spec: newline delim, read verb, then push curry to right and repeat until line end
-
 
 Object.prototype._=pipe
-
 Object.prototype._reduce=reduceObj
-function mapObj(callback) {
-    return (obj)=> {
-        const ret = {}
-        let value
-        for (const k in obj) {
-            value = obj[k]
-            ret[k] = callback(k, value)
-        }
-        return ret
-    }
-}
+
 const g = observerProxy((type, path, value)=>{
     if (type==='apply') {
         const dottedPath = path.join('.')
         let curPath
-        return value[0]._reduce((accumulator, currentValue, currentIndex, object)=>{
+        let ret = value[0]._reduce((accumulator, currentValue, currentIndex, object)=>{
             curPath = dottedPath+"."+currentIndex
             accumulator[curPath]=cell(curPath,currentValue)
             return accumulator
-        },{})._(log)
+        },{})
+        return ret
     }
 })
 
@@ -124,20 +113,12 @@ function onResize(data) {
     const rowHeight = img.getCol(0).find(v => v.r === 0).y + 1
     const numCols = Math.floor(width / colWidth)
     const numRows = Math.floor(height / rowHeight)
-    viewport = {width, height, colWidth, rowHeight, numCols, numRows}
-    const vp = {
-        viewport: {width, height, colWidth, rowHeight, numCols, numRows}
-    }
+    viewport = {width, height, colWidth, rowHeight, numCols, numRows};
+    g.viewport({width, height, colWidth, rowHeight, numCols, numRows});
 
-    vp._(flatCell,log)
-
-    log(viewport)
     //ctx.setTransform(width/height, 0,0,width/height,0,0)
 }
-function flatCell(o) {
-    return o._(flat,mapObj(cell))
-}
-//keep two maps: includes/not includes
+
 document.addEventListener('mousemove',(e)=>{
     const [cx,cy] = [e.clientX, e.clientY]
     const [colIndex,rowIndex]=[
@@ -150,7 +131,7 @@ document.addEventListener('mousemove',(e)=>{
 document.addEventListener('mousedown',(e)=>{
     const {clientX, clientY} = e;
     const button = e.button === 2 ? "right" : "left"
-    g.viewport.mouse.down({ clientX, clientY, button })._(logj)
+    g.viewport.mouse.down({ clientX, clientY, button })
 })
 document.addEventListener('keydown', (e)=>{
     const k = getKey(e)
@@ -223,7 +204,7 @@ let c2 = cellx(()=>{
 })
 c2.onChange(evt=>{
     const val = evt.data.value
-    log(`c1 changed`,JSON.stringify(val))
+    //log(`c1 changed`,JSON.stringify(val))
 })
 c1.onChange(evt=>{
 
