@@ -6,37 +6,49 @@ const {h, create, diff, patch, VText} = window.virtualDom
 const unflat = flat.unflatten
 const json = (o)=>JSON.stringify(o,null,2)
 const logj = (...items) => log(json(...items))
+const has = Reflect.has
 const {rng} = window
 const cells={}
 const entities={}
+//for simplifity could not bother painting UI, just write elements as text
+//there's a search layer for console control, when hitting `, the layer is brought to top
+//create block UI widgets like buttons, textboxes and dropdowns/lists
+//because we have layers, multiple things can't happen on click
+//layers are operators, i.e. create a block then on top of it put uppercase operator
+//search layer is a search box at top with mag on left with results below
+//viewport layer is below search
+//use nearby to collide with boundaries
+function cmd(str) {
+    const lines=str.trim().split('\n')
+    log(lines)
+}
+const backtick = '`'
+//spec: newline delim, read verb, then push curry to right and repeat until line end
 
-const c = observerProxy((type, path, value)=>{
-    if (type==='set') {
-        if (isPlainObject(value)) {
-            //const last = lastItem(path)
-            //const rest = path.slice(0,-1)
-            const pathKey = path.join('.')
-            let v, cellkey
-            const entries = Reflect.has(cells,pathKey)
-                ? cells[pathKey]() : {}
-            for (const k in value) {
-                v=value[k]
-                cellkey = pathKey+"."+k
-                entries[k]=getCreateCell(cellkey,v)
-            }
 
-            getCreateCell(pathKey, ()=>{
-                let ret = {}
-                let v
-                for (const k in entries) {
-                    v=entries[k]
-                    ret[k]=v()
-                }
-                return ret
-            })
+Object.prototype._=pipe
+
+Object.prototype._reduce=reduceObj
+function mapObj(callback) {
+    return (obj)=> {
+        const ret = {}
+        let value
+        for (const k in obj) {
+            value = obj[k]
+            ret[k] = callback(k, value)
         }
-    } else if (type==='apply') {
-        return getCreateCell(path.join('.'))()
+        return ret
+    }
+}
+const g = observerProxy((type, path, value)=>{
+    if (type==='apply') {
+        const dottedPath = path.join('.')
+        let curPath
+        return value[0]._reduce((accumulator, currentValue, currentIndex, object)=>{
+            curPath = dottedPath+"."+currentIndex
+            accumulator[curPath]=cell(curPath,currentValue)
+            return accumulator
+        },{})._(log)
     }
 })
 
@@ -67,26 +79,23 @@ canvasStyle.top = "0px"
 const squareChar = "█"
 
 //todo: paint grid
-function getCreateCell(name, value) {
-    let ret
-    if (Reflect.has(cells,name)) {
-        ret = cells[name]
-        ret(value)
+function cell(name, initialValue) {
+    let ret=cells[name]
+    if (ret) {
         return ret
     }
-    ret = cellx(value)
-
-    log('create cell',name, value)
+    ret = cellx(initialValue)
+    cells[name]= ret
+    log('create cell',name, initialValue)
     ret.onChange(evt=>{
         const val = evt.data.value
         log(`cell ${name} changed`,JSON.stringify(val))
     })
-    cells[name]= ret
+
     return ret
 }
 
-c.canvas.offset={r:0,c:0}
-log(c.canvas.offset())
+var viewport
 resizeObserver(document.body,onResize)
 onResize()
 function onResize(data) {
@@ -115,34 +124,38 @@ function onResize(data) {
     const rowHeight = img.getCol(0).find(v => v.r === 0).y + 1
     const numCols = Math.floor(width / colWidth)
     const numRows = Math.floor(height / rowHeight)
-    c.canvas = {width, height, colWidth, rowHeight, numCols, numRows}
+    viewport = {width, height, colWidth, rowHeight, numCols, numRows}
+    const vp = {
+        viewport: {width, height, colWidth, rowHeight, numCols, numRows}
+    }
+
+    vp._(flatCell,log)
+
+    log(viewport)
     //ctx.setTransform(width/height, 0,0,width/height,0,0)
 }
-
-c.render= ()=>{
-    const {width,height,colWidth,rowHeight,
-        numCols,numRows,offset} = c.canvas()
-    const { r, c } = offset
-    debugger
-    let oddXOffs = r % 2
-    let oddYOffs = c % 2
-
-    for (let i = 0; i < numCols; i+=2) {
-        for (let j = 0; j < numRows; j++) {
-
-        }
-    }
-    //requestAnimationFrame(render)
+function flatCell(o) {
+    return o._(flat,mapObj(cell))
 }
+//keep two maps: includes/not includes
+document.addEventListener('mousemove',(e)=>{
+    const [cx,cy] = [e.clientX, e.clientY]
+    const [colIndex,rowIndex]=[
+        Math.floor(cx / viewport.colWidth),
+        Math.floor(cy / viewport.rowHeight),
+    ]
+    //log(colIndex,rowIndex)
 
+})
 document.addEventListener('mousedown',(e)=>{
-
-    c('mousedown.pos', {x:e.clientX, y: e.clientY})
+    const {clientX, clientY} = e;
+    const button = e.button === 2 ? "right" : "left"
+    g.viewport.mouse.down({ clientX, clientY, button })._(logj)
 })
 document.addEventListener('keydown', (e)=>{
     const k = getKey(e)
     if (k==="control") return
-
+    log('keydown',k)
 })
 canvas.addEventListener('wheel', (e)=>{
     log(e)
@@ -198,3 +211,22 @@ function getImageData(canvas) {
         getPixels,
     }
 }
+
+let c1 = cellx(false)
+
+let c2 = cellx(()=>{
+    let v=c1()
+    setTimeout(()=>{
+        //c1(!v)
+    },1000)
+    return !v
+})
+c2.onChange(evt=>{
+    const val = evt.data.value
+    log(`c1 changed`,JSON.stringify(val))
+})
+c1.onChange(evt=>{
+
+})
+
+//c1(true)

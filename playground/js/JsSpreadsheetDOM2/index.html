@@ -5,9 +5,10 @@
     <title>Title</title>
     <LINK href="main.css" rel="stylesheet" type="text/css">
 </head>
-<body style="min-height: 100vh; width: 100vw; margin: 0px;padding: 0px;">
+<body style="min-height: 100vh; width: 100vw; margin: 0px;padding: 0px;background-color: black">
 
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="nearby.js"></script>
 <script>
     function loadScript(url,type) {
         let el = document.createElement("script");
@@ -45,12 +46,14 @@
     import virtualDom from 'https://cdn.jsdelivr.net/npm/virtual-dom@2.1.1/+esm'
     import clonedeep from 'https://cdn.jsdelivr.net/npm/lodash.clonedeep@4.5.0/+esm'
     import cellx from 'https://cdn.jsdelivr.net/npm/cellx@1.10.30/+esm'
+    import objectPath from 'https://cdn.jsdelivr.net/npm/object-path@0.11.8/+esm'
     Object.assign(window,{
         flat,
         //arrowJs,
         virtualDom,
         clonedeep,
         cellx,
+        objectPath,
     })
 </script>
 <script src="util.js"></script>

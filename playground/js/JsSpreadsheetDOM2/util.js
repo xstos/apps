@@ -1,5 +1,6 @@
 function log(...items) {
     console.log(...items)
+    return
 }
 function logj(...items) {
     log(...items.map(i=>JSON.stringify(i,null,2)))
@@ -97,6 +98,7 @@ function observerProxy(emit, path) {
     path=path||[]
     return new Proxy(()=>{},{
         get(target, key, thisArg) {
+            emit('get', [...path, key])
             return observerProxy(emit, [...path, key])
         },
         set(target, key, value) {
@@ -114,8 +116,22 @@ function observerProxyExample() {
     p.a.b(1)
     p.c.d=2
 }
-observerProxyExample()
+//observerProxyExample()
 
+function createPaths(array, callback) {
+    let currentPath = [], parentPath=[];
+
+    for (let i = 0; i < array.length; i++) {
+        parentPath = [...currentPath]
+        if (i === 0) {
+            currentPath[0]=array[i]
+        } else {
+            currentPath.push(array[i])
+        }
+        callback(currentPath, parentPath)
+    }
+}
+//log(createPaths(['a','b','c'],log))
 function getAttributes(el) {
     const ret= Object.fromEntries(el.getAttributeNames().map(k=>[k,el.getAttribute(k)]))
     return ret
@@ -280,3 +296,57 @@ function isPlainObject(o) {
     // Most likely a plain Object
     return true;
 };
+function isPrimitive(arg) {
+    var type = typeof arg;
+    return arg == null || (type !== "object" && type !== "function");
+}
+
+/**
+ * Callback function signature for the custom reduce operation on objects.
+ *
+ * @callback ObjectReduceCallback
+ * @param {*} accumulator - The accumulated result.
+ * @param {*} currentValue - The current value being processed.
+ * @param {string} currentIndex - The current key/index being processed.
+ * @param {Object} object - The original object being reduced.
+ * @returns {*} - The updated accumulator value after processing the current key-value pair.
+ */
+/**
+ * Custom implementation of the reduce function for objects, applied to each key-value pair.
+ *
+ * @function
+ * @name Object.prototype._reduce
+ * @param {ObjectReduceCallback} callback - The function to execute on each key-value pair.
+ *   It takes four arguments: accumulator, currentValue, currentKey, and the original object.
+ * @param {*} initialValue - The initial value of the accumulator.
+ * @returns {*} - The accumulated result after applying the callback to each key-value pair.
+ * @this {Object} - The object to reduce.
+ * @throws {TypeError} Will throw an error if the context (this) is not an object.
+ *
+ * @example
+ * const obj = { a: 1, b: 2, c: 3 };
+ * const result = obj._reduce((acc, val) => acc + val, 0);
+ * console.log(result); // Output: 6
+ */
+function reduceObj(callback,initialValue) {
+    const obj = this
+    if (typeof obj !== 'object' || obj === null) {
+        throw new TypeError('Object.prototype._reduce called on non-object');
+    }
+    let ret=initialValue
+    for (const k in obj) {
+        if (obj.hasOwnProperty(k)) {
+            ret = callback(initialValue, obj[k], k, obj)
+        }
+    }
+    return ret
+}
+
+function pipe(...args) {
+    var ret=this, cur
+    for (let i = 0; i < args.length; i++) {
+        cur=args[i]
+        ret = cur(ret)
+    }
+    return ret
+}
