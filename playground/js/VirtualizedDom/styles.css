@@ -1,0 +1,30 @@
+.search {
+    border: 1px solid red;
+    padding: 1px;
+}
+* {
+    box-sizing: border-box;
+    font-family: monospace, sans-serif;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: #222728;
+    color: #83ADFB;
+}
+body {
+    display: flex;
+    border: 1px solid red;
+
+}
+x-cell {
+    border: 1px dashed #F67844;
+    padding: 1px;
+    min-width: 1ch;
+}
+pre {
+    margin: 0;
+    padding: 0;
+}

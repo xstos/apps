@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Nested Virtualized Spans</title>
+    <style>
+    </style>
+    <link rel="stylesheet" href="styles.css">
+
+</head>
+
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cellx/2.0.1/cellx.umd.min.js"
+        integrity="sha512-+nTC8Kovhf6l2jN7iOVdf5FZfttYL7wWFkCCpTNjc+7VxK+EgHZYH1REadZliDe+Ps+uQWzOhwJItlKrPG/ENw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="util.js"></script>
+<span id="root"><x-cursor/></span>
+<template id="t-cursor">█</template>
+<template id="t-search">
+    <x-cell name="search"><x-cursor/></x-cell>
+    <x-verb>"".toUpperCase</x-verb>
+</template>
+<template id ="t-cell">
+    <x-cell><x-cursor/></x-cell>
+</template>
+<script type="module">
+    import foo from "./styles.css" with {type: "css"};
+    const dirty =[]
+    const letters = '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
+    var mo = new MutationObserver((rec)=>{
+        console.log("derp",rec)
+        dirty.push(rec);
+    })
+    mo.observe(getEl('root'),{
+        subtree:true,
+        childList: true,
+        attributes: true,
+    })
+    function isX(el) {
+        return el.tagName.startsWith("X-")
+    }
+    document.addEventListener("keydown", (e) => {
+        if (e.altKey) {
+            return;
+        }
+
+        var key = e.key
+        if (key === "Control" || key === "Alt") {
+            return;
+        }
+        if (e.ctrlKey) {
+            key="Control+"+key
+        }
+        let cur = document.querySelector('x-cursor')
+
+        if (key === "Backspace") {
+            remove(cur.previousSibling)
+            return;
+        }
+        if (key === "Enter") {
+            insertBefore(cur, document.createElement('br'))
+            return;
+        }
+        if (key === '`') {
+            replace(cur, fromtemp('t-search'))
+            return;
+        }
+        if (key==="Control+Enter") {
+            replace(cur,fromtemp('t-cell'))
+            return;
+        }
+        if (key==="Control+Backspace" && isX(cur.parentElement)) {
+
+            replace(cur.parentElement,cur)
+            return;
+        }
+        insertBefore(cur,document.createTextNode(key) )
+
+    });
+
+    class MoveableElement extends HTMLElement {
+        constructor() {
+            super();
+            var tag = this.tagName.toLowerCase().replace("x-","")
+            this.innerHTML=''
+            var that = this;
+
+            this.appendChild(fromtemp("t-"+tag))
+
+        }
+
+        connectedCallback() {
+
+        }
+
+        moveUp() {
+            const prevSibling = this.previousElementSibling;
+            if (prevSibling) {
+                this.parentNode.insertBefore(this, prevSibling);
+            }
+        }
+
+        moveDown() {
+            const nextSibling = this.nextElementSibling;
+            if (nextSibling) {
+                this.parentNode.insertBefore(nextSibling, this);
+            }
+        }
+    }
+
+    Array.from(document.querySelectorAll('*').values())
+        .filter(n=>n.tagName.startsWith("X-")).forEach(n=>{
+        console.log('register '+n.tagName)
+        customElements.define(n.tagName.toLowerCase(), MoveableElement)
+
+    })
+</script>
+</body>
+
+</html>
