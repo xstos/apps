@@ -1,3 +1,15 @@
+Object.defineProperty(Object.prototype,'$',{
+    get(){
+        var that = this;
+        return {
+            forEach(selector) {
+                for (var i = 0, l = that.length; i < l; i++) {
+                    selector(that[i],i)
+                }
+            }
+        }
+    }
+})
 function getEl(id) {
     return document.getElementById(id)
 }
@@ -17,5 +29,8 @@ function replace(el, withel) {
 function fromtemp(templateId) {
     var foo = getEl(templateId)
     var clone = foo.content.cloneNode(true)
+
     return clone
 }
+
+var log=console.log

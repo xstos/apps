@@ -15,7 +15,7 @@ html, body {
     color: #83ADFB;
 }
 body {
-    display: flex;
+    /*display: flex;*/
     border: 1px solid red;
 
 }
@@ -23,6 +23,7 @@ x-cell {
     border: 1px dashed #F67844;
     padding: 1px;
     min-width: 1ch;
+    margin: 1px;
 }
 pre {
     margin: 0;

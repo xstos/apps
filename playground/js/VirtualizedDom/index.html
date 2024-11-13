@@ -25,6 +25,7 @@
 <template id ="t-cell">
     <x-cell><x-cursor/></x-cell>
 </template>
+<template id="t-char"><x-char><x-slot-0/></x-char></template>
 <script type="module">
     import foo from "./styles.css" with {type: "css"};
     const dirty =[]
@@ -41,6 +42,15 @@
     function isX(el) {
         return el.tagName.startsWith("X-")
     }
+    function swap(el1,el2) {
+        var temp1 = document.createElement("span");
+        var temp2 = document.createElement('span')
+        replace(el1,temp1)
+        replace(el2,temp2)
+        replace(temp1,el2)
+        replace(temp2,el1)
+    }
+    const argStack ={}
     document.addEventListener("keydown", (e) => {
         if (e.altKey) {
             return;
@@ -67,17 +77,34 @@
             replace(cur, fromtemp('t-search'))
             return;
         }
+        if (key==='ArrowLeft') {
+            cur.previousElementSibling!==null && swap(cur.previousElementSibling,cur)
+            return;
+        }
+        if (key==='ArrowRight') {
+            cur.nextElementSibling!=null && swap(cur.nextElementSibling,cur)
+            return;
+        }
+        if (key==='Delete') {
+            cur.nextElementSibling!==null && cur.nextElementSibling.remove()
+            return;
+        }
         if (key==="Control+Enter") {
             replace(cur,fromtemp('t-cell'))
             return;
         }
         if (key==="Control+Backspace" && isX(cur.parentElement)) {
-
             replace(cur.parentElement,cur)
             return;
         }
-        insertBefore(cur,document.createTextNode(key) )
 
+        insertBefore(cur,fromtemp('t-char',key))
+        cur.previousElementSibling.getElementsByTagName('*')
+            .$.forEach(el=>{
+                if (el.tagName.startsWith('X-SLOT-')) {
+                    replace(el,document.createTextNode(key))
+                }
+            })
     });
 
     class MoveableElement extends HTMLElement {
