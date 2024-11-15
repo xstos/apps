@@ -1,0 +1,7 @@
+// refElem.insertAdjacentElement('beforebegin', myElem);
+<p id="refElem">
+    // refElem.insertAdjacentElement('afterbegin', myElem);
+    ... content ...
+    // refElem.insertAdjacentElement('beforeend', myElem);
+</p>
+// refElem.insertAdjacentElement('afterend', myElem);
