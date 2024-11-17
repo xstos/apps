@@ -1,4 +1,10 @@
 var log=console.log
+function createElement(tag) {
+    return document.createElement(tag);
+}
+function createTextNode(txt) {
+    return document.createTextNode(txt);
+}
 
 Object.defineProperty(Object.prototype,'$',{
     get(){
@@ -54,4 +60,12 @@ function iterateNodes(node, selector) {
         selector(child)
         iterateNodes(child, selector); // Recursive call for each child node
     });
+}
+function HTML(markup) {
+    var t = createElement('template')
+    t.innerHTML = markup
+    return t.content
+}
+function isFunction(thing) {
+  return typeof thing === 'function' && thing && thing.call;
 }

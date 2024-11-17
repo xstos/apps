@@ -1,4 +1,5 @@
 //import { reactive, html } from 'https://esm.sh/@arrow-js/core';
+
 const dirty = []
 const letters = '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
 var mo = new MutationObserver((rec) => {
@@ -23,22 +24,23 @@ document.addEventListener("keydown", (e) => {
         key = "Control+" + key
     }
     let cursor = document.querySelector('x-cursor')
+    const prev = cursor.previousElementSibling;
+    const next = cursor.nextElementSibling;
+    const parent = cursor.parentElement;
 
     if (key === "Backspace") {
         remove(cursor.previousSibling)
         return;
     }
     if (key === "Enter") {
-        insertBefore(cursor, document.createElement('br'))
+        insertBefore(cursor, createElement('br'))
         return;
     }
     if (key === '`') {
-        replace(cursor, fromtemp('t-search'))
+        const html = `<x-find><x-cursor></x-cursor></x-find>`
+        replace(cursor,HTML(html))
         return;
     }
-    const prev = cursor.previousElementSibling;
-    const next = cursor.nextElementSibling;
-    const parent = cursor.parentElement;
 
     if (key === 'ArrowLeft') {
         prev !== null && swap(prev, cursor)
@@ -75,8 +77,8 @@ document.addEventListener("keydown", (e) => {
         return;
     }
     if (key === "Control+Enter") {
-        var xc = document.createElement('x-cell')
-        var cur2 = document.createElement('x-cursor')
+        var xc = createElement('x-cell')
+        var cur2 = createElement('x-cursor')
         xc.appendChild(cur2)
         replace(cursor, xc);
         return;
@@ -85,37 +87,34 @@ document.addEventListener("keydown", (e) => {
         replace(parent, cursor)
         return;
     }
-
-    insertBefore(cursor, fromtemp('t-char', key))
-    const slot = cursor.previousElementSibling.getElementsByTagName('X-SLOT-0')[0]
-    replace(slot, document.createTextNode(key))
+    var xc = createElement('x-c')
+    xc.appendChild(createTextNode(key))
+    insertBefore(cursor,xc)
 });
-
-class MoveableElement extends HTMLElement {
+const CustEls = {
+    cell: `[<slot></slot>]`,
+    cursor: `█`,
+    c: `<slot></slot>`,
+    find() { return `[🔍<slot></slot>]` }
+}
+class CustEl extends HTMLElement {
     constructor() {
         super();
         var tag = this.tagName.toLowerCase().replace("x-", "")
-        this.innerHTML = ''
-        var that = this;
-        log(tag)
-        if (tag==="cell") {
-            const shadow = this.attachShadow({ mode: 'open' });
-            shadow.innerHTML = `[<slot></slot>]`
-        } else if (tag==='cursor') {
-            const shadow = this.attachShadow({ mode: 'open' });
-            shadow.innerHTML = `█`
-        } else {
-            this.appendChild(fromtemp("t-" + tag))
-        }
+        const shadow = this.attachShadow({ mode: 'open' });
+        let o = CustEls[tag];
+        shadow.innerHTML = isFunction(o) ? o() : o;
     }
 
     connectedCallback() {
 
     }
 }
-function me() {
-    class Foo extends MoveableElement {}
+function ce() {
+    class Foo extends CustEl {}
     return Foo
 }
-customElements.define("x-cursor",me());
-customElements.define("x-cell",me());
+customElements.define("x-c",ce())
+customElements.define("x-cursor",ce());
+customElements.define("x-cell",ce());
+customElements.define("x-find",ce())
