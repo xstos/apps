@@ -1,5 +1,4 @@
-import foo from "./styles.css" with {type: "css"};
-
+//import { reactive, html } from 'https://esm.sh/@arrow-js/core';
 const dirty = []
 const letters = '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
 var mo = new MutationObserver((rec) => {
@@ -11,7 +10,6 @@ mo.observe(getEl('root'), {
     childList: true,
     attributes: true,
 })
-
 document.addEventListener("keydown", (e) => {
     if (e.altKey) {
         return;
@@ -77,7 +75,10 @@ document.addEventListener("keydown", (e) => {
         return;
     }
     if (key === "Control+Enter") {
-        replace(cursor, fromtemp('t-cell'))
+        var xc = document.createElement('x-cell')
+        var cur2 = document.createElement('x-cursor')
+        xc.appendChild(cur2)
+        replace(cursor, xc);
         return;
     }
     if (key === "Control+Backspace" && isX(parent)) {
@@ -96,18 +97,25 @@ class MoveableElement extends HTMLElement {
         var tag = this.tagName.toLowerCase().replace("x-", "")
         this.innerHTML = ''
         var that = this;
-
-        this.appendChild(fromtemp("t-" + tag))
-
+        log(tag)
+        if (tag==="cell") {
+            const shadow = this.attachShadow({ mode: 'open' });
+            shadow.innerHTML = `[<slot></slot>]`
+        } else if (tag==='cursor') {
+            const shadow = this.attachShadow({ mode: 'open' });
+            shadow.innerHTML = `█`
+        } else {
+            this.appendChild(fromtemp("t-" + tag))
+        }
     }
 
     connectedCallback() {
 
     }
 }
-
-Array.from(document.querySelectorAll('*').values())
-    .filter(n => n.tagName.startsWith("X-")).forEach(n => {
-    console.log('register ' + n.tagName)
-    customElements.define(n.tagName.toLowerCase(), MoveableElement)
-})
+function me() {
+    class Foo extends MoveableElement {}
+    return Foo
+}
+customElements.define("x-cursor",me());
+customElements.define("x-cell",me());

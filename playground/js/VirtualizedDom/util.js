@@ -25,7 +25,7 @@ function insertBefore(before, el) {
 }
 
 function replace(el, withel) {
-    console.log(withel)
+    //console.log(withel)
     el.replaceWith(withel)
 }
 
@@ -48,4 +48,10 @@ function swap(el1,el2) {
     replace(el2,temp2)
     replace(temp1,el2)
     replace(temp2,el1)
+}
+function iterateNodes(node, selector) {
+    node.childNodes.forEach(child => {
+        selector(child)
+        iterateNodes(child, selector); // Recursive call for each child node
+    });
 }

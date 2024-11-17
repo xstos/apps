@@ -16,13 +16,17 @@
         integrity="sha512-+nTC8Kovhf6l2jN7iOVdf5FZfttYL7wWFkCCpTNjc+7VxK+EgHZYH1REadZliDe+Ps+uQWzOhwJItlKrPG/ENw=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="util.js"></script>
-<span id="root"><x-cursor/></span>
+<div id="root"><x-cursor/></div>
 <template id="t-cursor">█</template>
 <template id="t-search">
     <x-cell name="search">
         <x-cursor/>
     </x-cell>
-    <x-verb>"".toUpperCase</x-verb>
+</template>
+<template id="t-table">
+    <x-table>
+
+    </x-table>
 </template>
 <template id="t-cell">
     <x-cell>
@@ -31,6 +35,7 @@
 </template>
 <template id="t-char"><x-char><x-slot-0/></x-char></template>
 <script type="module" src="main.js"></script>
+
 </body>
 
 </html>
