@@ -5,6 +5,7 @@ const letters = '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<
 var mo = new MutationObserver((rec) => {
     console.log("derp", rec)
     dirty.push(rec);
+    document.querySelector('X-CURSOR').scrollIntoView(true)
 })
 mo.observe(getEl('root'), {
     subtree: true,
@@ -92,7 +93,7 @@ document.addEventListener("keydown", (e) => {
     insertBefore(cursor,xc)
 });
 const CustEls = {
-    cell: `[<slot></slot>]`,
+    cell: `[<slot></slot>]<button>🔧</button>`,
     cursor: `█`,
     c: `<slot></slot>`,
     find() { return `[🔍<slot></slot>]` }
@@ -103,7 +104,8 @@ class CustEl extends HTMLElement {
         var tag = this.tagName.toLowerCase().replace("x-", "")
         const shadow = this.attachShadow({ mode: 'open' });
         let o = CustEls[tag];
-        shadow.innerHTML = isFunction(o) ? o() : o;
+        addGlobalStylesToShadowRoot(this.shadowRoot)
+        shadow.appendChild(HTML(isFunction(o) ? o() : o))
     }
 
     connectedCallback() {
@@ -114,7 +116,5 @@ function ce() {
     class Foo extends CustEl {}
     return Foo
 }
-customElements.define("x-c",ce())
-customElements.define("x-cursor",ce());
-customElements.define("x-cell",ce());
-customElements.define("x-find",ce())
+`x-c x-cursor x-cell x-find`.split(' ').forEach(s=> customElements.define(s,ce()))
+

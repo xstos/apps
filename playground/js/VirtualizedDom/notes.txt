@@ -5,3 +5,8 @@
     // refElem.insertAdjacentElement('beforeend', myElem);
 </p>
 // refElem.insertAdjacentElement('afterend', myElem);
+
+items => clone => cursor process each TOUPPER
+action button on each item
+
+table with dimensions/names on row/col headers and tbl/pivots in top left corner  na
