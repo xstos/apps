@@ -104,7 +104,7 @@ class CustEl extends HTMLElement {
         var tag = this.tagName.toLowerCase().replace("x-", "")
         const shadow = this.attachShadow({ mode: 'open' });
         let o = CustEls[tag];
-        addGlobalStylesToShadowRoot(this.shadowRoot)
+        addGlobalStylesToShadowRoot(this.shadowRoot, cloneCSS(document.styleSheets[0]))
         shadow.appendChild(HTML(isFunction(o) ? o() : o))
     }
 
@@ -118,3 +118,29 @@ function ce() {
 }
 `x-c x-cursor x-cell x-find`.split(' ').forEach(s=> customElements.define(s,ce()))
 
+//import * as exports from 'ui.js'
+//Object.entries(exports).forEach(([name, exported]) => window[name] = exported);
+
+var grid = GridStack.init();
+
+
+
+
+
+
+import morphdom from 'https://cdn.jsdelivr.net/npm/morphdom@2.7.4/+esm'
+function test() {
+    var foo = createElement('div')
+    for (let i = 0; i < 10; i++) {
+        var child = createElement('div')
+        child.id = i
+        child.appendChild(createTextNode(i + ""))
+        foo.appendChild(child)
+    }
+    var root = getEl("root")
+    morphdom(root, foo.cloneNode(true))
+    log(foo)
+
+    foo.childNodes[2].innerHTML = "yo"
+    morphdom(root, foo.cloneNode(true))
+}

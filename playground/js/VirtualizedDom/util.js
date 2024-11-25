@@ -70,23 +70,22 @@ function isFunction(thing) {
   return typeof thing === 'function' && thing && thing.call;
 }
 let globalSheets = null;
-
+function cloneCSS(x) {
+    const sheet = new CSSStyleSheet();
+    const css = Array.from(x.cssRules).map(rule => rule.cssText).join(' ');
+    sheet.replaceSync(css);
+    return sheet;
+}
 function getGlobalStyleSheets() {
     if (globalSheets === null) {
-        globalSheets = Array.from(document.styleSheets)
-            .map(x => {
-                const sheet = new CSSStyleSheet();
-                const css = Array.from(x.cssRules).map(rule => rule.cssText).join(' ');
-                sheet.replaceSync(css);
-                return sheet;
-            });
+        globalSheets = Array.from(document.styleSheets).map(cloneCSS);
     }
 
     return globalSheets;
 }
 //https://eisenbergeffect.medium.com/using-global-styles-in-shadow-dom-5b80e802e89d
-function addGlobalStylesToShadowRoot(shadowRoot) {
+function addGlobalStylesToShadowRoot(shadowRoot,...styleSheets) {
     shadowRoot.adoptedStyleSheets.push(
-        ...getGlobalStyleSheets()
+        ...styleSheets
     );
 }
