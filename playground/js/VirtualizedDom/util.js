@@ -84,7 +84,7 @@ function getGlobalStyleSheets() {
 
     return globalSheets;
 }
-
+//https://eisenbergeffect.medium.com/using-global-styles-in-shadow-dom-5b80e802e89d
 function addGlobalStylesToShadowRoot(shadowRoot) {
     shadowRoot.adoptedStyleSheets.push(
         ...getGlobalStyleSheets()
