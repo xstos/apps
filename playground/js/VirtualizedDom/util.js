@@ -89,3 +89,18 @@ function addGlobalStylesToShadowRoot(shadowRoot,...styleSheets) {
         ...styleSheets
     );
 }
+function debounce_leading(func, timeout = 300){
+    let timer;
+    return ret;
+
+    function ret(...args) {
+        if (!timer) {
+            func(...args)
+        }
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            timer = undefined;
+            func(...args)
+        }, timeout);
+    }
+}

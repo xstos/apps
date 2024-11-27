@@ -15,13 +15,16 @@ html, body {
     background: #222728;
     color: #83ADFB;
 }
-button {
-    border:0 none transparent;
+buttonkdjf {
+    border:1px solid #f3e114;
     background: none;
     box-shadow: none;
     border-radius: 0px;
+    box-shadow: none;
+
     margin: 0;
     padding: 0;
+    color: #83ADFB;
 }
 x-c {
     display: inline-block;
@@ -34,7 +37,7 @@ x-c {
 }
 body {
     /*display: flex;*/
-    border: 1px solid red;
+    border: 0px solid red;
 
 }
 x-cell {

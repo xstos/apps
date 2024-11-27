@@ -1,18 +1,17 @@
 //import { reactive, html } from 'https://esm.sh/@arrow-js/core';
 
-const dirty = []
 const letters = '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
 var mo = new MutationObserver((rec) => {
-    console.log("derp", rec)
-    dirty.push(rec);
-    document.querySelector('X-CURSOR').scrollIntoView(true)
+    //console.log("derp", rec)
+    document.querySelector('X-CURSOR')?.scrollIntoView(true)
 })
-mo.observe(getEl('root'), {
+mo.observe(getEl('root') || document.body, {
     subtree: true,
     childList: true,
     attributes: true,
 })
 document.addEventListener("keydown", (e) => {
+    return
     if (e.altKey) {
         return;
     }
@@ -117,15 +116,105 @@ function ce() {
     return Foo
 }
 `x-c x-cursor x-cell x-find`.split(' ').forEach(s=> customElements.define(s,ce()))
+class Dock extends HTMLElement {
+    cc = null;
+    dc = null;
+    ac = null;
+    constructor() {
+        super();
+        var dockEl = this
+        var parentRect = null
+        var dirty = true
+        var area = null
+        var panel1 = null
+        var panel2 = null
+        var child1 = null
+        var child2 = null
+        var roThis = new ResizeObserver(parentSizeChanged)
+        var roFirst = new ResizeObserver(debounce_leading(childSizeChanged,100))
+        function parentSizeChanged(entries) {
+            parentRect = area.getBoundingClientRect();
+        }
+        function childSizeChanged(entries) {
+            var r = area.getBoundingClientRect();
+            log(r)
+            var r1 = panel1.getBoundingClientRect()
+            panel2.style.top = r1.height+1+"px"
+            panel2.style.height = r.height-r1.height-1+"px"
+            panel2.style.width = r.width+"px"
+        }
 
+        //thisPanel.appendChild(a)
+        // otherPanel.appendChild(b)
+        // thisElem.appendChild(otherPanel)
+        // thisPanel = thisElem.children[0]
+        // otherPanel = thisElem.children[1]
+        // log(thisPanel)
+
+
+        function initChildren() {
+            var children = Array.from(dockEl.childNodes).filter(n=>n.nodeType!==3)
+            child1 = children[0];
+            child2 = children[1];
+            child1.remove()
+            child2.remove()
+            dockEl.innerHTML=``
+            area = HTML(`<div><div></div><div></div></div>`)
+
+            dockEl.appendChild(area)
+            area = dockEl.childNodes[0]
+            area.style.width="100%"
+            area.style.height="100%"
+            panel1 = area.childNodes[0]
+            panel2 = area.childNodes[1]
+            panel1.style.position="absolute"
+            panel2.style.position="absolute"
+            panel1.appendChild(child1)
+            panel2.appendChild(child2)
+            child1 = panel1.childNodes[0]
+            child2 = panel2.childNodes[0]
+            panel1.style.width="100%"
+        }
+
+        function connectedCallback() {
+            var dir = this.getAttribute("x-dock")
+            initChildren()
+            roThis.observe(area)
+            roFirst.observe(child1)
+        }
+        function disconnectedCallback() {
+            roThis.unobserve(dockEl.parentElement)
+        }
+        function attr(name, oldv, newv) {
+
+        }
+        this.ac=attr
+        this.cc=connectedCallback;
+        this.dc=disconnectedCallback;
+    }
+    static observedAttributes = ["x-dock"];
+    attributeChangedCallback(name, oldValue, newValue) {
+        this.ac(name,oldValue,newValue)
+        console.log(`Attribute ${name} has changed. ${newValue}`);
+    }
+    connectedCallback() {
+        this.cc()
+    }
+    disconnectedCallback() {
+        this.dc()
+    }
+}
+customElements.define("x-dock",Dock);
 //import * as exports from 'ui.js'
 //Object.entries(exports).forEach(([name, exported]) => window[name] = exported);
 
-var grid = GridStack.init();
+var grid = GridStack.initAll();
 
+function push() {
+    grid[1].addWidget({w:3, h:3, content:"new item"});
+}
 
-
-
+window.push = push;
 
 
 import morphdom from 'https://cdn.jsdelivr.net/npm/morphdom@2.7.4/+esm'
