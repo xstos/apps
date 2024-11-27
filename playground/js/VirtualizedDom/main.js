@@ -116,6 +116,7 @@ function ce() {
     return Foo
 }
 `x-c x-cursor x-cell x-find`.split(' ').forEach(s=> customElements.define(s,ce()))
+
 class Dock extends HTMLElement {
     cc = null;
     dc = null;
@@ -123,79 +124,98 @@ class Dock extends HTMLElement {
     constructor() {
         super();
         var dockEl = this
+        dockEl.style.display="block"
+
+        dockEl.childNodes.forEach(n=>n.nodeType===3 && n.remove())
+        dockEl.style.width="100%"
+        dockEl.style.height="100%"
         var parentRect = null
         var dirty = true
-        var area = null
-        var panel1 = null
-        var panel2 = null
-        var child1 = null
-        var child2 = null
+        var panel1 = dockEl.childNodes[0]
+        var panel2 = dockEl.childNodes[1]
+        function nextDock() {
+            var d = getDock()
+            if (d==="top") return "bottom"
+            if (d==="bottom") return "left"
+            if (d==="left") return "right"
+            if (d==="right") return "top"
+            return "top"
+        }
         var roThis = new ResizeObserver(parentSizeChanged)
-        var roFirst = new ResizeObserver(debounce_leading(childSizeChanged,100))
+        var roFirst = new ResizeObserver(childSizeChanged)
+        function getDock() {
+            return dockEl.getAttribute("x-dock")
+        }
         function parentSizeChanged(entries) {
-            parentRect = area.getBoundingClientRect();
+            parentRect = dockEl.getBoundingClientRect();
+            childSizeChanged()
+        }
+        function setPos(style,top,left,width,height) {
+            style.top = top
+            style.left = left
+            style.width=width
+            style.height = height
         }
         function childSizeChanged(entries) {
-            var r = area.getBoundingClientRect();
-            log(r)
-            var r1 = panel1.getBoundingClientRect()
-            panel2.style.top = r1.height+1+"px"
-            panel2.style.height = r.height-r1.height-1+"px"
-            panel2.style.width = r.width+"px"
+            panel1=panel1 || dockEl.childNodes[0]
+            var dockRect = dockEl.getBoundingClientRect();
+            log(dockRect)
+            var childRect = panel1.getBoundingClientRect()
+            var dockType = getDock()
+            let ps1 = panel1.style;
+            let ps2 = panel2.style;
+            if (dockType=="bottom") {
+                setPos(ps1,dockRect.height-childRect.height+"px","0px","100%",'')
+                setPos(ps2, "0px","0px","100%",dockRect.height-childRect.height+"px")
+            } else if (dockType=="left") {
+                setPos(ps1,"0px","0px",'',"100%")
+                setPos(ps2, "0px",childRect.width+"px",dockRect.width-childRect.width+"px","100%")
+            } else if (dockType=="right") {
+                setPos(ps1,"0px",dockRect.width-childRect.width+"px",'',"100%")
+                setPos(ps2,"0px","0px",dockRect.width-childRect.width+"px","100%")
+            } else { //top
+                setPos(ps1,"0px","0px","100%",'')
+                setPos(ps2,childRect.height+"px","0px","100%",dockRect.height-childRect.height+"px")
+            }
+
         }
 
-        //thisPanel.appendChild(a)
-        // otherPanel.appendChild(b)
-        // thisElem.appendChild(otherPanel)
-        // thisPanel = thisElem.children[0]
-        // otherPanel = thisElem.children[1]
-        // log(thisPanel)
-
-
         function initChildren() {
-            var children = Array.from(dockEl.childNodes).filter(n=>n.nodeType!==3)
-            child1 = children[0];
-            child2 = children[1];
-            child1.remove()
-            child2.remove()
-            dockEl.innerHTML=``
-            area = HTML(`<div><div></div><div></div></div>`)
 
-            dockEl.appendChild(area)
-            area = dockEl.childNodes[0]
-            area.style.width="100%"
-            area.style.height="100%"
-            panel1 = area.childNodes[0]
-            panel2 = area.childNodes[1]
+            var children = dockEl.childNodes
+            panel1 = children[0];
+            panel2 = children[1];
+            dockEl.style.width="100%"
+            dockEl.style.height="100%"
             panel1.style.position="absolute"
             panel2.style.position="absolute"
-            panel1.appendChild(child1)
-            panel2.appendChild(child2)
-            child1 = panel1.childNodes[0]
-            child2 = panel2.childNodes[0]
             panel1.style.width="100%"
+            panel2.style.width="100%"
+            panel2.ondblclick = ()=>{
+                dockEl.setAttribute("x-dock", nextDock())
+            }
         }
 
         function connectedCallback() {
-            var dir = this.getAttribute("x-dock")
             initChildren()
-            roThis.observe(area)
-            roFirst.observe(child1)
+            roThis.observe(dockEl)
+            roFirst.observe(panel1)
         }
         function disconnectedCallback() {
-            roThis.unobserve(dockEl.parentElement)
+            roThis.unobserve(dockEl)
+            roFirst.unobserve(panel1)
         }
-        function attr(name, oldv, newv) {
-
+        function attributeChangedCallback(name, oldv, newv) {
+            childSizeChanged()
         }
-        this.ac=attr
+        this.ac=attributeChangedCallback
         this.cc=connectedCallback;
         this.dc=disconnectedCallback;
     }
     static observedAttributes = ["x-dock"];
     attributeChangedCallback(name, oldValue, newValue) {
         this.ac(name,oldValue,newValue)
-        console.log(`Attribute ${name} has changed. ${newValue}`);
+        //console.log(`Attribute ${name} has changed. ${newValue}`);
     }
     connectedCallback() {
         this.cc()

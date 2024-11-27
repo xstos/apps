@@ -38,7 +38,7 @@ x-c {
 body {
     /*display: flex;*/
     border: 0px solid red;
-
+    width: 100%;
 }
 x-cell {
     border: 1px dashed #F67844;
