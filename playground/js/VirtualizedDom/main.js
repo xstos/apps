@@ -38,7 +38,7 @@ document.addEventListener("keydown", (e) => {
     }
     if (key === '`') {
         const html = `<x-find><x-cursor></x-cursor></x-find>`
-        replace(cursor,HTML(html))
+        replace(cursor, HTML(html))
         return;
     }
 
@@ -89,19 +89,22 @@ document.addEventListener("keydown", (e) => {
     }
     var xc = createElement('x-c')
     xc.appendChild(createTextNode(key))
-    insertBefore(cursor,xc)
+    insertBefore(cursor, xc)
 });
 const CustEls = {
     cell: `[<slot></slot>]<button>🔧</button>`,
     cursor: `█`,
     c: `<slot></slot>`,
-    find() { return `[🔍<slot></slot>]` }
+    find() {
+        return `[🔍<slot></slot>]`
+    }
 }
+
 class CustEl extends HTMLElement {
     constructor() {
         super();
         var tag = this.tagName.toLowerCase().replace("x-", "")
-        const shadow = this.attachShadow({ mode: 'open' });
+        const shadow = this.attachShadow({mode: 'open'});
         let o = CustEls[tag];
         addGlobalStylesToShadowRoot(this.shadowRoot, cloneCSS(document.styleSheets[0]))
         shadow.appendChild(HTML(isFunction(o) ? o() : o))
@@ -111,133 +114,128 @@ class CustEl extends HTMLElement {
 
     }
 }
+
 function ce() {
-    class Foo extends CustEl {}
+    class Foo extends CustEl {
+    }
+
     return Foo
 }
-`x-c x-cursor x-cell x-find`.split(' ').forEach(s=> customElements.define(s,ce()))
 
+`x-c x-cursor x-cell x-find`.split(' ').forEach(s => customElements.define(s, ce()))
 class Dock extends HTMLElement {
+    static observedAttributes = ["x-dock"];
     cc = null;
     dc = null;
     ac = null;
     constructor() {
         super();
         var dockEl = this
-        dockEl.style.display="block"
 
-        dockEl.childNodes.forEach(n=>n.nodeType===3 && n.remove())
-        dockEl.style.width="100%"
-        dockEl.style.height="100%"
-        var parentRect = null
-        var dirty = true
-        var panel1 = dockEl.childNodes[0]
-        var panel2 = dockEl.childNodes[1]
-        function nextDock() {
-            var d = getDock()
-            if (d==="top") return "bottom"
-            if (d==="bottom") return "left"
-            if (d==="left") return "right"
-            if (d==="right") return "top"
-            return "top"
+        //remove text boxes cuz we only support real elements
+        dockEl.childNodes.forEach((n,i) => n.nodeType === 3 && n.remove())
+        var a = dockEl.childNodes[0]
+        var b = dockEl.childNodes[1]
+
+        b.ondblclick = (e) => {
+            dockEl.setAttribute("x-dock", nextDock())
+            e.stopPropagation()
         }
-        var roThis = new ResizeObserver(parentSizeChanged)
-        var roFirst = new ResizeObserver(childSizeChanged)
+
         function getDock() {
             return dockEl.getAttribute("x-dock")
         }
-        function parentSizeChanged(entries) {
-            parentRect = dockEl.getBoundingClientRect();
-            childSizeChanged()
-        }
-        function setPos(style,top,left,width,height) {
-            style.top = top
-            style.left = left
-            style.width=width
-            style.height = height
-        }
-        function childSizeChanged(entries) {
-            panel1=panel1 || dockEl.childNodes[0]
-            var dockRect = dockEl.getBoundingClientRect();
-            log(dockRect)
-            var childRect = panel1.getBoundingClientRect()
-            var dockType = getDock()
-            let ps1 = panel1.style;
-            let ps2 = panel2.style;
-            if (dockType=="bottom") {
-                setPos(ps1,dockRect.height-childRect.height+"px","0px","100%",'')
-                setPos(ps2, "0px","0px","100%",dockRect.height-childRect.height+"px")
-            } else if (dockType=="left") {
-                setPos(ps1,"0px","0px",'',"100%")
-                setPos(ps2, "0px",childRect.width+"px",dockRect.width-childRect.width+"px","100%")
-            } else if (dockType=="right") {
-                setPos(ps1,"0px",dockRect.width-childRect.width+"px",'',"100%")
-                setPos(ps2,"0px","0px",dockRect.width-childRect.width+"px","100%")
-            } else { //top
-                setPos(ps1,"0px","0px","100%",'')
-                setPos(ps2,childRect.height+"px","0px","100%",dockRect.height-childRect.height+"px")
-            }
-
-        }
-
-        function initChildren() {
-
-            var children = dockEl.childNodes
-            panel1 = children[0];
-            panel2 = children[1];
-            dockEl.style.width="100%"
+        function layout() {
+            dockEl.style.display = "flex"
             dockEl.style.height="100%"
-            panel1.style.position="absolute"
-            panel2.style.position="absolute"
-            panel1.style.width="100%"
-            panel2.style.width="100%"
-            panel2.ondblclick = ()=>{
-                dockEl.setAttribute("x-dock", nextDock())
+            dockEl.style.width="100%"
+            //dockEl.style.flexWrap="wrap"
+            var dock = getDock()
+
+            var ro = new ResizeObserver((entries)=>{
+                if (dock==="top") {
+                    b.style.height = "100%"
+                    b.style.width = ""
+                }
+                if (dock==="bottom") {
+                    b.style.height = "100%"
+                    b.style.width = ""
+                }
+                if (dock==="left") {
+                    b.style.width = "100%"
+                    b.style.height = ""
+                }
+                if (dock==="right") {
+                    b.style.width = "100%"
+                    b.style.height = ""
+                }
+            })
+            ro.observe(dockEl)
+            ro.observe(a)
+            if (dock==="top") {
+                dockEl.style.flexDirection = "column"
+            }
+            if (dock==="bottom") {
+                dockEl.style.flexDirection = "column-reverse"
+            }
+            if (dock==="left") {
+                dockEl.style.flexDirection = "row"
+            }
+            if (dock==="right") {
+                dockEl.style.flexDirection = "row-reverse"
             }
         }
-
+        function nextDock() {
+            var d = getDock()
+            if (d === "top") return "bottom"
+            if (d === "bottom") return "left"
+            if (d === "left") return "right"
+            if (d === "right") return "top"
+            return "top"
+        }
         function connectedCallback() {
-            initChildren()
-            roThis.observe(dockEl)
-            roFirst.observe(panel1)
+            layout()
         }
+
         function disconnectedCallback() {
-            roThis.unobserve(dockEl)
-            roFirst.unobserve(panel1)
         }
+
         function attributeChangedCallback(name, oldv, newv) {
-            childSizeChanged()
+            layout()
         }
-        this.ac=attributeChangedCallback
-        this.cc=connectedCallback;
-        this.dc=disconnectedCallback;
+
+        this.ac = attributeChangedCallback
+        this.cc = connectedCallback;
+        this.dc = disconnectedCallback;
     }
-    static observedAttributes = ["x-dock"];
     attributeChangedCallback(name, oldValue, newValue) {
-        this.ac(name,oldValue,newValue)
-        //console.log(`Attribute ${name} has changed. ${newValue}`);
+        this.ac(name, oldValue, newValue)
     }
+
     connectedCallback() {
         this.cc()
     }
+
     disconnectedCallback() {
         this.dc()
     }
 }
-customElements.define("x-dock",Dock);
+
+customElements.define("x-dock", Dock);
 //import * as exports from 'ui.js'
 //Object.entries(exports).forEach(([name, exported]) => window[name] = exported);
 
 var grid = GridStack.initAll();
 
 function push() {
-    grid[1].addWidget({w:3, h:3, content:"new item"});
+    grid[1].addWidget({w: 3, h: 3, content: "new item"});
 }
 
 window.push = push;
 
 
 import morphdom from 'https://cdn.jsdelivr.net/npm/morphdom@2.7.4/+esm'
+
 function test() {
     var foo = createElement('div')
     for (let i = 0; i < 10; i++) {

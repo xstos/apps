@@ -12,11 +12,17 @@
 </head>
 
 <body>
-<x-dock x-dock="top">
-    <div style="background-color: red;" contenteditable="true">hi</div>
-    <div style="background-color: blue;" contenteditable="true">there</div>
+<x-dock style="padding: 20px;" x-dock="top">
+    <div style="background-color: black;" contenteditable="true">hi</div>
+    <div style="background-color: darkgreen;" contenteditable="true">
+        <x-dock style="padding: 10px" x-dock="top">
+            <div style="background-color: darkblue;" contenteditable="true">inner hi</div>
+            <div style="background-color: darkmagenta;" contenteditable="true">double click me to change inner dock</div>
+        </x-dock>
+    </div>
 </x-dock>
 <template>
+
     <div style="display: table">
     <div style="display: table-row; background-color: black">
         <div class="grid-stack-item ui-resizable-autohide" gs-w="10" gs-h="1" >
