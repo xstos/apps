@@ -1,5 +1,4 @@
 //import { reactive, html } from 'https://esm.sh/@arrow-js/core';
-
 const letters = '`abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}\\;:\'"<>,./?'
 var mo = new MutationObserver((rec) => {
     //console.log("derp", rec)
@@ -123,105 +122,15 @@ function ce() {
 }
 
 `x-c x-cursor x-cell x-find`.split(' ').forEach(s => customElements.define(s, ce()))
-class Dock extends HTMLElement {
-    static observedAttributes = ["x-dock"];
-    cc = null;
-    dc = null;
-    ac = null;
-    constructor() {
-        super();
-        var dockEl = this
 
-        //remove text boxes cuz we only support real elements
-        dockEl.childNodes.forEach((n,i) => n.nodeType === 3 && n.remove())
-        var a = dockEl.childNodes[0]
-        var b = dockEl.childNodes[1]
-
-        b.ondblclick = (e) => {
-            dockEl.setAttribute("x-dock", nextDock())
-            e.stopPropagation()
-        }
-
-        function getDock() {
-            return dockEl.getAttribute("x-dock")
-        }
-        function layout() {
-            dockEl.style.display = "flex"
-            dockEl.style.height="100%"
-            dockEl.style.width="100%"
-            //dockEl.style.flexWrap="wrap"
-            var dock = getDock()
-
-            var ro = new ResizeObserver((entries)=>{
-                if (dock==="top") {
-                    b.style.height = "100%"
-                    b.style.width = ""
-                }
-                if (dock==="bottom") {
-                    b.style.height = "100%"
-                    b.style.width = ""
-                }
-                if (dock==="left") {
-                    b.style.width = "100%"
-                    b.style.height = ""
-                }
-                if (dock==="right") {
-                    b.style.width = "100%"
-                    b.style.height = ""
-                }
-            })
-            ro.observe(dockEl)
-            ro.observe(a)
-            if (dock==="top") {
-                dockEl.style.flexDirection = "column"
-            }
-            if (dock==="bottom") {
-                dockEl.style.flexDirection = "column-reverse"
-            }
-            if (dock==="left") {
-                dockEl.style.flexDirection = "row"
-            }
-            if (dock==="right") {
-                dockEl.style.flexDirection = "row-reverse"
-            }
-        }
-        function nextDock() {
-            var d = getDock()
-            if (d === "top") return "bottom"
-            if (d === "bottom") return "left"
-            if (d === "left") return "right"
-            if (d === "right") return "top"
-            return "top"
-        }
-        function connectedCallback() {
-            layout()
-        }
-
-        function disconnectedCallback() {
-        }
-
-        function attributeChangedCallback(name, oldv, newv) {
-            layout()
-        }
-
-        this.ac = attributeChangedCallback
-        this.cc = connectedCallback;
-        this.dc = disconnectedCallback;
-    }
-    attributeChangedCallback(name, oldValue, newValue) {
-        this.ac(name, oldValue, newValue)
-    }
-
-    connectedCallback() {
-        this.cc()
-    }
-
-    disconnectedCallback() {
-        this.dc()
-    }
+var cell = cellx.cellx
+function cellxExample() {
+    var availableSpace = cell(0)
+    var foo2 = cell(()=>log(availableSpace.value))
+    foo2.subscribe(()=>{})
 }
 
-customElements.define("x-dock", Dock);
+
 //import * as exports from 'ui.js'
 //Object.entries(exports).forEach(([name, exported]) => window[name] = exported);
 

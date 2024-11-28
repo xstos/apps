@@ -12,12 +12,19 @@
 </head>
 
 <body>
-<x-dock style="padding: 20px;" x-dock="top">
-    <div style="background-color: black;" contenteditable="true">hi</div>
-    <div style="background-color: darkgreen;" contenteditable="true">
-        <x-dock style="padding: 10px" x-dock="top">
-            <div style="background-color: darkblue;" contenteditable="true">inner hi</div>
-            <div style="background-color: darkmagenta;" contenteditable="true">double click me to change inner dock</div>
+<x-dock style="padding: 20px" x-dock="top">
+    <div style="background-color: black" contenteditable="true">
+        type some linebreaks here
+    </div>
+    <div style="background-color: darkgreen" contenteditable="true">
+        <div style="position: absolute">dbl click to change outer dock</div>
+        <x-dock style="padding: 20px" x-dock="top">
+            <div style="background-color: darkblue" contenteditable="true">
+                inner hi and type some linebreaks here
+            </div>
+            <div style="background-color: darkmagenta" contenteditable="true">
+                double click me to change inner dock and type stuff here too
+            </div>
         </x-dock>
     </div>
 </x-dock>
@@ -56,6 +63,7 @@
 <script src="cellx.js"></script>
 <script src="util.js"></script>
 <script src="experiment.js"></script>
+<script src="dock.js"></script>
 <script type="module" src="main.js"></script>
 
 </body>
