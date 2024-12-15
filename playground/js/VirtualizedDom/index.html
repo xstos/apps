@@ -12,60 +12,17 @@
 </head>
 
 <body>
-<x-dock style="padding: 20px" x-dock="top">
-    <div style="background-color: black" contenteditable="true">
-        type some linebreaks here
-    </div>
-    <div style="background-color: darkgreen" contenteditable="true">
-        <div style="position: absolute">dbl click to change outer dock</div>
-        <x-dock style="padding: 20px" x-dock="top">
-            <div style="background-color: darkblue" contenteditable="true">
-                inner hi and type some linebreaks here
-            </div>
-            <div style="background-color: darkmagenta" contenteditable="true">
-                double click me to change inner dock and type stuff here too
-            </div>
-        </x-dock>
-    </div>
-</x-dock>
-<template>
+<x-view></x-view>
 
-    <div style="display: table">
-    <div style="display: table-row; background-color: black">
-        <div class="grid-stack-item ui-resizable-autohide" gs-w="10" gs-h="1" >
-            <div class="grid-stack-item-content">
-                <button onclick="push()">+</button>
-            </div>
-            <div class="ui-resizable-handle ui-resizable-se" style="z-index: 200; user-select: none;"></div>
-        </div>
-    </div>
-    <div style="display: table-row;">
-        <div class="grid-stack gs-12 gs-id-0 grid-stack-animate"  >
-
-            <div class="grid-stack-item ui-resizable-autohide" gs-x="0" gs-y="0" gs-w="10" gs-h="20">
-                <div class="grid-stack-item-content">
-                    <div id="root">
-                        <x-cursor/>
-                    </div>
-                </div>
-                <div class="ui-resizable-handle ui-resizable-se" style="z-index: 100; user-select: none;"></div>
-            </div>
-        </div>
-    </div>
-
-</div>
-    <div class="grid-stack gs-12 gs-id-1 grid-stack-animate" gs-current-row="1">
-
-    </div>
-</template>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gridstack.js/11.1.0/gridstack-all.min.js"></script>
 <script src="cellx.js"></script>
 <script src="util.js"></script>
 <script src="experiment.js"></script>
 <script src="dock.js"></script>
+<script type="module" src="render.js"></script>
 <script type="module" src="main.js"></script>
+<template id="derp">
 
+</template>
 </body>
 
 </html>
