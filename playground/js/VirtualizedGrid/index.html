@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Nested Virtualized Spans</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: monospace, sans-serif;
+        }
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background: #222728;
+            color: #83ADFB;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<x-grid id="root"></x-grid>
+<body>
+<div id="example-table"></div>
+<script src="util.js"></script>
+<script src="cellx.js"></script>
+<script src="dock.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+
+</html>
