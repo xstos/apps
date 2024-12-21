@@ -1,24 +1,53 @@
-var log=console.log
+var log=console.log;
+var _ = {
+    isString(obj) {
+        return toString.call(obj) == `[object ${'String'}]`;
+    },
+    isFunction(obj) {
+        return toString.call(obj) == `[object ${'Function'}]`;
+    },
+    isNumber(obj) {
+        return toString.call(obj) == `[object ${'Number'}]`;
+    }
+}
+function logj(...args) {
+    log(...args.map(a=>JSON.stringify(a)))
+}
 function createElement(tag) {
     return document.createElement(tag);
 }
 function createTextNode(txt) {
     return document.createTextNode(txt);
 }
-
+var defs = {}
 Object.defineProperty(Object.prototype,'$',{
     get(){
         var that = this;
-        return {
+        const methods = {
             forEach(selector) {
                 for (var i = 0, l = that.length; i < l; i++) {
                     selector(that[i],i)
                 }
-            }
+            },
+            set(name) {
+                defs[name]=that
+                log('def',name,that)
+                return that
+            },
+            get(name) {
+                return defs[name]
+            },
         }
+        function ret(cb) {
+            return cb(that)
+        }
+        Object.assign(ret,methods)
+        return ret
     }
 })
-
+function get(name) {
+    return ''.$.get(name)
+}
 function getEl(id) {
     return document.getElementById(id)
 }
@@ -133,6 +162,13 @@ function getScrollbarSize() {
     document.body.removeChild(tempDiv);
 
     return { width: scrollbarWidth, height: scrollbarHeight };
+}
+function arrayEnu(array) {
+    var i =0
+    function next() {
+        return array[i++]
+    }
+    return next
 }
 
 
