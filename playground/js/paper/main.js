@@ -1,16 +1,13 @@
-// Get a reference to the canvas object
-var canvas = document.getElementById('myCanvas');
-// Create an empty project and a view for the canvas:
-paper.setup(canvas);
-// Create a Paper.js Path to draw a line into it:
-var path = new paper.Path();
-// Give the stroke a color
+const p = /** @type {paper.PaperScope} */ window.paper;
+var {Path,Point} = p
+p.setup('myCanvas');
+var path = new Path();
 path.strokeColor = 'white';
-var start = new paper.Point(100, 100);
-// Move to start and draw a line from there
+var start = new Point(100, 100);
 path.moveTo(start);
-// Note that the plus operator on Point objects does not work
-// in JavaScript. Instead, we need to call the add() function:
 path.lineTo(start.add([ 200, -50 ]));
-// Draw the view now:
-view.draw();
+
+p.view.onFrame = function(event) {
+    path.rotate(0.5)
+    path.position=p.view.bounds.center
+}
