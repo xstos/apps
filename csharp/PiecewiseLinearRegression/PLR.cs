@@ -5,7 +5,6 @@ using System.Linq;
 
 public static class DataSources
 {
-
     public static List<(double, double)> SinData()
     {
         var data = new List<(double, double)>();
@@ -104,14 +103,14 @@ public struct Point
 
     public Point UpperBound(double gamma)
     {
-        Debug.Assert(!(Math.Abs(Y - (Y + gamma)) < double.Epsilon), 
+        Debug.Assert(!(Math.Abs(Y - (Y + gamma)) < double.Epsilon),
             $"Gamma value of {gamma} and encountered Y value of {Y} won't work in 64-bit!");
         return new Point(X, Y + gamma);
     }
 
     public Point LowerBound(double gamma)
     {
-        Debug.Assert(!(Math.Abs(Y - (Y - gamma)) < double.Epsilon), 
+        Debug.Assert(!(Math.Abs(Y - (Y - gamma)) < double.Epsilon),
             $"Gamma value of {gamma} and encountered Y value of {Y} won't work in 64-bit!");
         return new Point(X, Y - gamma);
     }
@@ -137,7 +136,7 @@ public struct Line
     {
         var (a, c) = l1.AsTuple();
         var (b, d) = l2.AsTuple();
-        
+
         double denom = a - b;
         double xVal = (d - c) / denom;
         double yVal = (a * d - b * c) / denom;
@@ -263,6 +262,19 @@ public class GreedyPLR
         return null;
     }
 
+    public IEnumerable<Segment> ProcessMany(params (double, double)[] data)
+    {
+        foreach (var pt in data)
+        {
+            var seg = Process(pt.Item1, pt.Item2);
+            if (seg == null) continue;
+            yield return seg.Value;
+        }
+
+        var f = Finish();
+        if (f != null) yield return f.Value;
+    }
+
     public Segment? Process(double x, double y)
     {
         Point pt = new Point(x, y);
@@ -288,11 +300,12 @@ public class GreedyPLR
             returnedSegment = ProcessPoint(pt);
             return returnedSegment.HasValue ? GreedyState.Need1 : GreedyState.Ready;
         }
+
         GreedyState newState = _state switch
         {
-            GreedyState.Need2 =>Need2(),
+            GreedyState.Need2 => Need2(),
             GreedyState.Need1 => Need1(),
-            GreedyState.Ready =>Ready(),
+            GreedyState.Ready => Ready(),
             _ => throw new InvalidOperationException("Invalid state")
         };
 
@@ -307,6 +320,7 @@ public class GreedyPLR
             (double x, double y) = _s0.Value.AsTuple();
             return new Segment(x, double.MaxValue, 0.0, y);
         }
+
         return _state switch
         {
             GreedyState.Need2 => null,
