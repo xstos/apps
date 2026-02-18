@@ -6,7 +6,7 @@ using derpide;
 
 internal sealed partial class Program
 {
-    private static Task Main(string[] args) => BuildAvaloniaApp()
+    static Task Main(string[] args) => BuildAvaloniaApp()
         .WithInterFont()
         .StartBrowserAppAsync("out");
 
