@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGL2 Flow Text Editor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background: #1e1e1e;
+            font-family: monospace;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            font-size: 12px;
+            pointer-events: none;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #fff;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            font-size: 12px;
+            max-width: 300px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="stats">
+        FPS: <span id="fps">0</span><br>
+        Glyphs: <span id="glyphs">0</span><br>
+        Nodes: <span id="nodes">0</span><br>
+        Layout Time: <span id="layout">0</span>ms<br>
+        Render Time: <span id="render">0</span>ms
+    </div>
+    <div id="info">
+        <strong>Controls:</strong><br>
+        Mouse Wheel: Scroll<br>
+        Arrow Keys: Scroll<br>
+        +/-: Zoom<br>
+        <br>
+        This demo renders a tree of nested text blocks using WebGL2 instancing.
+        All visible glyphs are rendered in a single draw call.
+    </div>
+
+    <script id="vertex-shader" type="x-shader/x-vertex">#version 300 es
+        precision highp float;
+        
+        // Vertex attributes (quad corners)
+        in vec2 a_position; // 0,0 -> 1,1
+        
+        // Instance attributes
+        in vec4 a_rect;     // x, y, width, height (screen space)
+        in vec4 a_uv;       // u0, v0, u1, v1 (atlas coords)
+        in vec4 a_color;    // r, g, b, a
+        
+        // Uniforms
+        uniform vec2 u_resolution;
+        uniform vec2 u_scroll;
+        uniform float u_zoom;
+        
+        // Outputs to fragment shader
+        out vec2 v_texCoord;
+        out vec4 v_color;
+        
+        void main() {
+            // Apply zoom and scroll
+            vec2 worldPos = a_rect.xy + a_position * a_rect.zw;
+            worldPos = (worldPos - u_scroll) * u_zoom;
+            
+            // Convert to clip space (-1 to 1)
+            vec2 clipSpace = (worldPos / u_resolution) * 2.0 - 1.0;
+            clipSpace.y = -clipSpace.y; // Flip Y
+            
+            gl_Position = vec4(clipSpace, 0.0, 1.0);
+            
+            // Interpolate UV coordinates
+            v_texCoord = mix(a_uv.xy, a_uv.zw, a_position);
+            v_color = a_color;
+        }
+    </script>
+
+    <script id="fragment-shader" type="x-shader/x-fragment">#version 300 es
+        precision highp float;
+        
+        in vec2 v_texCoord;
+        in vec4 v_color;
+        
+        uniform sampler2D u_fontAtlas;
+        
+        out vec4 fragColor;
+        
+        void main() {
+            float alpha = texture(u_fontAtlas, v_texCoord).r;
+            fragColor = vec4(v_color.rgb, v_color.a * alpha);
+            
+            // Debug: show atlas directly
+            // fragColor = vec4(alpha, alpha, alpha, 1.0);
+        }
+    </script>
+
+    <script>
+        // ============================================
+        // Font Atlas Generator
+        // ============================================
+        class FontAtlas {
+            constructor(fontSize = 16, chars = null) {
+                this.fontSize = fontSize;
+                this.chars = chars || this.getDefaultChars();
+                this.glyphMap = new Map();
+                this.canvas = document.createElement('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.generate();
+            }
+            
+            getDefaultChars() {
+                let chars = '';
+                // Printable ASCII
+                for (let i = 32; i < 127; i++) {
+                    chars += String.fromCharCode(i);
+                }
+                return chars;
+            }
+            
+            generate() {
+                const ctx = this.ctx;
+                const fontSize = this.fontSize;
+                ctx.font = `${fontSize}px monospace`;
+                
+                // Measure all characters
+                const glyphs = [];
+                let maxWidth = 0;
+                let maxHeight = fontSize * 1.5;
+                
+                for (let char of this.chars) {
+                    const metrics = ctx.measureText(char);
+                    const width = Math.ceil(metrics.width) + 4; // padding
+                    maxWidth = Math.max(maxWidth, width);
+                    glyphs.push({ char, width, height: maxHeight });
+                }
+                
+                // Pack into atlas (simple grid layout)
+                const cols = Math.ceil(Math.sqrt(glyphs.length));
+                const rows = Math.ceil(glyphs.length / cols);
+                const cellWidth = maxWidth;
+                const cellHeight = maxHeight;
+                
+                this.canvas.width = cols * cellWidth;
+                this.canvas.height = rows * cellHeight;
+                
+                // Re-set font after canvas resize
+                ctx.font = `${fontSize}px monospace`;
+                ctx.textBaseline = 'top';
+                ctx.fillStyle = 'white';
+                
+                // Draw each character
+                let index = 0;
+                for (let glyph of glyphs) {
+                    const col = index % cols;
+                    const row = Math.floor(index / cols);
+                    const x = col * cellWidth + 2;
+                    const y = row * cellHeight + 2;
+                    
+                    ctx.fillText(glyph.char, x, y);
+                    
+                    // Store UV coordinates (normalized 0-1)
+                    this.glyphMap.set(glyph.char, {
+                        u0: (col * cellWidth) / this.canvas.width,
+                        v0: (row * cellHeight) / this.canvas.height,
+                        u1: ((col + 1) * cellWidth) / this.canvas.width,
+                        v1: ((row + 1) * cellHeight) / this.canvas.height,
+                        width: glyph.width - 4,
+                        height: glyph.height - 4,
+                        advanceX: glyph.width - 2
+                    });
+                    
+                    index++;
+                }
+                
+                console.log(`Generated font atlas: ${this.canvas.width}x${this.canvas.height}`);
+            }
+            
+            getGlyph(char) {
+                return this.glyphMap.get(char) || this.glyphMap.get('?');
+            }
+        }
+        
+        // ============================================
+        // Document Structure (Tree of Nodes)
+        // ============================================
+        class TextNode {
+            constructor(text = '', style = {}) {
+                this.text = text;
+                this.children = [];
+                this.parent = null;
+                this.style = {
+                    color: style.color || [1, 1, 1, 1],
+                    padding: style.padding || 5,
+                    margin: style.margin || 0,
+                    backgroundColor: style.backgroundColor || null,
+                    width: style.width || null, // null = auto
+                    minWidth: style.minWidth || 0,
+                    display: style.display || 'inline' // 'inline' or 'block'
+                };
+                
+                // Layout cache
+                this.bounds = { x: 0, y: 0, width: 0, height: 0 };
+                this.layoutDirty = true;
+            }
+            
+            addChild(node) {
+                node.parent = this;
+                this.children.push(node);
+                this.invalidate();
+                return node;
+            }
+            
+            invalidate() {
+                this.layoutDirty = true;
+                if (this.parent) {
+                    this.parent.invalidate();
+                }
+            }
+        }
+        
+        // ============================================
+        // Flow Layout Engine
+        // ============================================
+        class FlowLayout {
+            constructor(fontAtlas) {
+                this.fontAtlas = fontAtlas;
+            }
+            
+            layout(node, containerWidth, x = 0, y = 0) {
+                const startTime = performance.now();
+                
+                this.layoutNode(node, containerWidth, x, y);
+                
+                return performance.now() - startTime;
+            }
+            
+            layoutNode(node, containerWidth, x, y) {
+                const style = node.style;
+                const padding = style.padding;
+                
+                // Start position inside padding
+                let cursorX = x + padding;
+                let cursorY = y + padding;
+                let lineHeight = this.fontAtlas.fontSize;
+                let maxLineWidth = 0;
+                let contentHeight = 0;
+                
+                const effectiveWidth = style.width || containerWidth;
+                const innerWidth = effectiveWidth - padding * 2;
+                
+                // Layout text content
+                if (node.text) {
+                    for (let char of node.text) {
+                        const glyph = this.fontAtlas.getGlyph(char);
+                        
+                        // Line wrap
+                        if (cursorX + glyph.advanceX > x + innerWidth + padding) {
+                            cursorX = x + padding;
+                            cursorY += lineHeight;
+                        }
+                        
+                        cursorX += glyph.advanceX;
+                        maxLineWidth = Math.max(maxLineWidth, cursorX - x - padding);
+                    }
+                    
+                    contentHeight = cursorY - y + lineHeight;
+                }
+                
+                // Layout children
+                for (let child of node.children) {
+                    if (child.style.display === 'block') {
+                        // Block element: new line
+                        cursorX = x + padding;
+                        cursorY = contentHeight > 0 ? y + contentHeight + padding : cursorY;
+                        
+                        this.layoutNode(child, innerWidth, cursorX, cursorY);
+                        
+                        maxLineWidth = Math.max(maxLineWidth, child.bounds.width);
+                        contentHeight = child.bounds.y + child.bounds.height - y;
+                        cursorY = y + contentHeight;
+                    } else {
+                        // Inline element: flow with text
+                        const childWidth = child.style.width || 100;
+                        
+                        // Line wrap
+                        if (cursorX + childWidth > x + innerWidth + padding) {
+                            cursorX = x + padding;
+                            cursorY += lineHeight;
+                        }
+                        
+                        this.layoutNode(child, childWidth, cursorX, cursorY);
+                        
+                        cursorX += child.bounds.width + style.margin;
+                        maxLineWidth = Math.max(maxLineWidth, cursorX - x - padding);
+                        contentHeight = Math.max(contentHeight, child.bounds.y + child.bounds.height - y);
+                    }
+                }
+                
+                // Set node bounds
+                node.bounds.x = x;
+                node.bounds.y = y;
+                node.bounds.width = Math.max(maxLineWidth + padding * 2, style.minWidth);
+                node.bounds.height = contentHeight + padding * 2;
+                node.layoutDirty = false;
+            }
+        }
+        
+        // ============================================
+        // WebGL2 Renderer
+        // ============================================
+        class WebGLRenderer {
+            constructor(canvas, fontAtlas) {
+                this.canvas = canvas;
+                this.fontAtlas = fontAtlas;
+                
+                const gl = canvas.getContext('webgl2', {
+                    alpha: false,
+                    antialias: false
+                });
+                
+                if (!gl) {
+                    throw new Error('WebGL2 not supported');
+                }
+                
+                this.gl = gl;
+                this.maxGlyphs = 100000;
+                this.instanceData = new Float32Array(this.maxGlyphs * 12); // 12 floats per instance
+                
+                this.setupShaders();
+                this.setupBuffers();
+                this.setupTexture();
+                
+                // Camera state
+                this.scroll = { x: 0, y: 0 };
+                this.zoom = 1.0;
+            }
+            
+            setupShaders() {
+                const gl = this.gl;
+                
+                // Compile shaders
+                const vertexShader = this.compileShader(
+                    document.getElementById('vertex-shader').textContent,
+                    gl.VERTEX_SHADER
+                );
+                const fragmentShader = this.compileShader(
+                    document.getElementById('fragment-shader').textContent,
+                    gl.FRAGMENT_SHADER
+                );
+                
+                // Link program
+                const program = gl.createProgram();
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+                
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                    throw new Error('Program link failed: ' + gl.getProgramInfoLog(program));
+                }
+                
+                this.program = program;
+                
+                // Get attribute/uniform locations
+                this.attribLocations = {
+                    position: gl.getAttribLocation(program, 'a_position'),
+                    rect: gl.getAttribLocation(program, 'a_rect'),
+                    uv: gl.getAttribLocation(program, 'a_uv'),
+                    color: gl.getAttribLocation(program, 'a_color')
+                };
+                
+                this.uniformLocations = {
+                    resolution: gl.getUniformLocation(program, 'u_resolution'),
+                    scroll: gl.getUniformLocation(program, 'u_scroll'),
+                    zoom: gl.getUniformLocation(program, 'u_zoom'),
+                    fontAtlas: gl.getUniformLocation(program, 'u_fontAtlas')
+                };
+            }
+            
+            compileShader(source, type) {
+                const gl = this.gl;
+                const shader = gl.createShader(type);
+                gl.shaderSource(shader, source);
+                gl.compileShader(shader);
+                
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                    const log = gl.getShaderInfoLog(shader);
+                    gl.deleteShader(shader);
+                    throw new Error('Shader compile failed: ' + log);
+                }
+                
+                return shader;
+            }
+            
+            setupBuffers() {
+                const gl = this.gl;
+                
+                // Quad vertices (0,0 to 1,1)
+                const quadVertices = new Float32Array([
+                    0, 0,
+                    1, 0,
+                    0, 1,
+                    1, 1
+                ]);
+                
+                // Create VAO
+                this.vao = gl.createVertexArray();
+                gl.bindVertexArray(this.vao);
+                
+                // Quad vertex buffer
+                const quadBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, quadBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+                gl.enableVertexAttribArray(this.attribLocations.position);
+                gl.vertexAttribPointer(this.attribLocations.position, 2, gl.FLOAT, false, 0, 0);
+                
+                // Instance buffer
+                this.instanceBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, this.instanceData.byteLength, gl.DYNAMIC_DRAW);
+                
+                // Setup instanced attributes
+                const stride = 12 * 4; // 12 floats * 4 bytes
+                
+                // a_rect (vec4)
+                gl.enableVertexAttribArray(this.attribLocations.rect);
+                gl.vertexAttribPointer(this.attribLocations.rect, 4, gl.FLOAT, false, stride, 0);
+                gl.vertexAttribDivisor(this.attribLocations.rect, 1);
+                
+                // a_uv (vec4)
+                gl.enableVertexAttribArray(this.attribLocations.uv);
+                gl.vertexAttribPointer(this.attribLocations.uv, 4, gl.FLOAT, false, stride, 16);
+                gl.vertexAttribDivisor(this.attribLocations.uv, 1);
+                
+                // a_color (vec4)
+                gl.enableVertexAttribArray(this.attribLocations.color);
+                gl.vertexAttribPointer(this.attribLocations.color, 4, gl.FLOAT, false, stride, 32);
+                gl.vertexAttribDivisor(this.attribLocations.color, 1);
+                
+                gl.bindVertexArray(null);
+            }
+            
+            setupTexture() {
+                const gl = this.gl;
+                
+                this.texture = gl.createTexture();
+                gl.bindTexture(gl.TEXTURE_2D, this.texture);
+                
+                // Upload font atlas
+                gl.texImage2D(
+                    gl.TEXTURE_2D,
+                    0,
+                    gl.R8,
+                    gl.RED,
+                    gl.UNSIGNED_BYTE,
+                    this.fontAtlas.canvas
+                );
+                
+                // Set filtering
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+                gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            }
+            
+            resize() {
+                const displayWidth = this.canvas.clientWidth;
+                const displayHeight = this.canvas.clientHeight;
+                
+                if (this.canvas.width !== displayWidth || this.canvas.height !== displayHeight) {
+                    this.canvas.width = displayWidth;
+                    this.canvas.height = displayHeight;
+                    this.gl.viewport(0, 0, displayWidth, displayHeight);
+                }
+            }
+            
+            render(rootNode, viewport) {
+                const gl = this.gl;
+                const startTime = performance.now();
+                
+                this.resize();
+                
+                // Clear
+                gl.clearColor(0.12, 0.12, 0.12, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                
+                // Enable blending for text
+                gl.enable(gl.BLEND);
+                gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+                
+                // Collect visible glyphs
+                let instanceCount = 0;
+                this.collectGlyphs(rootNode, viewport, (data, count) => {
+                    instanceCount = count;
+                });
+                
+                if (instanceCount === 0) {
+                    return { renderTime: performance.now() - startTime, glyphCount: 0 };
+                }
+                
+                // Upload instance data
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
+                gl.bufferSubData(
+                    gl.ARRAY_BUFFER,
+                    0,
+                    this.instanceData.subarray(0, instanceCount * 12)
+                );
+                
+                // Draw
+                gl.useProgram(this.program);
+                gl.bindVertexArray(this.vao);
+                
+                // Set uniforms
+                gl.uniform2f(this.uniformLocations.resolution, this.canvas.width, this.canvas.height);
+                gl.uniform2f(this.uniformLocations.scroll, this.scroll.x, this.scroll.y);
+                gl.uniform1f(this.uniformLocations.zoom, this.zoom);
+                gl.uniform1i(this.uniformLocations.fontAtlas, 0);
+                
+                // Bind texture
+                gl.activeTexture(gl.TEXTURE0);
+                gl.bindTexture(gl.TEXTURE_2D, this.texture);
+                
+                // Draw all instances in one call
+                gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, instanceCount);
+                
+                return {
+                    renderTime: performance.now() - startTime,
+                    glyphCount: instanceCount
+                };
+            }
+            
+            collectGlyphs(node, viewport, callback) {
+                const instances = this.instanceData;
+                let offset = 0;
+                
+                const traverse = (node) => {
+                    // Frustum culling
+                    const bounds = node.bounds;
+                    if (bounds.x + bounds.width < viewport.x ||
+                        bounds.x > viewport.x + viewport.width ||
+                        bounds.y + bounds.height < viewport.y ||
+                        bounds.y > viewport.y + viewport.height) {
+                        return;
+                    }
+                    
+                    // Render node's text
+                    if (node.text) {
+                        let x = bounds.x + node.style.padding;
+                        let y = bounds.y + node.style.padding;
+                        const lineHeight = this.fontAtlas.fontSize;
+                        const innerWidth = bounds.width - node.style.padding * 2;
+                        
+                        for (let char of node.text) {
+                            if (offset >= this.maxGlyphs) break;
+                            
+                            const glyph = this.fontAtlas.getGlyph(char);
+                            
+                            // Line wrap
+                            if (x + glyph.advanceX > bounds.x + innerWidth + node.style.padding) {
+                                x = bounds.x + node.style.padding;
+                                y += lineHeight;
+                            }
+                            
+                            // Pack instance data
+                            const idx = offset * 12;
+                            instances[idx + 0] = x;
+                            instances[idx + 1] = y;
+                            instances[idx + 2] = glyph.width;
+                            instances[idx + 3] = glyph.height;
+                            instances[idx + 4] = glyph.u0;
+                            instances[idx + 5] = glyph.v0;
+                            instances[idx + 6] = glyph.u1;
+                            instances[idx + 7] = glyph.v1;
+                            instances[idx + 8] = node.style.color[0];
+                            instances[idx + 9] = node.style.color[1];
+                            instances[idx + 10] = node.style.color[2];
+                            instances[idx + 11] = node.style.color[3];
+                            
+                            x += glyph.advanceX;
+                            offset++;
+                        }
+                    }
+                    
+                    // Traverse children
+                    for (let child of node.children) {
+                        traverse(child);
+                    }
+                };
+                
+                traverse(node);
+                callback(instances, offset);
+            }
+        }
+        
+        // ============================================
+        // Application
+        // ============================================
+        class TextEditor {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.fontAtlas = new FontAtlas(14);
+                this.renderer = new WebGLRenderer(canvas, this.fontAtlas);
+                this.layout = new FlowLayout(this.fontAtlas);
+                
+                // Create demo document
+                this.root = this.createDemoDocument();
+                
+                // Performance tracking
+                this.frameCount = 0;
+                this.lastFpsUpdate = performance.now();
+                this.fps = 0;
+                
+                // Input handling
+                this.setupInput();
+                
+                // Start render loop
+                this.render();
+            }
+            
+            createDemoDocument() {
+                const root = new TextNode('', {
+                    display: 'block',
+                    padding: 20,
+                    width: 1200
+                });
+                
+                // Title
+                const title = new TextNode('WebGL2 Flow Text Editor Demo', {
+                    color: [0.3, 0.7, 1.0, 1.0],
+                    display: 'block',
+                    padding: 10,
+                    margin: 10
+                });
+                root.addChild(title);
+                
+                // Paragraph 1
+                const p1 = new TextNode(
+                    'This is a demonstration of GPU-accelerated text rendering using WebGL2 instancing. ' +
+                    'All visible glyphs are rendered in a single draw call, enabling efficient rendering ' +
+                    'of large documents with tens of thousands of characters.',
+                    {
+                        display: 'block',
+                        padding: 10,
+                        margin: 10
+                    }
+                );
+                root.addChild(p1);
+                
+                // Nested blocks
+                const container = new TextNode('', {
+                    display: 'block',
+                    padding: 10,
+                    margin: 10
+                });
+                root.addChild(container);
+                
+                for (let i = 0; i < 10; i++) {
+                    const block = new TextNode(
+                        `Block ${i + 1}: This is a nested text block that demonstrates flow layout. ` +
+                        `Text automatically wraps within the container bounds. `,
+                        {
+                            color: [0.7 + Math.random() * 0.3, 0.7 + Math.random() * 0.3, 0.7 + Math.random() * 0.3, 1.0],
+                            display: 'block',
+                            padding: 8,
+                            margin: 5
+                        }
+                    );
+                    container.addChild(block);
+                    
+                    // Add some inline nested blocks
+                    if (i % 3 === 0) {
+                        const inline = new TextNode(
+                            '[INLINE]',
+                            {
+                                color: [1.0, 0.5, 0.3, 1.0],
+                                display: 'inline',
+                                padding: 3,
+                                width: 80
+                            }
+                        );
+                        block.addChild(inline);
+                    }
+                }
+                
+                // Code block
+                const code = new TextNode(
+                    'function example() {\n' +
+                    '    // GPU instancing code\n' +
+                    '    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);\n' +
+                    '}',
+                    {
+                        color: [0.5, 1.0, 0.5, 1.0],
+                        display: 'block',
+                        padding: 15,
+                        margin: 10
+                    }
+                );
+                root.addChild(code);
+                
+                // More content to test scrolling
+                for (let i = 0; i < 20; i++) {
+                    const p = new TextNode(
+                        `Paragraph ${i + 1}: Lorem ipsum dolor sit amet, consectetur adipiscing elit. ` +
+                        `Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. ` +
+                        `Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris. `,
+                        {
+                            display: 'block',
+                            padding: 10,
+                            margin: 5
+                        }
+                    );
+                    root.addChild(p);
+                }
+                
+                return root;
+            }
+            
+            setupInput() {
+                // Mouse wheel scroll
+                this.canvas.addEventListener('wheel', (e) => {
+                    e.preventDefault();
+                    this.renderer.scroll.y += e.deltaY * 0.5;
+                    this.renderer.scroll.x += e.deltaX * 0.5;
+                });
+                
+                // Keyboard controls
+                window.addEventListener('keydown', (e) => {
+                    const speed = 20;
+                    switch(e.key) {
+                        case 'ArrowUp':
+                            this.renderer.scroll.y -= speed;
+                            e.preventDefault();
+                            break;
+                        case 'ArrowDown':
+                            this.renderer.scroll.y += speed;
+                            e.preventDefault();
+                            break;
+                        case 'ArrowLeft':
+                            this.renderer.scroll.x -= speed;
+                            e.preventDefault();
+                            break;
+                        case 'ArrowRight':
+                            this.renderer.scroll.x += speed;
+                            e.preventDefault();
+                            break;
+                        case '+':
+                        case '=':
+                            this.renderer.zoom = Math.min(3.0, this.renderer.zoom * 1.1);
+                            e.preventDefault();
+                            break;
+                        case '-':
+                            this.renderer.zoom = Math.max(0.3, this.renderer.zoom / 1.1);
+                            e.preventDefault();
+                            break;
+                    }
+                });
+            }
+            
+            countNodes(node) {
+                let count = 1;
+                for (let child of node.children) {
+                    count += this.countNodes(child);
+                }
+                return count;
+            }
+            
+            render() {
+                requestAnimationFrame(() => this.render());
+                
+                // Layout (only if dirty)
+                const layoutStart = performance.now();
+                const viewport = {
+                    x: this.renderer.scroll.x,
+                    y: this.renderer.scroll.y,
+                    width: this.canvas.width,
+                    height: this.canvas.height
+                };
+                
+                if (this.root.layoutDirty) {
+                    this.layout.layout(this.root, this.canvas.width);
+                }
+                const layoutTime = performance.now() - layoutStart;
+                
+                // Render
+                const result = this.renderer.render(this.root, viewport);
+                
+                // Update stats
+                this.frameCount++;
+                const now = performance.now();
+                if (now - this.lastFpsUpdate > 500) {
+                    this.fps = Math.round(this.frameCount / (now - this.lastFpsUpdate) * 1000);
+                    this.frameCount = 0;
+                    this.lastFpsUpdate = now;
+                    
+                    document.getElementById('fps').textContent = this.fps;
+                    document.getElementById('glyphs').textContent = result.glyphCount;
+                    document.getElementById('nodes').textContent = this.countNodes(this.root);
+                    document.getElementById('layout').textContent = layoutTime.toFixed(2);
+                    document.getElementById('render').textContent = result.renderTime.toFixed(2);
+                }
+            }
+        }
+        
+        // ============================================
+        // Initialize
+        // ============================================
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('canvas');
+            const editor = new TextEditor(canvas);
+            
+            // Make it accessible for debugging
+            window.editor = editor;
+            
+            console.log('Text editor initialized');
+            console.log('Font atlas size:', editor.fontAtlas.canvas.width, 'x', editor.fontAtlas.canvas.height);
+        });
+    </script>
+</body>
+</html>
