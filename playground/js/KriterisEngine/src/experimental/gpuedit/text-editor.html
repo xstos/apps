@@ -624,7 +624,7 @@
                 };
             }
             
-            render(rootNode, viewport, cursor) {
+            render(rootNode, viewport, cursor, hoverGlyph) {
                 const gl = this.gl;
                 const startTime = performance.now();
                 
@@ -637,7 +637,7 @@
                 gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
                 
                 let instanceCount = 0;
-                this.collectGlyphs(rootNode, viewport, cursor, (data, count) => {
+                this.collectGlyphs(rootNode, viewport, cursor, hoverGlyph, (data, count) => {
                     instanceCount = count;
                 });
                 
@@ -671,7 +671,7 @@
                 };
             }
             
-            collectGlyphs(node, viewport, cursor, callback) {
+            collectGlyphs(node, viewport, cursor, hoverGlyph, callback) {
                 const instances = this.instanceData;
                 let offset = 0;
                 
@@ -773,6 +773,81 @@
                 };
                 
                 traverse(node);
+                
+                // Draw hover box (wireframe)
+                if (hoverGlyph && offset + 4 < this.maxGlyphs) {
+                    const thickness = 1;
+                    const padding = 1;
+                    const x = hoverGlyph.x - padding;
+                    const y = hoverGlyph.y - padding;
+                    const w = hoverGlyph.width + padding * 2;
+                    const h = hoverGlyph.height + padding * 2;
+                    
+                    // Top edge
+                    let idx = offset * 12;
+                    instances[idx + 0] = x;
+                    instances[idx + 1] = y;
+                    instances[idx + 2] = w;
+                    instances[idx + 3] = thickness;
+                    instances[idx + 4] = 0;
+                    instances[idx + 5] = 0;
+                    instances[idx + 6] = 0;
+                    instances[idx + 7] = 0;
+                    instances[idx + 8] = 0.3;
+                    instances[idx + 9] = 0.7;
+                    instances[idx + 10] = 1.0;
+                    instances[idx + 11] = 1.0;
+                    offset++;
+                    
+                    // Bottom edge
+                    idx = offset * 12;
+                    instances[idx + 0] = x;
+                    instances[idx + 1] = y + h - thickness;
+                    instances[idx + 2] = w;
+                    instances[idx + 3] = thickness;
+                    instances[idx + 4] = 0;
+                    instances[idx + 5] = 0;
+                    instances[idx + 6] = 0;
+                    instances[idx + 7] = 0;
+                    instances[idx + 8] = 0.3;
+                    instances[idx + 9] = 0.7;
+                    instances[idx + 10] = 1.0;
+                    instances[idx + 11] = 1.0;
+                    offset++;
+                    
+                    // Left edge
+                    idx = offset * 12;
+                    instances[idx + 0] = x;
+                    instances[idx + 1] = y;
+                    instances[idx + 2] = thickness;
+                    instances[idx + 3] = h;
+                    instances[idx + 4] = 0;
+                    instances[idx + 5] = 0;
+                    instances[idx + 6] = 0;
+                    instances[idx + 7] = 0;
+                    instances[idx + 8] = 0.3;
+                    instances[idx + 9] = 0.7;
+                    instances[idx + 10] = 1.0;
+                    instances[idx + 11] = 1.0;
+                    offset++;
+                    
+                    // Right edge
+                    idx = offset * 12;
+                    instances[idx + 0] = x + w - thickness;
+                    instances[idx + 1] = y;
+                    instances[idx + 2] = thickness;
+                    instances[idx + 3] = h;
+                    instances[idx + 4] = 0;
+                    instances[idx + 5] = 0;
+                    instances[idx + 6] = 0;
+                    instances[idx + 7] = 0;
+                    instances[idx + 8] = 0.3;
+                    instances[idx + 9] = 0.7;
+                    instances[idx + 10] = 1.0;
+                    instances[idx + 11] = 1.0;
+                    offset++;
+                }
+                
                 callback(instances, offset);
             }
         }
@@ -796,6 +871,9 @@
                 if (firstEditableNode) {
                     this.cursor.setPosition(firstEditableNode, 0);
                 }
+                
+                // Hover state
+                this.hoverGlyph = null; // { node, index, x, y, width, height }
                 
                 this.frameCount = 0;
                 this.lastFpsUpdate = performance.now();
@@ -894,6 +972,23 @@
                     }
                 });
                 
+                // Mouse move for hover detection
+                this.canvas.addEventListener('mousemove', (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const screenX = e.clientX - rect.left;
+                    const screenY = e.clientY - rect.top;
+                    
+                    const world = this.renderer.screenToWorld(screenX, screenY);
+                    
+                    // Find hovered glyph
+                    this.hoverGlyph = this.findGlyphAtPosition(this.root, world.x, world.y);
+                });
+                
+                // Mouse leave - clear hover
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.hoverGlyph = null;
+                });
+                
                 // Keyboard input
                 window.addEventListener('keydown', (e) => {
                     // Cursor movement
@@ -973,6 +1068,45 @@
                 return count;
             }
             
+            findGlyphAtPosition(node, worldX, worldY) {
+                let result = null;
+                
+                const traverse = (node) => {
+                    const bounds = node.bounds;
+                    if (worldX < bounds.x || worldX > bounds.x + bounds.width ||
+                        worldY < bounds.y || worldY > bounds.y + bounds.height) {
+                        return;
+                    }
+                    
+                    // Check glyphs in this node
+                    if (node.text) {
+                        for (let gp of node.glyphPositions) {
+                            if (worldX >= gp.x && worldX <= gp.x + gp.width &&
+                                worldY >= gp.y && worldY <= gp.y + gp.height) {
+                                result = {
+                                    node: node,
+                                    index: gp.index,
+                                    x: gp.x,
+                                    y: gp.y,
+                                    width: gp.width,
+                                    height: gp.height
+                                };
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Traverse children
+                    for (let child of node.children) {
+                        traverse(child);
+                        if (result) return;
+                    }
+                };
+                
+                traverse(node);
+                return result;
+            }
+            
             render() {
                 requestAnimationFrame(() => this.render());
                 
@@ -991,7 +1125,7 @@
                 }
                 const layoutTime = performance.now() - layoutStart;
                 
-                const result = this.renderer.render(this.root, viewport, this.cursor);
+                const result = this.renderer.render(this.root, viewport, this.cursor, this.hoverGlyph);
                 
                 this.frameCount++;
                 const now = performance.now();
