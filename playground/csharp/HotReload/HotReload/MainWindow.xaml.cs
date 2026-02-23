@@ -39,9 +39,8 @@ namespace HotReload
 
         static string GetSrcPath()
         {
-            var location = Assembly.GetEntryAssembly().Location;
-            var fi = new FileInfo(location);
-            var dir = fi.DirectoryName+"../../../../src";
+            var location = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+            var dir = location+"../../../../src";
             return Path.GetFullPath(dir);
         }
         public MainWindow()
