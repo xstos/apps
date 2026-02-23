@@ -16,12 +16,12 @@ namespace RENAME_ME
             //
             win.Dispatcher.Invoke(() =>
             {
-                win.Title = "hello world 1ssmj"; //
+                win.Title = "hello world!"; //
                 
                 var dock = new DockPanel();
                 win.Content = dock;
 
-                dock.Children.Add(new Button() { Content = "khghjg" }.SetDock(Dock.Top));
+                dock.Children.Add(new Button() { Content = "yo" }.SetDock(Dock.Top));
                 var box = new TextBox();
                 dock.Children.Add(box);
                 Action<string> Write = (t) =>

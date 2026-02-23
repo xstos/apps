@@ -10,8 +10,6 @@ using System.Windows.Media;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
-using Microsoft.CodeAnalysis.Scripting;
-using Westwind.Scripting;
 
 namespace HotReload2
 {
@@ -222,39 +220,6 @@ namespace HotReload2
             }
         }
 
-        public static bool AddAssembly(HashSet<PortableExecutableReference> References, Type type)
-        {
-            try
-            {
-                // *** TODO: need a better way to identify for in memory dlls that don't have location
-                if (References.Any(r => r.FilePath == type.Assembly.Location))
-                    return true;
-
-                if (string.IsNullOrEmpty(type.Assembly.Location))
-                {
-                    unsafe
-                    {
-                        bool result = type.Assembly.TryGetRawMetadata(out byte* metaData, out int size);
-                        var moduleMetaData = ModuleMetadata.CreateFromMetadata((nint)metaData, size);
-                        var assemblyMetaData = AssemblyMetadata.Create(moduleMetaData);
-                        References.Add(assemblyMetaData.GetReference());
-                    }
-
-                    return false;
-                }
-                else
-                {
-                    var systemReference = MetadataReference.CreateFromFile(type.Assembly.Location);
-                    References.Add(systemReference);
-                }
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                return false;
-            }
-
-            return true;
-        }
+        
     }
 }

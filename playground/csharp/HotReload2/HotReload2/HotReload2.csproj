@@ -12,7 +12,8 @@
     <ItemGroup>
       <PackageReference Include="AdonisUI" Version="1.17.1" />
       <PackageReference Include="AdonisUI.ClassicTheme" Version="1.17.1" />
-      <PackageReference Include="Westwind.Scripting" Version="2.0.1" />
+      <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.0.0" />
+      <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     </ItemGroup>
 
 </Project>
