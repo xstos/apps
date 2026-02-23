@@ -2,6 +2,8 @@
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using Mono.CSharp;
 
 namespace HotReload
@@ -45,6 +47,9 @@ namespace HotReload
                 Win = this;
                 Mono = new Mono.CSharp.Evaluator(new CompilerContext(new CompilerSettings(), new ConsoleReportPrinter()));
                 Mono.ReferenceAssembly(Assembly.GetExecutingAssembly());
+                Mono.ReferenceAssembly(typeof(DockPanel).Assembly);
+                Mono.ReferenceAssembly(typeof(SolidColorBrush).Assembly);
+
                 void reload()
                 {
                     try
