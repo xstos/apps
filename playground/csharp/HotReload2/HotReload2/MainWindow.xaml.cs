@@ -23,16 +23,11 @@ namespace HotReload2
         static FileSystemWatcher fsw;
         static string LoadFile(string path)
         {
-            try
+            try 
             {
-                using (FileStream fileStream =
-                       new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                {
-                    using (StreamReader streamReader = new StreamReader(fileStream))
-                    {
-                        return streamReader.ReadToEnd();
-                    }
-                }
+                using FileStream fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using StreamReader streamReader = new StreamReader(fileStream);
+                return streamReader.ReadToEnd();
             }
             catch (Exception ex)
             {
