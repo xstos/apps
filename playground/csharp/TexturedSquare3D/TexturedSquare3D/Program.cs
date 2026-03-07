@@ -1,6 +1,7 @@
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Reflection;
 using System.Windows.Forms;
 
 class Program
@@ -10,9 +11,9 @@ class Program
     {
         // Create a bitmap to draw on
         bmp = new Bitmap(800, 600);
+        
         var g = Graphics.FromImage(bmp);
-        g.Clear(Color.Black);
-
+        
         // Create a simple checkerboard texture (8x8 pixels)
         var filename = Path.Combine(Directory.GetCurrentDirectory(), "tex.png");
         var tex = new Bitmap(filename);
@@ -38,26 +39,54 @@ class Program
         // Project 3D to 2D
         PointF[] points = new PointF[4];
         float fov = 256; // Simple perspective factor
-        for (int i = 0; i < 4; i++)
-        {
-            float x = verts[i, 0];
-            float y = verts[i, 1];
-            float z = verts[i, 2];
-
-            // Simple perspective projection
-            points[i] = new PointF(
-                400 + x * fov / z,
-                300 - y * fov / z
-            );
-        }
-
-        // Draw the textured square using triangles
-        DrawTexturedTriangle(g, tex, points[0], points[2], points[3], bl,tl,tr); //top left half
-        DrawTexturedTriangle(g, tex, points[0], points[1], points[2], bl,tr, br); //bottom left half
-
+        float zoffs = 0;
         // Show the result
         var form = new Form { ClientSize = new Size(800, 600) };
-        form.Paint += (s, e) => e.Graphics.DrawImage(bmp, 0, 0);
+        typeof(Form).InvokeMember("DoubleBuffered", BindingFlags.SetProperty | BindingFlags.Instance | BindingFlags.NonPublic, null,
+            form, [true]); 
+        form.Paint += (s, e) =>
+        {
+            e.Graphics.DrawImage(bmp, 0, 0);
+        };
+        var (px, py) = (0, 0);
+        void repaint()
+        {
+            g.Clear(Color.Black);
+            
+            for (int i = 0; i < 4; i++)
+            {
+                float x = verts[i, 0];
+                float y = verts[i, 1];
+                float z = verts[i, 2]+zoffs;
+
+                // Simple perspective projection
+                points[i] = new PointF(
+                    400 + x * fov / z,
+                    300 - y * fov / z
+                );
+            }
+            // Draw the textured square using triangles
+            DrawTexturedTriangle(g, tex, points[0], points[2], points[3], bl,tl,tr); //top left half
+            DrawTexturedTriangle(g, tex, points[0], points[1], points[2], bl,tr, br); //bottom left half
+            form.Invalidate();
+            
+        }
+        form.MouseMove += (sender, args) =>
+        {
+            var (x, y) = (args.X, args.Y);
+            var (dx, dy) = (x - px, y - py);
+            //if (args.Button == MouseButtons.Left)
+            {
+                if (dy==0) return;
+                var sign = Math.Sign(dy);
+                zoffs += sign * 0.05f;
+                repaint();
+            }
+
+            px = args.X;
+            py = args.Y;
+        };
+        repaint();
         Application.Run(form);
     }
 
@@ -71,17 +100,23 @@ class Program
         int maxY = (int)Math.Max(p1.Y, Math.Max(p2.Y, p3.Y));
         var texWidth = tex.Width;
         var texHeight = tex.Height;
-
+        var dp3p1X = p3.X - p1.X;
+        var dp2p1X = p2.X - p1.X;
+        var dp2p1Y = p2.Y - p1.Y;
+        var dp3p1Y = p3.Y - p1.Y;
         // Simple software rasterization
         for (int y = minY; y <= maxY; y++)
         {
             for (int x = minX; x <= maxX; x++)
             {
                 // Barycentric coordinates
-                float w0 = ((p2.X - p1.X) * (y - p1.Y) - (p2.Y - p1.Y) * (x - p1.X)) /
-                           ((p2.X - p1.X) * (p3.Y - p1.Y) - (p2.Y - p1.Y) * (p3.X - p1.X));
-                float w1 = ((p3.X - p1.X) * (y - p1.Y) - (p3.Y - p1.Y) * (x - p1.X)) /
-                           ((p3.X - p1.X) * (p2.Y - p1.Y) - (p3.Y - p1.Y) * (p2.X - p1.X));
+
+                var dyp1Y = y - p1.Y;
+                var dxp1X = x - p1.X;
+                float w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) /
+                           (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
+                float w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) /
+                           (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
                 float w2 = 1 - w0 - w1;
 
                 // Check if point is inside triangle

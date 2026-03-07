@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TexturedSquare3D", "TexturedSquare3D\TexturedSquare3D.csproj", "{68CA2E36-6B25-4097-B792-6777DE649D84}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextureSquare3D_WPF", "TextureSquare3D_WPF\TextureSquare3D_WPF.csproj", "{FE1C70ED-DECF-4D80-BD93-0726C9EAAE4D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{68CA2E36-6B25-4097-B792-6777DE649D84}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{68CA2E36-6B25-4097-B792-6777DE649D84}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68CA2E36-6B25-4097-B792-6777DE649D84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FE1C70ED-DECF-4D80-BD93-0726C9EAAE4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE1C70ED-DECF-4D80-BD93-0726C9EAAE4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE1C70ED-DECF-4D80-BD93-0726C9EAAE4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE1C70ED-DECF-4D80-BD93-0726C9EAAE4D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
