@@ -1,5 +1,6 @@
 ﻿using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -127,8 +128,6 @@ public partial class MainWindow : Window
         PointF[] points = new PointF[4];
         float fov = 256; // Simple perspective factor
         float zoffs = 0;
-        // Show the result
-        var (px, py) = (0, 0);
 
         void repaint()
         {
@@ -156,25 +155,12 @@ public partial class MainWindow : Window
         PreviewKeyDown += (o, args) =>
         {
             if (args.Key == Key.W)
-                zoffs += 0.05f;
+                zoffs += 0.1f;
             else
-                zoffs += -0.05f;
+                zoffs += -0.1f;
             dirty = true;
         };
-        PreviewMouseDown += (sender, a) =>
-        {
-            var args = a.GetPosition(ctl);
-            var (x, y) = (args.X, args.Y);
-            var (dx, dy) = (x - px, y - py);
-            if (a.LeftButton==MouseButtonState.Pressed)
-            {
-                zoffs += 0.05f;
-            }
-            Console.WriteLine(zoffs);
-            px = (int)args.X;
-            py = (int)args.Y;
-            dirty = true;
-        };
+        
         
         void Render()
         {
@@ -208,11 +194,17 @@ public partial class MainWindow : Window
     {
         unsafe
         {
+            var width = ctl.RazorBMP.Width;
+            var height = ctl.RazorBMP.Height;
             // Find bounding box
             int minX = (int)Math.Min(p1.X, Math.Min(p2.X, p3.X));
             int maxX = (int)Math.Max(p1.X, Math.Max(p2.X, p3.X));
             int minY = (int)Math.Min(p1.Y, Math.Min(p2.Y, p3.Y));
             int maxY = (int)Math.Max(p1.Y, Math.Max(p2.Y, p3.Y));
+            if (minX < 0) minX = 0;
+            if (maxX > width - 1) maxX = width - 1;
+            if (minY < 0) minY = 0;
+            if (maxY > height - 1) maxY = height - 1;
             var texWidth = tex.Width;
             var texHeight = tex.Height;
             var dp3p1X = p3.X - p1.X;
@@ -221,38 +213,50 @@ public partial class MainWindow : Window
             var dp3p1Y = p3.Y - p1.Y;
             // Simple software rasterization
 
+            var BD = ctl.RazorBMP.LockBits(new Rectangle(0, 0, width, height), ImageLockMode.WriteOnly,
+                System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            var byteArray = new Span<byte>(BD.Scan0.ToPointer(), width*height*4);
+            var stride = BD.Stride;
+
+            var BD2 = tex.LockBits(new Rectangle(0, 0, tex.Width, tex.Height),ImageLockMode.ReadOnly,System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+            var byteArray2 = new Span<byte>(BD2.Scan0.ToPointer(), tex.Width*tex.Height*4);
+            var stride2 = BD2.Stride;
+            int offs;
+            int offs2;
             for (int y = minY; y <= maxY; y++)
+            for (int x = minX; x <= maxX; x++)
             {
-                for (int x = minX; x <= maxX; x++)
+                // Barycentric coordinates
+                var dyp1Y = y - p1.Y;
+                var dxp1X = x - p1.X;
+                float w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) /
+                           (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
+                float w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) /
+                           (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
+                float w2 = 1 - w0 - w1;
+
+                // Check if point is inside triangle
+                
+                if (w0 >= 0 && w1 >= 0 && w2 >= 0)
                 {
-                    // Barycentric coordinates
-
-                    var dyp1Y = y - p1.Y;
-                    var dxp1X = x - p1.X;
-                    float w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) /
-                               (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
-                    float w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) /
-                               (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
-                    float w2 = 1 - w0 - w1;
-
-                    // Check if point is inside triangle
-                    if (w0 >= 0 && w1 >= 0 && w2 >= 0)
-                    {
-                        // Interpolate texture coordinates
-                        float u = uv1.Item1 * w2 + uv2.Item1 * w0 + uv3.Item1 * w1;
-                        float v = uv1.Item2 * w2 + uv2.Item2 * w0 + uv3.Item2 * w1;
-
-                        // Sample texture
-                        int tx = (int)(u * (texWidth - 1));
-                        int ty = (int)(v * (texHeight - 1));
-                        Color c = tex.GetPixel(tx, ty);
-                        //Color c = tex[tx, ty];
-                        // Draw pixel
-                    
-                        ctl.RazorBMP.SetPixel(x, y, c);
-                    }
+                    // Interpolate texture coordinates
+                    float u = uv1.Item1 * w2 + uv2.Item1 * w0 + uv3.Item1 * w1;
+                    float v = uv1.Item2 * w2 + uv2.Item2 * w0 + uv3.Item2 * w1;
+                    // Sample texture
+                    int tx = (int)(u * (texWidth - 1));
+                    int ty = (int)(v * (texHeight - 1));
+                    offs2 = ty * stride2 + tx * 4;
+                    //Color c = tex[tx, ty];
+                    offs = y * stride + x*4;
+                    byteArray[offs+0] = byteArray2[offs2+0];
+                    byteArray[offs+1] = byteArray2[offs2+1];
+                    byteArray[offs+2] = byteArray2[offs2+2];
+                    byteArray[offs+3] = byteArray2[offs2+3];
+                    //ctl.RazorBMP.SetPixel(x, y, c);
                 }
             }
+            ctl.RazorBMP.UnlockBits(BD);
+            tex.UnlockBits(BD2);
         }
     }
 }
