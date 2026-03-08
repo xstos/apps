@@ -31,26 +31,26 @@ namespace RasterFromScratchRaw
             {
                 Left = 0,
                 Top = 0,
-                Width = 1200,
-                Height = 1200,
+                Width = 1920,
+                Height = 1080,
             };
 
             GCHandle _gcHandle;
-            int[] _pArray;
-            var _width = 1920;
-            var _height = 1080;
-            _pArray = new int[_width * _height];
-            _gcHandle = GCHandle.Alloc(_pArray, GCHandleType.Pinned);
-            var _BI = new BITMAPINFO
+            int[] pixels;
+            var width = 1920;
+            var height = 1080;
+            pixels = new int[width * height];
+            _gcHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+            var bitmapInfo = new BITMAPINFO
             {
                 biHeader =
                 {
                     bihBitCount = 32,
                     bihPlanes = 1,
                     bihSize = 40,
-                    bihWidth = _width,
-                    bihHeight = -_height,
-                    bihSizeImage = (_width * _height) << 2
+                    bihWidth = width,
+                    bihHeight = -height,
+                    bihSizeImage = (width * height) << 2
                 }
             };
             var hSrc = new HwndSource();
@@ -63,16 +63,17 @@ namespace RasterFromScratchRaw
             
             bool rendering = true;
 
-            Task.Run(() =>
+            void BlitTask()
             {
-                while (true)
+                while (rendering)
                 {
                     render();
                     frameCount += 1;
                     Task.Delay(1);
                 }
-            });
-            
+            }
+
+
             var frameRate = new DispatcherTimer(DispatcherPriority.Normal)
             {
                 Interval = TimeSpan.FromSeconds(1)
@@ -83,23 +84,24 @@ namespace RasterFromScratchRaw
                 frameCount = 0;
             };
             frameRate.Start();
-            
-            Task.Run(() =>
+
+            void ColorFillTask()
             {
                 while (rendering)
                 {
                     var c = NextColor();
-                    for (int i = 0; i < _pArray.Length; i++)
+                    for (int i = 0; i < pixels.Length; i++)
                     {
-                        _pArray[i] = c;
+                        pixels[i] = c;
                     }
 
                     Task.Delay(1);
                 }
-            });
+            }
+
             void render()
             {
-                SetDIBitsToDevice(hRef, 0, 0, _width, _height, 0, 0, 0, _height, ref _pArray[0], ref _BI, 0);
+                SetDIBitsToDevice(hRef, 0, 0, width, height, 0, 0, 0, height, ref pixels[0], ref bitmapInfo, 0);
             }
 
             var host = new WindowsFormsHost();
@@ -115,7 +117,8 @@ namespace RasterFromScratchRaw
             win.SizeChanged += (sender, args) => { };
             win.Loaded += (sender, args) =>
             {
-                
+                Task.Run(ColorFillTask);
+                Task.Run(BlitTask);
             };
             win.Closing += (sender, args) =>
             {
