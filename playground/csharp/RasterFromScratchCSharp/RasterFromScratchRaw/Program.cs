@@ -24,7 +24,7 @@ namespace RasterFromScratchRaw
         {
             RawPixelsExample();
         }
-
+        static void noop() {}
         static void RawPixelsExample()
         {
             var win = new Window
@@ -37,86 +37,78 @@ namespace RasterFromScratchRaw
 
             GCHandle _gcHandle;
             int[] pixels;
-            var width = 1920;
-            var height = 1080;
+            var width = 100;
+            var height = 100;
             pixels = new int[width * height];
             _gcHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
-            var bitmapInfo = new BITMAPINFO
-            {
-                biHeader =
-                {
-                    bihBitCount = 32,
-                    bihPlanes = 1,
-                    bihSize = 40,
-                    bihWidth = width,
-                    bihHeight = -height,
-                    bihSizeImage = (width * height) << 2
-                }
-            };
+            var bitmapInfo = GetBitmapInfo(width, height);
             var hSrc = new HwndSource();
-            
             var hDCGraphics = hSrc.CreateGraphics();
             var hRef = new HandleRef(hDCGraphics, hDCGraphics.GetHdc());
             
             var NextColor = MakeGetNextHue(1000);
-            int frameCount = 0;
-            
+            var frameCount = 0.Ref();
+            var renderCount = 0.Ref();
             bool rendering = true;
-
-            void BlitTask()
+            
+            Action resize = noop;
+            async void BlitTask()
             {
                 while (rendering)
                 {
-                    render();
-                    frameCount += 1;
-                    Task.Delay(1);
+                    Blit();
+                    frameCount.Value += 1;
+                    await Task.Delay(10);
                 }
             }
 
-
-            var frameRate = new DispatcherTimer(DispatcherPriority.Normal)
+            async void ColorFillTask()
             {
-                Interval = TimeSpan.FromSeconds(1)
-            };
-            frameRate.Tick += (sender, args) =>
-            {
-                win.Title = frameCount + " fps";
-                frameCount = 0;
-            };
-            frameRate.Start();
-
-            void ColorFillTask()
-            {
+                int c;
+                int len;
+                int i;
+                int[] mypixels;
                 while (rendering)
                 {
-                    var c = NextColor();
-                    for (int i = 0; i < pixels.Length; i++)
+                    c = NextColor();
+                    mypixels = pixels;
+                    len = mypixels.Length;
+                    for (i = 0; i < len; i++)
                     {
-                        pixels[i] = c;
+                        mypixels[i] = c;
                     }
-
-                    Task.Delay(1);
+                    renderCount.Value += 1;
+                    //await Task.Delay(1);
                 }
             }
 
-            void render()
+            void Blit()
             {
                 SetDIBitsToDevice(hRef, 0, 0, width, height, 0, 0, 0, height, ref pixels[0], ref bitmapInfo, 0);
+                resize();
             }
 
             var host = new WindowsFormsHost();
             host.Child = hSrc;
-            var dp = new DockPanel
-            {
-                LastChildFill = true
-            };
+            var dp = new Grid();
             dp.Children.Add(host);
             win.Content = dp;
             win.Width = 1280;
             win.Height = 720;
-            win.SizeChanged += (sender, args) => { };
+            dp.SizeChanged += (sender, args) =>
+            {
+                resize = () =>
+                {
+                    width = (int)args.NewSize.Width;
+                    height = (int)args.NewSize.Height;
+                    pixels = new int[width * height];
+                    bitmapInfo = GetBitmapInfo(width, height);
+                    resize = noop;
+                };
+            };
             win.Loaded += (sender, args) =>
             {
+                InitFrameRate(frameCount, win, renderCount, dp);
                 Task.Run(ColorFillTask);
                 Task.Run(BlitTask);
             };
@@ -128,7 +120,7 @@ namespace RasterFromScratchRaw
             var app = new Application();
             app.Run(win);
         }
-
+        
         static Func<int> MakeGetNextHue(int numHues)
         {
             var e = ColorCycler(numHues).GetEnumerator();
@@ -138,6 +130,22 @@ namespace RasterFromScratchRaw
                 e.MoveNext();
                 return e.Current;
             };
+        }
+        
+        static void InitFrameRate(Ref<int> frameCount, Window window, Ref<int> renderCount, FrameworkElement dp)
+        {
+            var frameRate = new DispatcherTimer(DispatcherPriority.Normal)
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            
+            frameRate.Tick += (sender, args) =>
+            {
+                window.Title = $"{frameCount} fps, {renderCount} rps, size {(int)dp.ActualWidth}x{(int)dp.ActualHeight} ";
+                frameCount.Value = 0;
+                renderCount.Value = 0;
+            };
+            frameRate.Start();
         }
         static IEnumerable<int> ColorCycler(int numHues)
         {
@@ -170,6 +178,14 @@ namespace RasterFromScratchRaw
         }
     }
 
+    public class Ref<T>
+    {
+        public T Value;
+        public override string ToString()
+        {
+            return Value.ToString();
+        }
+    }
     public class HwndSource : UserControl
     {
         public HwndSource()
@@ -179,10 +195,15 @@ namespace RasterFromScratchRaw
             SetStyle(ControlStyles.UserPaint, true);
             SetStyle(ControlStyles.AllPaintingInWmPaint, true);
             SetStyle(ControlStyles.Opaque, true);
-
             MinimumSize = new System.Drawing.Size(1, 1);
         }
     }
 
-    
+    public static class Ext
+    {
+        public static Ref<T> Ref<T>(this T item)
+        {
+            return new Ref<T>() { Value = item };
+        }
+    }
 }

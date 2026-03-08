@@ -27,5 +27,21 @@ namespace RasterFromScratchRaw
             public BITMAPINFOHEADER biHeader;
             public int biColors;
         }
+        
+        static BITMAPINFO GetBitmapInfo(int width, int height)
+        {
+            return new BITMAPINFO
+            {
+                biHeader =
+                {
+                    bihBitCount = 32,
+                    bihPlanes = 1,
+                    bihSize = 40,
+                    bihWidth = width,
+                    bihHeight = -height,
+                    bihSizeImage = (width * height) << 2
+                }
+            };
+        }
     }
 }
