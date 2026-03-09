@@ -10,6 +10,7 @@ using System.Windows.Forms.Integration;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ColorMine.ColorSpaces;
+using RestoreWindowPlace;
 
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
 namespace Ideatum;
@@ -102,10 +103,6 @@ public static partial class Program
         root.Children.Add(host);
         var win = new Window
         {
-            Left = 0,
-            Top = 0,
-            Width = 1280,
-            Height = 720,
             Content = root
         };
             
@@ -130,6 +127,13 @@ public static partial class Program
         };
         //CompositionTarget.Rendering += (o, args) => { render(); };
         var app = new System.Windows.Application();
+        var place = new WindowPlace("placement.config");
+        place.IsSavingSnappedPositionEnabled = true;
+        app.Exit += (sender, args) =>
+        {
+            place.Save();
+        };
+        place.Register(win);
         app.Run(win);
     }
         
@@ -153,7 +157,7 @@ public static partial class Program
             
         frameRate.Tick += (sender, args) =>
         {
-            window.Title = $"{frameCount} fps, {renderCount} rps, size {(int)canvas.ActualWidth}x{(int)canvas.ActualHeight} ";
+            window.Title = $"{frameCount} fps, {renderCount} rps, size {(int)canvas.ActualWidth}x{(int)canvas.ActualHeight}, win {window.Left} {window.Top} {window.ActualWidth} {window.ActualHeight}";
             frameCount.Value = 0;
             renderCount.Value = 0;
         };

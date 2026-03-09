@@ -16,14 +16,14 @@
     </ItemGroup>
 
     <ItemGroup>
-        <None Update="ColorMine\ColorSpaces\ColorSpaces.tt">
+        <None Update="3rdParty\ColorMine\ColorSpaces\ColorSpaces.tt">
             <Generator>TextTemplatingFileGenerator</Generator>
             <LastGenOutput>ColorSpaces.cs</LastGenOutput>
         </None>
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Update="ColorMine\ColorSpaces\ColorSpaces.cs">
+        <Compile Update="3rdParty\ColorMine\ColorSpaces\ColorSpaces.cs">
             <DependentUpon>ColorSpaces.tt</DependentUpon>
         </Compile>
     </ItemGroup>

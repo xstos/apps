@@ -94,18 +94,11 @@ public partial class MainWindow : Window
             Dispatcher.BeginInvoke(DispatcherPriority.Render, new fpsdelegate(showfps));
         };
         fpstimer.Start();
-
-        //// !! uncomment for regular FPS renderloop !!
-        //rendertimer = new DispatcherTimer();
-        //rendertimer.Interval = TimeSpan.FromMilliseconds(15); /* ~60Hz LCD on my PC */
-        //rendertimer.Tick += (o, args) => Render();
-        //rendertimer.Start();
         
         var g = ctl.RazorGFX;
 
         var filename = System.IO.Path.Combine(Directory.GetCurrentDirectory(), "tex.png");
-        var tex = new Bitmap(filename); // new WriteableBitmap(new BitmapImage(new Uri( filename)));
-        //int[,] texArr = tex.WritableBitmapTo2DArray();
+        var tex = new Bitmap(filename);
         // Define a square in 3D space
         float[,] verts =
         {
@@ -229,10 +222,8 @@ public partial class MainWindow : Window
                 // Barycentric coordinates
                 var dyp1Y = y - p1.Y;
                 var dxp1X = x - p1.X;
-                float w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) /
-                           (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
-                float w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) /
-                           (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
+                float w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) / (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
+                float w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) / (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
                 float w2 = 1 - w0 - w1;
 
                 // Check if point is inside triangle
