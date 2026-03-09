@@ -15,7 +15,7 @@ public static partial class Program
 {
     static int Count = 0;
     static FileSystemWatcher fsw;
-    static void Watch()
+    static void Watch(Action<MethodInfo> callback)
     {
         var srcPath = GetSrcPath();
         var hotPath = Path.Combine(srcPath, "HotReload.cs");
@@ -34,7 +34,8 @@ public static partial class Program
                 var type = ass.GetType(name + "." + "Hot");
                 // Get the type
                 Console.WriteLine("Compiled "+DateTime.Now);
-                type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
+                var method = type?.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+                if (method != null) callback(method);
             }
             catch (Exception e)
             {
@@ -137,7 +138,7 @@ public static partial class Program
     {
         var OutputAssembly = "";
         var tree = SyntaxFactory.ParseSyntaxTree(source.Trim());
-        var CompileWithDebug = false;
+        var CompileWithDebug = true;
         Assembly Assembly = null;
         var optimizationLevel = CompileWithDebug ? OptimizationLevel.Debug : OptimizationLevel.Release;
 

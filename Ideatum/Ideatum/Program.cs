@@ -8,8 +8,10 @@ using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Forms.Integration;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using ColorMine.ColorSpaces;
+using CommunityToolkit.HighPerformance;
 using RestoreWindowPlace;
 
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
@@ -24,9 +26,11 @@ public static partial class Program
         RunApp();
     }
 
-    public delegate void RenderDel(int[,] pixels, int width, int height);
+    public delegate void RenderDel(int[] pixels, int width, int height);
 
     public static RenderDel Render = (pixels, width, height) => { };
+    public static int Width;
+    public static int Height;
 
     static void noop()
     {
@@ -35,12 +39,12 @@ public static partial class Program
     static void RunApp()
     {
         Action resize = noop;
-        int[,] pixels;
+        int[] pixels;
         GCHandle gcHandle;
         BITMAPINFO bitmapInfo;
-        var width = 100;
-        var height = 100;
-
+        Width = 100;
+        Height = 100;
+        var mem = new Memory2D<int>([], 0, 0);
         var frameCount = 0.Ref();
         var renderCount = 0.Ref();
         bool rendering = true;
@@ -51,9 +55,9 @@ public static partial class Program
 
         void Alloc()
         {
-            pixels = new int[width,height];
+            pixels = new int[Width*Height];
             gcHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
-            bitmapInfo = GetBitmapInfo(width, height);
+            bitmapInfo = GetBitmapInfo(Width, Height);
         }
 
         void Free() => gcHandle.Free();
@@ -67,15 +71,63 @@ public static partial class Program
                 await Task.Delay(10);
             }
         }
+        var NextColor = Program.MakeGetNextHue(1000);
+        var ints = GetLetterPixels();
+        int[] GetLetterPixels()
+        {
+            var canvas = new Canvas { Width = 100, Height = 100 };
+            canvas.Children.Add(new TextBlock
+            {
+                Text = "道",
+                FontSize = 48,
+                Foreground = Brushes.Cyan,
+                FontFamily = new FontFamily("Arial")
+            });
 
+            // Measure and arrange
+            canvas.Measure(new Size(100, 100));
+            canvas.Arrange(new Rect(0, 0, 100, 100));
+
+            // Render to bitmap
+            var bitmap = new RenderTargetBitmap(100, 100, 96, 96, PixelFormats.Pbgra32);
+            bitmap.Render(canvas);
+                
+            int stride = (bitmap.PixelWidth * bitmap.Format.BitsPerPixel + 7) / 8;
+            byte[] pixelBytes = new byte[bitmap.PixelHeight * stride];
+            bitmap.CopyPixels(pixelBytes, stride, 0); 
+            int[] ret = new int[pixelBytes.Length / 4];
+            Buffer.BlockCopy(pixelBytes, 0, ret, 0, pixelBytes.Length);
+            return ret;
+        }
+        void Render(int[] pixels, int width, int height)
+        {
+            int c = NextColor();//
+            //int c = BitConverter.ToInt32([0, 0, 128, 0]);
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                //pixels[i] = c;
+            }
+
+            var mem = new Memory2D<int>(pixels, height, width);
+            var dest = mem.Slice(0, 0, 100, 100);
+            var write = dest.Span;
+            var inti = 0;
+            for (int i = 0; i < 100; i++)
+            {
+                for (int j = 0; j < 100; j++)
+                {
+                    write[i, j] = ints[inti++];
+                }
+            }
+        }
 
         async void ColorFillTask()
         {
-            int[,] mypixels;
+            int[] mypixels;
             while (rendering)
             {
                 mypixels = pixels;
-                Render(mypixels, width, height);
+                Render(mypixels, Width, Height);
                 renderCount.Value += 1;
                 await Task.Delay(10);
             }
@@ -83,7 +135,7 @@ public static partial class Program
 
         void Blit()
         {
-            SetDIBitsToDevice(hRef, 0, 0, width, height, 0, 0, 0, height, ref pixels[0,0], ref bitmapInfo, 0);
+            SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref pixels[0], ref bitmapInfo, 0);
             resize();
         }
 
@@ -103,8 +155,8 @@ public static partial class Program
             resize = () =>
             {
                 Free();
-                width = (int)args.NewSize.Width;
-                height = (int)args.NewSize.Height;
+                Width = (int)args.NewSize.Width;
+                Height = (int)args.NewSize.Height;
                 Alloc();
                 resize = noop;
             };
@@ -114,7 +166,20 @@ public static partial class Program
             InitFrameRate(frameCount, win, renderCount, root);
             Task.Run(ColorFillTask);
             Task.Run(BlitTask);
-            Watch();
+            Action action=null;
+            Watch(method =>
+            {
+                action = (Action) Delegate.CreateDelegate(typeof(Action), method);
+            });
+            var tmr = new DispatcherTimer(DispatcherPriority.Normal);
+            tmr.Interval = TimeSpan.FromMilliseconds(1);
+            tmr.Start();
+            tmr.Tick += (o, eventArgs) =>
+            {
+                if (action == null) return;
+                action();
+                action = null;
+            };
         };
         win.Closing += (sender, args) => { rendering = false; };
         //CompositionTarget.Rendering += (o, args) => { render(); };
