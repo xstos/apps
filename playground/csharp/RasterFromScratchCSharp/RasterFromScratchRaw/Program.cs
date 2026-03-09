@@ -126,7 +126,7 @@ internal partial class Program
         
     static Func<int> MakeGetNextHue(int numHues)
     {
-        var e = Util.ColorCycler(numHues).GetEnumerator();
+        var e = Util.ColorWheel(numHues).GetEnumerator();
 
         return () =>
         {
@@ -177,7 +177,7 @@ public static partial class Util
 {
     public static Ref<T> Ref<T>(this T item) => new() { Value = item };
 
-    public static IEnumerable<int> ColorCycler(int numHues)
+    public static IEnumerable<int> ColorWheel(int numHues)
     {
         var colors = Enumerable.Take<int>(GetHues(numHues), numHues).ToArray();
         while (true)

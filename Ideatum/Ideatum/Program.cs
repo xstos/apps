@@ -12,15 +12,22 @@ using System.Windows.Threading;
 using ColorMine.ColorSpaces;
 
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
-namespace RasterFromScratchRaw;
+namespace Ideatum;
 
-internal partial class Program
+public static partial class Program
 {
     [STAThread]
-    public static void Main(string[] args)
+    static void Main(string[] args)
     {
         RawPixelsExample();
     }
+
+    public delegate void RenderDel(int[] pixels, int width, int height);
+
+    public static RenderDel Render = (pixels, width, height) =>
+    {
+
+    };
     static void noop() {}
     static void RawPixelsExample()
     {
@@ -59,21 +66,22 @@ internal partial class Program
             }
         }
 
+        Render = (mypixels, w, h) =>
+        {
+            int c = NextColor();
+            var len = mypixels.Length;
+            for (var i = 0; i < len; i++)
+            {
+                mypixels[i] = c;
+            }
+        };
         async void ColorFillTask()
         {
-            int c;
-            int len;
-            int i;
             int[] mypixels;
             while (rendering)
             {
-                c = NextColor();
                 mypixels = pixels;
-                len = mypixels.Length;
-                for (i = 0; i < len; i++)
-                {
-                    mypixels[i] = c;
-                }
+                Render(mypixels, width, height);
                 renderCount.Value += 1;
                 //await Task.Delay(1);
             }
@@ -114,6 +122,7 @@ internal partial class Program
             InitFrameRate(frameCount, win, renderCount, root);
             Task.Run(ColorFillTask);
             Task.Run(BlitTask);
+            Watch();
         };
         win.Closing += (sender, args) =>
         {
@@ -126,7 +135,7 @@ internal partial class Program
         
     static Func<int> MakeGetNextHue(int numHues)
     {
-        var e = Util.ColorWheel(numHues).GetEnumerator();
+        var e = ColorWheel(numHues).GetEnumerator();
 
         return () =>
         {
@@ -173,7 +182,7 @@ public class HwndSource : System.Windows.Forms.UserControl
     }
 }
 
-public static partial class Util
+public static partial class Program
 {
     public static Ref<T> Ref<T>(this T item) => new() { Value = item };
 

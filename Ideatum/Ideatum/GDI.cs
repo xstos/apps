@@ -1,8 +1,8 @@
 ﻿using System.Runtime.InteropServices;
 
-namespace RasterFromScratchRaw
+namespace Ideatum
 {
-    internal partial class Program
+    public static partial class Program
     {
         [DllImport("gdi32")]
         static extern int SetDIBitsToDevice(HandleRef hDC, int xDest, int yDest, int dwWidth, int dwHeight, int XSrc, int YSrc, int uStartScan, int cScanLines, ref int lpvBits, ref BITMAPINFO lpbmi, uint fuColorUse);

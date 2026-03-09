@@ -10,20 +10,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
+        <PackageReference Include="System.Drawing.Common" Version="10.0.3"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0"/>
     </ItemGroup>
 
     <ItemGroup>
-      <None Update="ColorMine\ColorSpaces\ColorSpaces.tt">
-        <Generator>TextTemplatingFileGenerator</Generator>
-        <LastGenOutput>ColorSpaces.cs</LastGenOutput>
-      </None>
+        <None Update="ColorMine\ColorSpaces\ColorSpaces.tt">
+            <Generator>TextTemplatingFileGenerator</Generator>
+            <LastGenOutput>ColorSpaces.cs</LastGenOutput>
+        </None>
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Update="ColorMine\ColorSpaces\ColorSpaces.cs">
-        <DependentUpon>ColorSpaces.tt</DependentUpon>
-      </Compile>
+        <Compile Update="ColorMine\ColorSpaces\ColorSpaces.cs">
+            <DependentUpon>ColorSpaces.tt</DependentUpon>
+        </Compile>
     </ItemGroup>
 
 </Project>
