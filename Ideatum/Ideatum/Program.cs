@@ -39,7 +39,7 @@ public static partial class Program
         BITMAPINFO bitmapInfo;
         var width = 100;
         var height = 100;
-        var NextColor = MakeGetNextHue(1000);
+        
         var frameCount = 0.Ref();
         var renderCount = 0.Ref();
         bool rendering = true;
@@ -67,15 +67,9 @@ public static partial class Program
             }
         }
 
-        Render = (mypixels, w, h) =>
-        {
-            int c = NextColor();
-            var len = mypixels.Length;
-            for (var i = 0; i < len; i++)
-            {
-                mypixels[i] = c;
-            }
-        };
+        
+
+        
         async void ColorFillTask()
         {
             int[] mypixels;
@@ -137,7 +131,7 @@ public static partial class Program
         app.Run(win);
     }
         
-    static Func<int> MakeGetNextHue(int numHues)
+    public static Func<int> MakeGetNextHue(int numHues)
     {
         var e = ColorWheel(numHues).GetEnumerator();
 

@@ -34,7 +34,7 @@ public static partial class Program
                 var type = ass.GetType(name + "." + "Hot");
                 // Get the type
 
-                type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static).Invoke(null, null);
+                type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
             }
             catch (Exception e)
             {
