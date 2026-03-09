@@ -33,7 +33,7 @@ public static partial class Program
                 var ass = CompileAssembly(name, src, refs.Cast<MetadataReference>().ToArray());
                 var type = ass.GetType(name + "." + "Hot");
                 // Get the type
-
+                Console.WriteLine("Compiled "+DateTime.Now);
                 type.GetMethod("Run", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
             }
             catch (Exception e)
@@ -137,7 +137,7 @@ public static partial class Program
     {
         var OutputAssembly = "";
         var tree = SyntaxFactory.ParseSyntaxTree(source.Trim());
-        var CompileWithDebug = true;
+        var CompileWithDebug = false;
         Assembly Assembly = null;
         var optimizationLevel = CompileWithDebug ? OptimizationLevel.Debug : OptimizationLevel.Release;
 

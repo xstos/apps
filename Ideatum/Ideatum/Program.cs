@@ -24,7 +24,7 @@ public static partial class Program
         RunApp();
     }
 
-    public delegate void RenderDel(int[] pixels, int width, int height);
+    public delegate void RenderDel(int[,] pixels, int width, int height);
 
     public static RenderDel Render = (pixels, width, height) => { };
 
@@ -35,7 +35,7 @@ public static partial class Program
     static void RunApp()
     {
         Action resize = noop;
-        int[] pixels;
+        int[,] pixels;
         GCHandle gcHandle;
         BITMAPINFO bitmapInfo;
         var width = 100;
@@ -51,7 +51,7 @@ public static partial class Program
 
         void Alloc()
         {
-            pixels = new int[width * height];
+            pixels = new int[width,height];
             gcHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
             bitmapInfo = GetBitmapInfo(width, height);
         }
@@ -71,19 +71,19 @@ public static partial class Program
 
         async void ColorFillTask()
         {
-            int[] mypixels;
+            int[,] mypixels;
             while (rendering)
             {
                 mypixels = pixels;
                 Render(mypixels, width, height);
                 renderCount.Value += 1;
-                //await Task.Delay(1);
+                await Task.Delay(10);
             }
         }
 
         void Blit()
         {
-            SetDIBitsToDevice(hRef, 0, 0, width, height, 0, 0, 0, height, ref pixels[0], ref bitmapInfo, 0);
+            SetDIBitsToDevice(hRef, 0, 0, width, height, 0, 0, 0, height, ref pixels[0,0], ref bitmapInfo, 0);
             resize();
         }
 
