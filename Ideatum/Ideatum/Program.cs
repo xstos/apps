@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -10,7 +8,6 @@ using System.Windows.Forms.Integration;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
-using ColorMine.ColorSpaces;
 using CommunityToolkit.HighPerformance;
 using RestoreWindowPlace;
 
@@ -173,15 +170,7 @@ public static partial class Program
     }
 }
 
-public class Ref<T>
-{
-    public T Value;
 
-    public override string ToString()
-    {
-        return Value.ToString();
-    }
-}
 
 public class HwndSource : System.Windows.Forms.UserControl
 {
@@ -193,41 +182,5 @@ public class HwndSource : System.Windows.Forms.UserControl
         SetStyle(ControlStyles.AllPaintingInWmPaint, true);
         SetStyle(ControlStyles.Opaque, true);
         MinimumSize = new System.Drawing.Size(1, 1);
-    }
-}
-
-public static partial class Program
-{
-    public static Ref<T> Ref<T>(this T item) => new() { Value = item };
-
-    public static IEnumerable<int> ColorWheel(int numHues)
-    {
-        var colors = Enumerable.Take<int>(GetHues(numHues), numHues).ToArray();
-        while (true)
-        {
-            for (int i = 0; i < numHues; i++)
-            {
-                yield return colors[i];
-            }
-        }
-    }
-
-    static IEnumerable<int> GetHues(int numColors)
-    {
-        var hue = 0.0;
-        var inc = 360.0 / numColors;
-
-        while (true)
-        {
-            var hsl = new Hsl() { H = hue, S = 50, L = 50 };
-            var rgb = hsl.ToRgb();
-            byte r = (byte)rgb.R;
-            byte g = (byte)rgb.G;
-            byte b = (byte)rgb.B;
-            var ret = BitConverter.ToInt32([0, r, g, b]); //argb
-            hue += inc;
-            if (hue > 360.0) hue = 0;
-            yield return ret;
-        }
     }
 }
