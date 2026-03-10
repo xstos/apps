@@ -18,33 +18,33 @@ using RestoreWindowPlace;
 
 namespace Ideatum;
 
+static class TypeLoader
+{
+    static Memory2D<int> a; //DONT REMOVE (ROSLYN TYPELOADER)
+    internal static void Run() {}
+}
 public static partial class Program
 {
     [STAThread]
     static void Main(string[] args)
     {
+        TypeLoader.Run();
         RunApp();
     }
 
-    public delegate void RenderDel(int[] pixels, int width, int height);
-
-    public static RenderDel Render = (pixels, width, height) => { };
+    public static Action Render = () => { };
     public static int Width;
     public static int Height;
-
-    static void noop()
-    {
-    }
+    public static int[] Surface;
+    static void noop() { }
 
     static void RunApp()
     {
         Action resize = noop;
-        int[] pixels;
         GCHandle gcHandle;
         BITMAPINFO bitmapInfo;
         Width = 100;
         Height = 100;
-        var mem = new Memory2D<int>([], 0, 0);
         var frameCount = 0.Ref();
         var renderCount = 0.Ref();
         bool rendering = true;
@@ -55,8 +55,8 @@ public static partial class Program
 
         void Alloc()
         {
-            pixels = new int[Width*Height];
-            gcHandle = GCHandle.Alloc(pixels, GCHandleType.Pinned);
+            Surface = new int[Width*Height];
+            gcHandle = GCHandle.Alloc(Surface, GCHandleType.Pinned);
             bitmapInfo = GetBitmapInfo(Width, Height);
         }
 
@@ -71,63 +71,13 @@ public static partial class Program
                 await Task.Delay(10);
             }
         }
-        var NextColor = Program.MakeGetNextHue(1000);
-        var ints = GetLetterPixels();
-        int[] GetLetterPixels()
+        
+
+        async void RenderLoop()
         {
-            var canvas = new Canvas { Width = 100, Height = 100 };
-            canvas.Children.Add(new TextBlock
-            {
-                Text = "道",
-                FontSize = 48,
-                Foreground = Brushes.Cyan,
-                FontFamily = new FontFamily("Arial")
-            });
-
-            // Measure and arrange
-            canvas.Measure(new Size(100, 100));
-            canvas.Arrange(new Rect(0, 0, 100, 100));
-
-            // Render to bitmap
-            var bitmap = new RenderTargetBitmap(100, 100, 96, 96, PixelFormats.Pbgra32);
-            bitmap.Render(canvas);
-                
-            int stride = (bitmap.PixelWidth * bitmap.Format.BitsPerPixel + 7) / 8;
-            byte[] pixelBytes = new byte[bitmap.PixelHeight * stride];
-            bitmap.CopyPixels(pixelBytes, stride, 0); 
-            int[] ret = new int[pixelBytes.Length / 4];
-            Buffer.BlockCopy(pixelBytes, 0, ret, 0, pixelBytes.Length);
-            return ret;
-        }
-        void Render(int[] pixels, int width, int height)
-        {
-            int c = NextColor();//
-            //int c = BitConverter.ToInt32([0, 0, 128, 0]);
-            for (int i = 0; i < pixels.Length; i++)
-            {
-                //pixels[i] = c;
-            }
-
-            var mem = new Memory2D<int>(pixels, height, width);
-            var dest = mem.Slice(0, 0, 100, 100);
-            var write = dest.Span;
-            var inti = 0;
-            for (int i = 0; i < 100; i++)
-            {
-                for (int j = 0; j < 100; j++)
-                {
-                    write[i, j] = ints[inti++];
-                }
-            }
-        }
-
-        async void ColorFillTask()
-        {
-            int[] mypixels;
             while (rendering)
             {
-                mypixels = pixels;
-                Render(mypixels, Width, Height);
+                Render();
                 renderCount.Value += 1;
                 await Task.Delay(10);
             }
@@ -135,7 +85,7 @@ public static partial class Program
 
         void Blit()
         {
-            SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref pixels[0], ref bitmapInfo, 0);
+            SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref Surface[0], ref bitmapInfo, 0);
             resize();
         }
 
@@ -164,12 +114,12 @@ public static partial class Program
         win.Loaded += (sender, args) =>
         {
             InitFrameRate(frameCount, win, renderCount, root);
-            Task.Run(ColorFillTask);
+            Task.Run(RenderLoop);
             Task.Run(BlitTask);
             Action action=null;
-            Watch(method =>
+            Watch(entryPointMethod =>
             {
-                action = (Action) Delegate.CreateDelegate(typeof(Action), method);
+                action = (Action) Delegate.CreateDelegate(typeof(Action), entryPointMethod);
             });
             var tmr = new DispatcherTimer(DispatcherPriority.Normal);
             tmr.Interval = TimeSpan.FromMilliseconds(1);
@@ -215,7 +165,7 @@ public static partial class Program
         frameRate.Tick += (sender, args) =>
         {
             window.Title =
-                $"{frameCount} fps, {renderCount} rps, size {(int)canvas.ActualWidth}x{(int)canvas.ActualHeight}, win {window.Left} {window.Top} {window.ActualWidth} {window.ActualHeight}";
+                $"{frameCount} fps, {renderCount} rps, canvas size W{(int)canvas.ActualWidth}xH{(int)canvas.ActualHeight}, win L{window.Left} T{window.Top} W{window.ActualWidth} H{window.ActualHeight}";
             frameCount.Value = 0;
             renderCount.Value = 0;
         };
