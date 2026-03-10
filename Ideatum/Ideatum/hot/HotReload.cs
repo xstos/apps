@@ -15,6 +15,8 @@ namespace RENAME_ME
         static char TheWay = '道';
         public static void Run()
         {
+            Program.Render = Program.Render; //
+            throw new Exception("yo");
             //Program.Render = Render;
         }
     }

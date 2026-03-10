@@ -8,6 +8,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
+using Microsoft.CodeAnalysis.Text;
 
 namespace Ideatum;
 
@@ -30,7 +31,7 @@ public static partial class Program
                 var refs = new HashSet<PortableExecutableReference>();
                 AddLoadedReferences(refs);
 
-                var ass = CompileAssembly(name, src, refs.Cast<MetadataReference>().ToArray());
+                var ass = CompileAssembly(src, refs.Cast<MetadataReference>().ToArray(),hotPath);
                 var type = ass.GetType(name + "." + "Hot");
                 // Get the type
                 Console.WriteLine("Compiled "+DateTime.Now);
@@ -113,7 +114,7 @@ public static partial class Program
 
     static void AddLoadedReferences(HashSet<PortableExecutableReference> refs)
     {
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+        var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(a=>!a.IsDynamic);
 
         foreach (var assembly in assemblies)
         {
@@ -133,49 +134,72 @@ public static partial class Program
         AddAssembly(refs, "System.Text.RegularExpressions.dll");
     }
 
-    static Assembly CompileAssembly(string assname, string source, MetadataReference[] refs,
-        bool noLoad = false)
+    static Assembly CompileAssembly(string code, MetadataReference[] refs, string sourceCodePath)
     {
+        var assemblyName = Path.GetRandomFileName();
+        var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
+        var encoding = Encoding.UTF8;
         var OutputAssembly = "";
-        var tree = SyntaxFactory.ParseSyntaxTree(source.Trim());
+        var tree = SyntaxFactory.ParseSyntaxTree(code);
         var CompileWithDebug = true;
         Assembly Assembly = null;
+        var buffer = encoding.GetBytes(code);
+        var sourceText = SourceText.From(buffer, buffer.Length, encoding, canBeEmbedded: true);
+        var syntaxTree = CSharpSyntaxTree.ParseText(
+            sourceText, 
+            new CSharpParseOptions(), 
+            path: sourceCodePath);
+        var syntaxRootNode = syntaxTree.GetRoot() as CSharpSyntaxNode;
+        var encoded = CSharpSyntaxTree.Create(syntaxRootNode, null, sourceCodePath, encoding);
+
         var optimizationLevel = CompileWithDebug ? OptimizationLevel.Debug : OptimizationLevel.Release;
 
-        var compilation = CSharpCompilation.Create(assname)
+        var compilation = CSharpCompilation.Create(assemblyName)
             .WithOptions(new CSharpCompilationOptions(
                 OutputKind.DynamicallyLinkedLibrary,
-                optimizationLevel: optimizationLevel)
+                optimizationLevel: optimizationLevel, 
+                platform: Platform.AnyCpu)
             )
             .AddReferences(refs)
-            .AddSyntaxTrees(tree);
+            .AddSyntaxTrees(encoded);
 
         //if (SaveGeneratedCode)
         //    GeneratedClassCode = tree.ToString();
 
         bool isFileAssembly = false;
-        Stream codeStream = null;
+        Stream peStream = null;
         if (string.IsNullOrEmpty(OutputAssembly))
         {
-            codeStream = new MemoryStream(); // in-memory assembly
+            peStream = new MemoryStream(); // in-memory assembly
         }
         else
         {
-            codeStream = new FileStream(OutputAssembly, FileMode.Create, FileAccess.Write);
+            peStream = new FileStream(OutputAssembly, FileMode.Create, FileAccess.Write);
             isFileAssembly = true;
         }
-
-        using (codeStream)
+        using (var pdbStream = new MemoryStream())
+        using (peStream)
         {
             EmitResult compilationResult = null;
             if (CompileWithDebug)
             {
-                var debugOptions = CompileWithDebug ? DebugInformationFormat.Embedded : DebugInformationFormat.Pdb;
-                compilationResult = compilation.Emit(codeStream,
-                    options: new EmitOptions(debugInformationFormat: debugOptions));
+                
+                var emitOptions = new EmitOptions(
+                    debugInformationFormat: DebugInformationFormat.PortablePdb,
+                    pdbFilePath:symbolsName);
+                var embeddedTexts = new List<EmbeddedText>
+                {
+                    EmbeddedText.FromSource(sourceCodePath, sourceText),
+                };
+                compilationResult = compilation.Emit(
+                    peStream: peStream, 
+                    pdbStream: pdbStream, 
+                    embeddedTexts: embeddedTexts,
+                    options: emitOptions
+                    );
             }
             else
-                compilationResult = compilation.Emit(codeStream);
+                compilationResult = compilation.Emit(peStream);
 
             // Compilation Error handling
             if (!compilationResult.Success)
@@ -190,10 +214,10 @@ public static partial class Program
                 return null;
             }
 
-            codeStream.Position = 0;
-            AssemblyLoadContext alc = new AssemblyLoadContext(null);
-            var ass = alc.LoadFromStream(codeStream);
-            return ass;
+            peStream.Position = 0;
+            pdbStream.Position = 0;
+            var assembly = AssemblyLoadContext.Default.LoadFromStream(peStream, pdbStream);
+            return assembly;
         }
     }
 }
