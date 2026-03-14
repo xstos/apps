@@ -19,6 +19,8 @@ namespace RENAME_ME
     public static class Hot
     {
         static char TheWay = '道';
+        static char YY = '☯';
+        static char CURSOR = '█';
 
         public static void Run()
         {
@@ -29,24 +31,35 @@ namespace RENAME_ME
             
             int[] GetLetterPixels()
             {
-                var canvas = new Canvas { Width = letterWidth, Height = letterHeight };
-                canvas.Background = new SolidColorBrush(Colors.LimeGreen);
-                canvas.Children.Add(new TextBlock
+                var parent = new Canvas() { Width = letterWidth, Height = letterHeight };
+                
+                parent.Background = new SolidColorBrush(Colors.Transparent);
+                var letter = new Label()
                 {
-                    Text = "道",
-                    FontSize = 420,
-                    Background = new SolidColorBrush(Colors.Blue),
+                    Content = CURSOR+"a",
+                    FontSize = 120,
+                    Background = new SolidColorBrush(Colors.Transparent),
                     Foreground = Brushes.White,
-                    FontFamily = new FontFamily("Courier New")
-                });
-
+                    FontFamily = new FontFamily("Consolas"),
+                    //HorizontalAlignment = HorizontalAlignment.Center,
+                    //VerticalAlignment = VerticalAlignment.Center,
+                    //TextAlignment = TextAlignment.Left
+                };
+                var border = new Border()
+                {
+                    Child = letter,
+                    BorderBrush = new SolidColorBrush(Colors.White),
+                    BorderThickness = new Thickness(1)
+                };
+                parent.Children.Add(border);
+                
                 // Measure and arrange
-                canvas.Measure(new Size(letterWidth, letterHeight));
-                canvas.Arrange(new Rect(0, 0, letterWidth, letterHeight));
+                parent.Measure(new Size(letterWidth, letterHeight));
+                parent.Arrange(new Rect(0, 0, letterWidth, letterHeight));
 
                 // Render to bitmap
                 var bitmap = new RenderTargetBitmap(letterWidth, letterHeight, 96, 96, PixelFormats.Pbgra32);
-                bitmap.Render(canvas);
+                bitmap.Render(parent);
 
                 int stride = (bitmap.PixelWidth * bitmap.Format.BitsPerPixel + 7) / 8;
                 byte[] pixelBytes = new byte[bitmap.PixelHeight * stride];
@@ -77,9 +90,9 @@ namespace RENAME_ME
             // Project 3D to 2D
             PointF[] points = new PointF[4];
             float fov = 256; // Simple perspective factor
-            float zoffs = 6f;
-            float xoffs = 0f;
-            float yoffs = -5f;
+            float zoffs = 0f;
+            float xoffs = -1f;
+            float yoffs = 1f;
             Action<int[], int, int> renderAction = Clear;
             void Clear(int[] surface, int width, int height)
             {
@@ -96,14 +109,11 @@ namespace RENAME_ME
                 for (int i = 0; i < 4; i++)
                 {
                     float x = verts[i, 0]+xoffs;
-                    float y = verts[i, 1]-yoffs;
-                    float z = verts[i, 2] + zoffs;
+                    float y = verts[i, 1]+yoffs;
+                    float z = verts[i, 2]+zoffs;
 
                     // Simple perspective projection
-                    points[i] = new PointF(
-                        100 + x * fov / z,
-                        800 - y * fov / z
-                    );
+                    points[i] = new PointF(width/2.0f + x * fov / z, height/2.0f - y * fov / z);
                 }
 
                 var canvasSprite = new Sprite(surface, width, height);
