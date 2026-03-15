@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -29,15 +30,20 @@ namespace RENAME_ME
             var NextColor = Program.MakeGetNextHue(1000);
             var ints = GetLetterPixels();
             
-            int[] GetLetterPixels()
+            (int[],int,int) GetLetterPixels()
             {
-                var parent = new Canvas() { Width = letterWidth, Height = letterHeight };
-                
-                parent.Background = new SolidColorBrush(Colors.Transparent);
+                var mainWindow = Application.Current.MainWindow;
+                var dpiScale = VisualTreeHelper.GetDpi(mainWindow);
+                var parent = new Canvas
+                {
+                    Width = letterWidth, Height = letterHeight,
+                    Background = new SolidColorBrush(Colors.Gray)
+                };
+
                 var letter = new Label()
                 {
                     Content = CURSOR+"a",
-                    FontSize = 120,
+                    FontSize = 200,
                     Background = new SolidColorBrush(Colors.Transparent),
                     Foreground = Brushes.White,
                     FontFamily = new FontFamily("Consolas"),
@@ -45,28 +51,41 @@ namespace RENAME_ME
                     //VerticalAlignment = VerticalAlignment.Center,
                     //TextAlignment = TextAlignment.Left
                 };
+
                 var border = new Border()
                 {
                     Child = letter,
-                    BorderBrush = new SolidColorBrush(Colors.White),
-                    BorderThickness = new Thickness(1)
+                    BorderBrush = new SolidColorBrush(Colors.Cyan),
+                    BorderThickness = new Thickness(0,0,0,0)
                 };
                 parent.Children.Add(border);
                 
                 // Measure and arrange
                 parent.Measure(new Size(letterWidth, letterHeight));
                 parent.Arrange(new Rect(0, 0, letterWidth, letterHeight));
-
-                // Render to bitmap
-                var bitmap = new RenderTargetBitmap(letterWidth, letterHeight, 96, 96, PixelFormats.Pbgra32);
-                bitmap.Render(parent);
-
-                int stride = (bitmap.PixelWidth * bitmap.Format.BitsPerPixel + 7) / 8;
-                byte[] pixelBytes = new byte[bitmap.PixelHeight * stride];
-                bitmap.CopyPixels(pixelBytes, stride, 0);
+                var w = border.ActualWidth;
+                var h = border.ActualHeight;
+                // Render to bitmap 
+                var wi = (int)Math.Round(w,MidpointRounding.AwayFromZero);
+                var hi = (int)Math.Round(h,MidpointRounding.AwayFromZero);
+                var bmp = new RenderTargetBitmap(letterWidth, letterHeight, 
+                    dpiScale.PixelsPerInchX, dpiScale.PixelsPerInchY, PixelFormats.Pbgra32);
+                RenderOptions.SetBitmapScalingMode(bmp,BitmapScalingMode.NearestNeighbor);
+                bmp.Render(parent);
+                
+                var cropRect = new Int32Rect(0, 0, wi, hi); // x, y, width, height
+                var cbmp = new CroppedBitmap(bmp, cropRect);
+                
+                cbmp.Save(@"C:\Users\user\Documents\foo.png");
+                var pixSrcBmp = cbmp;
+                var bmpWidth = pixSrcBmp.PixelWidth;
+                int stride = (bmpWidth * pixSrcBmp.Format.BitsPerPixel + 7) / 8;
+                var bmpHeight = pixSrcBmp.PixelHeight;//
+                byte[] pixelBytes = new byte[bmpHeight * stride];
+                cbmp.CopyPixels(pixelBytes, stride, 0);
                 int[] ret = new int[pixelBytes.Length / 4];
                 Buffer.BlockCopy(pixelBytes, 0, ret, 0, pixelBytes.Length);
-                return ret;
+                return (ret,bmpWidth,bmpHeight);
             }
 
             // Define a square in 3D space
@@ -117,7 +136,7 @@ namespace RENAME_ME
                 }
 
                 var canvasSprite = new Sprite(surface, width, height);
-                var texSprite = new Sprite(ints, letterWidth, letterHeight);
+                var texSprite = new Sprite(ints.Item1, ints.Item2, ints.Item3);
                 // Draw the textured square using triangles
                 DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[2], points[3], bl, tl, tr); //top left half
                 DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[1], points[2], bl, tr, br); //bottom left half
@@ -140,7 +159,7 @@ namespace RENAME_ME
                 {
                     for (int j = 0; j < 100; j++)
                     {
-                        write[i, j] = ints[inti++];
+                        write[i, j] = ints.Item1[inti++];
                     }
                 }
             }
@@ -243,6 +262,18 @@ namespace RENAME_ME
             Surface = surface;
             Width = width;
             Height = height;
+        }
+    }
+
+    public static class Ext
+    {
+        public static void Save(this BitmapSource bmp, string path)
+        {
+            var encoder = new PngBitmapEncoder();
+            var bitmapFrame = BitmapFrame.Create(bmp);
+            encoder.Frames.Add(bitmapFrame);
+            using var fileStream = new FileStream(path,FileMode.Create);
+            encoder.Save(fileStream);
         }
     }
 }

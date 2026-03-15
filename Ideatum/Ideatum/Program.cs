@@ -29,6 +29,7 @@ public static partial class Program
         RunApp();
     }
 
+    public static Window Window;
     public static Action Render = () => { };
     public static int Width;
     public static int Height;
@@ -76,7 +77,7 @@ public static partial class Program
             {
                 Render();
                 renderCount.Value += 1;
-                await Task.Delay(10);
+                await Task.Delay(1);
             }
         }
 
@@ -96,7 +97,7 @@ public static partial class Program
         root.Children.Add(host);
         var win = new Window();
         win.Content = root;
-
+        Window = win;
         root.SizeChanged += (sender, args) =>
         {
             resize = () =>
@@ -124,7 +125,15 @@ public static partial class Program
             tmr.Tick += (o, eventArgs) =>
             {
                 if (action == null) return;
-                action();
+                try
+                {
+                    action();
+
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
                 action = null;
             };
         };

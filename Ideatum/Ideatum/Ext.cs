@@ -1,4 +1,6 @@
-﻿namespace Ideatum;
+﻿using CommunityToolkit.HighPerformance;
+
+namespace Ideatum;
 
 public static class Ext
 {
@@ -61,5 +63,12 @@ public static class Ext
         t6 = array[5];
         t7 = array[6];
         t8 = array[7];
+    }
+
+    public static Span2D<T> Slice2D<T>(this T[] array, int height, int width)
+    {
+        var mem = new Memory2D<T>(array, height, width);
+        var dest = mem.Slice(0, 0, height, width);
+        return dest.Span;
     }
 }
