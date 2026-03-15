@@ -108,10 +108,10 @@ namespace RENAME_ME
             var (bl, br, tr, tl) = (texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
             // Project 3D to 2D
             PointF[] points = new PointF[4];
-            float fov = 256; // Simple perspective factor
-            float zoffs = 0f;
-            float xoffs = -1f;
-            float yoffs = 1f;
+            float fov = 1; // Simple perspective factor
+            float zoffs = 10f;
+            float xoffs = -11f;
+            float yoffs = 11f;
             Action<int[], int, int> renderAction = Clear;
             void Clear(int[] surface, int width, int height)
             {
@@ -122,6 +122,7 @@ namespace RENAME_ME
 
                 renderAction = Render;
             }
+            
             void Render(int[] surface, int width, int height)
             {
                 
@@ -131,8 +132,13 @@ namespace RENAME_ME
                     float y = verts[i, 1]+yoffs;
                     float z = verts[i, 2]+zoffs;
 
-                    // Simple perspective projection
-                    points[i] = new PointF(width/2.0f + x * fov / z, height/2.0f - y * fov / z);
+                    var projx = x / z; //3d to 2d projection
+                    var projy = y / z;
+                    //normalize to screen coords -1 .. 1 => 0 .. 2 => 0 .. width
+                    var screenx = (projx + 1) * 0.5f * width;
+                    //normalize and mirror y 
+                    var screeny = (1-(projy + 1) * 0.5f) * height;
+                    points[i] = new PointF(screenx, screeny);
                 }
 
                 var canvasSprite = new Sprite(surface, width, height);
