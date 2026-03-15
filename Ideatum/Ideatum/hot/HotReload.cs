@@ -108,7 +108,6 @@ namespace RENAME_ME
             var (bl, br, tr, tl) = (texCoords[0], texCoords[1], texCoords[2], texCoords[3]);
             // Project 3D to 2D
             PointF[] points = new PointF[4];
-            float fov = 1; // Simple perspective factor
             float zoffs = 10f;
             float xoffs = -11f;
             float yoffs = 11f;
@@ -211,47 +210,33 @@ namespace RENAME_ME
 
             var texSurface = tex.Surface;
             var texStride = tex.Width;
-            int offs;
             int offs2;
-            var w0denom = dp2p1X * dp3p1Y - dp2p1Y * dp3p1X;
-            var w1denom = dp3p1X * dp2p1Y - dp3p1Y * dp2p1X;
-            w0denom = 1.0f / w0denom;
-            w1denom = 1.0f / w1denom;
+            var w0denom = 1.0f / (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
+            var w1denom = 1.0f / (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
             var (uv1X, uv1Y) = uv1;
             var (uv2X, uv2Y) = uv2;
             var (uv3X, uv3Y) = uv3;
             var texWidthSub1 = texWidth - 1;
             var texHeightSub1 = texHeight - 1;
-            float w0;
-            float w1;
-            float w2;
-            float u;
-            float v;
-            int tx;
-            int ty;
-            float dyp1Y;
-            float dxp1X;
             for (int y = minY; y <= maxY; y++)
             for (int x = minX; x <= maxX; x++)
             {
                 // Barycentric coordinates
-                dyp1Y = y - p1.Y;
-                dxp1X = x - p1.X;
-                w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) * w0denom;
-                w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) * w1denom;
-                w2 = 1 - w0 - w1;
-
+                var dyp1Y = y - p1.Y;
+                var dxp1X = x - p1.X;
+                var w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) * w0denom;
+                var w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) * w1denom;
+                var w2 = 1 - w0 - w1;
                 // Check if point is inside triangle
                 if (!(w0 >= 0) || !(w1 >= 0) || !(w2 >= 0)) continue;
                 // Interpolate texture coordinates
-                u = uv1X * w2 + uv2X * w0 + uv3X * w1;
-                v = uv1Y * w2 + uv2Y * w0 + uv3Y * w1;
+                var u = uv1X * w2 + uv2X * w0 + uv3X * w1;
+                var v = uv1Y * w2 + uv2Y * w0 + uv3Y * w1;
                 // Sample texture
-                tx = (int)(u * texWidthSub1);
-                ty = (int)(v * texHeightSub1);
+                var tx = (int)(u * texWidthSub1);
+                var ty = (int)(v * texHeightSub1);
                 offs2 = ty * texStride + tx;
-                //Color c = tex[tx, ty];
-                offs = y * canvasStride + x;
+                var offs = y * canvasStride + x;
                 canvasSurface[offs] = texSurface[offs2];
             }
         }
