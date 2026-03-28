@@ -16,7 +16,7 @@ public static partial class Program
 {
     static int Count = 0;
     static FileSystemWatcher fsw;
-    static void Watch(Action<MethodInfo> callback)
+    static void Watch(Action<Action> callback)
     {
         var srcPath = GetSrcPath();
         var hotPath = Path.Combine(srcPath, "HotReload.cs");
@@ -36,7 +36,23 @@ public static partial class Program
                 // Get the type
                 Console.WriteLine("Compiled "+DateTime.Now);
                 var method = type?.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
-                if (method != null) callback(method);
+                if (method != null)
+                {
+                    var run = (Action)Delegate.CreateDelegate(typeof(Action), method);
+
+                    void Run()
+                    {
+                        try
+                        {
+                            run();
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine(e);
+                        }
+                    }
+                    callback(Run);
+                }
             }
             catch (Exception e)
             {

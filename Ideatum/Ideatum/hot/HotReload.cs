@@ -14,10 +14,11 @@ using Ideatum;
 using Brushes = System.Windows.Media.Brushes;
 using FontFamily = System.Windows.Media.FontFamily;
 using Size = System.Windows.Size;
+
 namespace RENAME_ME
 {
     using static NodeType;
-    
+
     public enum NodeType
     {
         CursorNode
@@ -27,93 +28,50 @@ namespace RENAME_ME
     {
         public Node(NodeType t)
         {
-            
         }
     }
 
-    
+
     public static class Hot
     {
         static char TheWay = '道';
         static char YY = '☯';
         static char CURSOR = '█';
-        
+
         public static void Run()
         {
             Node cursor = new Node(CursorNode);
-            
-            Program.PreviewKeyDown = (sender, args) =>
-            {
-                Console.WriteLine(args.Key + " " + sender.GetType());
-            };
-            int letterWidth = 512;
-            int letterHeight = 512;
+
+            string txt = "a";
+
             var NextColor = Program.MakeGetNextHue(1000);
-            var ints = GetLetterPixels();
-            
-            Sprite GetLetterPixels()
+            var getLetter = GetTilePixels();
+
+            Func<string, Sprite> GetTilePixels()
             {
-                var mainWindow = Application.Current.MainWindow;
-                var dpiScale = VisualTreeHelper.GetDpi(mainWindow);
-                var parent = new Canvas
-                {
-                    Width = letterWidth, Height = letterHeight,
-                    Background = new SolidColorBrush(Colors.Gray)
-                };
+                var update = Ext.SpriteGenerator();
 
-                var letter = new Label()
-                {
-                    Content = CURSOR+"a",
-                    FontSize = 200,
-                    Background = new SolidColorBrush(Colors.Transparent),
-                    Foreground = Brushes.White,
-                    FontFamily = new FontFamily("Consolas"),
-                    //HorizontalAlignment = HorizontalAlignment.Center,
-                    //VerticalAlignment = VerticalAlignment.Center,
-                    //TextAlignment = TextAlignment.Left
-                };
+                var cache = new Dictionary<string, Sprite>();
 
-                var border = new Border()
+                Sprite Get(string text)
                 {
-                    Child = letter,
-                    BorderBrush = new SolidColorBrush(Colors.Cyan),
-                    BorderThickness = new Thickness(0,0,0,0)
-                };
-                parent.Children.Add(border);
-                
-                // Measure and arrange
-                parent.Measure(new Size(letterWidth, letterHeight));
-                parent.Arrange(new Rect(0, 0, letterWidth, letterHeight));
-                var w = border.ActualWidth;
-                var h = border.ActualHeight;
-                // Render to bitmap 
-                var wi = (int)Math.Round(w,MidpointRounding.AwayFromZero);
-                var hi = (int)Math.Round(h,MidpointRounding.AwayFromZero);
-                var bmp = new RenderTargetBitmap(letterWidth, letterHeight, dpiScale.PixelsPerInchX, dpiScale.PixelsPerInchY, PixelFormats.Pbgra32);
-                RenderOptions.SetBitmapScalingMode(bmp,BitmapScalingMode.NearestNeighbor);
-                bmp.Render(parent);
-                
-                var cropRect = new Int32Rect(0, 0, wi, hi); // x, y, width, height
-                
-                var cbmp = new CroppedBitmap(bmp, cropRect);
-                
-                //cbmp.Save(@"C:\Users\user\Documents\foo.png");
-                var pixSrcBmp = cbmp;
-                var bmpWidth = pixSrcBmp.PixelWidth;
-                int stride = (bmpWidth * pixSrcBmp.Format.BitsPerPixel + 7) / 8;
-                
-                var bmpHeight = pixSrcBmp.PixelHeight;//
-                byte[] pixelBytes = new byte[bmpHeight * stride];
-                cbmp.CopyPixels(pixelBytes, stride, 0);
-                int[] ret = new int[pixelBytes.Length / 4];
-                Buffer.BlockCopy(pixelBytes, 0, ret, 0, pixelBytes.Length);
-                return new Sprite(ret,bmpWidth,bmpHeight);
+                    if (cache.TryGetValue(text, out var value))
+                    {
+                        return value;
+                    }
+
+                    var sprite = update(text);
+                    cache.Add(text, sprite);
+                    return sprite;
+                }
+
+                return Get;
             }
 
             // Define a square in 3D space
             float[,] verts =
             {
-                   { -1, -1, 2 }, // bottom-left
+                { -1, -1, 2 }, // bottom-left
                 { 1, -1, 2 }, // bottom-right
                 { 1, 1, 2 }, // top-right
                 { -1, 1, 2 } // top-left
@@ -134,6 +92,7 @@ namespace RENAME_ME
             float xoffs = -11f;
             float yoffs = 11f;
             Action<int[], int, int> renderAction = Clear;
+
             void Clear(int[] surface, int width, int height)
             {
                 for (int i = 0; i < surface.Length; i++) //clear black
@@ -143,29 +102,31 @@ namespace RENAME_ME
 
                 renderAction = Render;
             }
-            
+
             void Render(int[] surface, int width, int height)
             {
                 for (int i = 0; i < 4; i++)
                 {
-                    float x = verts[i, 0]+xoffs;
-                    float y = verts[i, 1]+yoffs;
-                    float z = verts[i, 2]+zoffs;
+                    float x = verts[i, 0] + xoffs;
+                    float y = verts[i, 1] + yoffs;
+                    float z = verts[i, 2] + zoffs;
 
                     var projx = x / z; //3d to 2d projection
                     var projy = y / z;
                     //normalize to screen coords -1 .. 1 => 0 .. 2 => 0 .. width
                     var screenx = (projx + 1) * 0.5f * width;
                     //normalize and mirror y 
-                    var screeny = (1-(projy + 1) * 0.5f) * height;
+                    var screeny = (1 - (projy + 1) * 0.5f) * height;
                     points[i] = new PointF(screenx, screeny);
                 }
 
                 var canvasSprite = new Sprite(surface, width, height);
-                var texSprite = ints;
+                var texSprite = getLetter(txt);
                 // Draw the textured square using triangles
-                DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[2], points[3], bl, tl, tr); //top left half
-                DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[1], points[2], bl, tr, br); //bottom left half
+                DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[2], points[3], bl, tl,
+                    tr); //top left half
+                DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[1], points[2], bl, tr,
+                    br); //bottom left half
             }
 
             void Memory2DExample(int[] surface, int width, int height)
@@ -181,15 +142,16 @@ namespace RENAME_ME
                 var dest = mem.Slice(0, 0, 100, 100);
                 var write = dest.Span;
                 var inti = 0;
+                var l = getLetter("a");
                 for (int i = 0; i < 100; i++)
                 {
                     for (int j = 0; j < 100; j++)
                     {
-                        write[i, j] = ints.Surface[inti++];
+                        write[i, j] = l.Surface[inti++];
                     }
                 }
             }
-            
+
             void DoRender()
             {
                 var surface = Program.Surface;
@@ -201,9 +163,16 @@ namespace RENAME_ME
                 renderAction(surface, width, height);
             }
 
-            Program.Render = DoRender;
+            Program.PreviewKeyDown = (sender, args) =>
+            {
+                Console.WriteLine(args.Key + " " + sender.GetType());
+                txt = args.Key.ToString();
+
+                DoRender();
+            };
+            //Program.Render = DoRender;
         }
-        
+
         // Simple software rasterization
         static void DrawTexturedTriangle(Sprite canvas, Sprite tex, PointF p1, PointF p2, PointF p3,
             (float, float) uv1, (float, float) uv2, (float, float) uv3)
@@ -262,14 +231,13 @@ namespace RENAME_ME
         }
     }
 
-    struct Sprite
+    internal struct Sprite
     {
         public int Width;
         public int Height;
         public int[] Surface;
-        
 
-        public Sprite(int[] surface, int width, int height)
+        internal Sprite(int[] surface, int width, int height)
         {
             Surface = surface;
             Width = width;
@@ -279,13 +247,84 @@ namespace RENAME_ME
 
     public static class Ext
     {
-        public static void Save(this BitmapSource bmp, string path)
+        internal static void Save(this BitmapSource bmp, string path)
         {
             var encoder = new PngBitmapEncoder();
             var bitmapFrame = BitmapFrame.Create(bmp);
             encoder.Frames.Add(bitmapFrame);
-            using var fileStream = new FileStream(path,FileMode.Create);
+            using var fileStream = new FileStream(path, FileMode.Create);
             encoder.Save(fileStream);
+        }
+
+        internal static Sprite ToSprite(this BitmapSource bmp)
+        {
+            //bmp.Save(@"C:\Users\user\Documents\foo.png");
+
+            var bmpWidth = bmp.PixelWidth;
+            int stride = (bmpWidth * bmp.Format.BitsPerPixel + 7) / 8;
+
+            var bmpHeight = bmp.PixelHeight;
+            byte[] pixelBytes = new byte[bmpHeight * stride];
+            bmp.CopyPixels(pixelBytes, stride, 0);
+            int[] ret = new int[pixelBytes.Length / 4];
+            Buffer.BlockCopy(pixelBytes, 0, ret, 0, pixelBytes.Length);
+
+            var sprite1 = new Sprite(ret, bmpWidth, bmpHeight);
+            return sprite1;
+        }
+
+        internal static BitmapSource Crop(this BitmapSource bmp, Int32Rect rect)
+        {
+            return new CroppedBitmap(bmp, rect);
+        }
+
+        internal static Func<string, Sprite> SpriteGenerator()
+        {
+            int letterWidth = 512;
+            int letterHeight = 512;
+            var parent = new Canvas
+            {
+                Width = letterWidth, Height = letterHeight,
+                Background = new SolidColorBrush(Colors.Gray)
+            };
+
+            var letter = new Label()
+            {
+                Content = "█",
+                FontSize = 200,
+                Background = new SolidColorBrush(Colors.Transparent),
+                Foreground = Brushes.White,
+                FontFamily = new FontFamily("Consolas"),
+                //HorizontalAlignment = HorizontalAlignment.Center,
+                //VerticalAlignment = VerticalAlignment.Center,
+                //TextAlignment = TextAlignment.Left
+            };
+
+            var border = new Border()
+            {
+                Child = letter,
+                BorderBrush = new SolidColorBrush(Colors.Cyan),
+                BorderThickness = new Thickness(0, 0, 0, 0)
+            };
+            parent.Children.Add(border);
+            var dpiScale = VisualTreeHelper.GetDpi(Application.Current.MainWindow);
+            var bmp = new RenderTargetBitmap(letterWidth, letterHeight, dpiScale.PixelsPerInchX,
+                dpiScale.PixelsPerInchY, PixelFormats.Pbgra32);
+            RenderOptions.SetBitmapScalingMode(bmp, BitmapScalingMode.NearestNeighbor);
+
+            Sprite Update(string text)
+            {
+                letter.Content = text;
+                parent.Measure(new Size(letterWidth, letterHeight));
+                parent.Arrange(new Rect(0, 0, letterWidth, letterHeight));
+                bmp.Render(parent);
+                var wi = (int)Math.Round(border.ActualWidth, MidpointRounding.AwayFromZero);
+                var hi = (int)Math.Round(border.ActualHeight, MidpointRounding.AwayFromZero);
+                var sprite = bmp.Crop(new Int32Rect(0, 0, wi, hi)).ToSprite();
+                return sprite;
+            }
+
+            return Update;
         }
     }
 }

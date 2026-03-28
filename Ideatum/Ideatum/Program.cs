@@ -31,6 +31,7 @@ public static partial class Program
     public static Window Window;
     public static Action Render = () => { };
     public static KeyEventHandler PreviewKeyDown = (sender, args) => { };
+    public static Action Resize=()=>{};
     public static int Width;
     public static int Height;
     public static int[] Surface;
@@ -69,13 +70,13 @@ public static partial class Program
                 await Task.Delay(10);
             }
         }
-        
 
         async void RenderLoop()
         {
             while (rendering)
             {
-                Render();
+                Dispatcher.CurrentDispatcher.Invoke(Render, DispatcherPriority.Render);
+                //Render();
                 renderCount.Value += 1;
                 await Task.Delay(1);
             }
@@ -102,9 +103,12 @@ public static partial class Program
         {
             resize = () =>
             {
+                var nw = (int)args.NewSize.Width;
+                var nh = (int)args.NewSize.Height;
+                
                 Free();
-                Width = (int)args.NewSize.Width;
-                Height = (int)args.NewSize.Height;
+                Width = nw;
+                Height = nh;
                 Alloc();
                 resize = noop;
             };
@@ -115,27 +119,26 @@ public static partial class Program
             Task.Run(RenderLoop);
             Task.Run(BlitTask);
             Action action=null;
-            Watch(entryPointMethod =>
+            Watch(run =>
             {
-                action = (Action) Delegate.CreateDelegate(typeof(Action), entryPointMethod);
+                Dispatcher.CurrentDispatcher.Invoke(run);
             });
-            var tmr = new DispatcherTimer(DispatcherPriority.Normal);
-            tmr.Interval = TimeSpan.FromMilliseconds(1);
-            tmr.Start();
-            tmr.Tick += (o, eventArgs) =>
-            {
-                if (action == null) return;
-                try
-                {
-                    action();
-
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                }
-                action = null;
-            };
+            // var tmr = new DispatcherTimer(DispatcherPriority.Normal);
+            // tmr.Interval = TimeSpan.FromMilliseconds(1);
+            // tmr.Start();
+            // tmr.Tick += (o, eventArgs) =>
+            // {
+            //     if (action == null) return;
+            //     try
+            //     {
+            //         action();
+            //     }
+            //     catch (Exception e)
+            //     {
+            //         Console.WriteLine(e);
+            //     }
+            //     action = null;
+            // };
         };
         win.Closing += (sender, args) => { rendering = false; };
         win.KeyDown += (sender, args) =>
