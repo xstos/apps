@@ -14,23 +14,44 @@ using Ideatum;
 using Brushes = System.Windows.Media.Brushes;
 using FontFamily = System.Windows.Media.FontFamily;
 using Size = System.Windows.Size;
-
 namespace RENAME_ME
 {
+    using static NodeType;
+    
+    public enum NodeType
+    {
+        CursorNode
+    }
+
+    public class Node
+    {
+        public Node(NodeType t)
+        {
+            
+        }
+    }
+
+    
     public static class Hot
     {
         static char TheWay = '道';
         static char YY = '☯';
         static char CURSOR = '█';
-
+        
         public static void Run()
         {
+            Node cursor = new Node(CursorNode);
+            
+            Program.PreviewKeyDown = (sender, args) =>
+            {
+                Console.WriteLine(args.Key + " " + sender.GetType());
+            };
             int letterWidth = 512;
             int letterHeight = 512;
             var NextColor = Program.MakeGetNextHue(1000);
             var ints = GetLetterPixels();
             
-            (int[],int,int) GetLetterPixels()
+            Sprite GetLetterPixels()
             {
                 var mainWindow = Application.Current.MainWindow;
                 var dpiScale = VisualTreeHelper.GetDpi(mainWindow);
@@ -68,30 +89,31 @@ namespace RENAME_ME
                 // Render to bitmap 
                 var wi = (int)Math.Round(w,MidpointRounding.AwayFromZero);
                 var hi = (int)Math.Round(h,MidpointRounding.AwayFromZero);
-                var bmp = new RenderTargetBitmap(letterWidth, letterHeight, 
-                    dpiScale.PixelsPerInchX, dpiScale.PixelsPerInchY, PixelFormats.Pbgra32);
+                var bmp = new RenderTargetBitmap(letterWidth, letterHeight, dpiScale.PixelsPerInchX, dpiScale.PixelsPerInchY, PixelFormats.Pbgra32);
                 RenderOptions.SetBitmapScalingMode(bmp,BitmapScalingMode.NearestNeighbor);
                 bmp.Render(parent);
                 
                 var cropRect = new Int32Rect(0, 0, wi, hi); // x, y, width, height
+                
                 var cbmp = new CroppedBitmap(bmp, cropRect);
                 
-                cbmp.Save(@"C:\Users\user\Documents\foo.png");
+                //cbmp.Save(@"C:\Users\user\Documents\foo.png");
                 var pixSrcBmp = cbmp;
                 var bmpWidth = pixSrcBmp.PixelWidth;
                 int stride = (bmpWidth * pixSrcBmp.Format.BitsPerPixel + 7) / 8;
+                
                 var bmpHeight = pixSrcBmp.PixelHeight;//
                 byte[] pixelBytes = new byte[bmpHeight * stride];
                 cbmp.CopyPixels(pixelBytes, stride, 0);
                 int[] ret = new int[pixelBytes.Length / 4];
                 Buffer.BlockCopy(pixelBytes, 0, ret, 0, pixelBytes.Length);
-                return (ret,bmpWidth,bmpHeight);
+                return new Sprite(ret,bmpWidth,bmpHeight);
             }
 
             // Define a square in 3D space
             float[,] verts =
             {
-                { -1, -1, 2 }, // bottom-left
+                   { -1, -1, 2 }, // bottom-left
                 { 1, -1, 2 }, // bottom-right
                 { 1, 1, 2 }, // top-right
                 { -1, 1, 2 } // top-left
@@ -124,7 +146,6 @@ namespace RENAME_ME
             
             void Render(int[] surface, int width, int height)
             {
-                
                 for (int i = 0; i < 4; i++)
                 {
                     float x = verts[i, 0]+xoffs;
@@ -141,7 +162,7 @@ namespace RENAME_ME
                 }
 
                 var canvasSprite = new Sprite(surface, width, height);
-                var texSprite = new Sprite(ints.Item1, ints.Item2, ints.Item3);
+                var texSprite = ints;
                 // Draw the textured square using triangles
                 DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[2], points[3], bl, tl, tr); //top left half
                 DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[1], points[2], bl, tr, br); //bottom left half
@@ -164,7 +185,7 @@ namespace RENAME_ME
                 {
                     for (int j = 0; j < 100; j++)
                     {
-                        write[i, j] = ints.Item1[inti++];
+                        write[i, j] = ints.Surface[inti++];
                     }
                 }
             }
@@ -210,7 +231,6 @@ namespace RENAME_ME
 
             var texSurface = tex.Surface;
             var texStride = tex.Width;
-            int offs2;
             var w0denom = 1.0f / (dp2p1X * dp3p1Y - dp2p1Y * dp3p1X);
             var w1denom = 1.0f / (dp3p1X * dp2p1Y - dp3p1Y * dp2p1X);
             var (uv1X, uv1Y) = uv1;
@@ -235,7 +255,7 @@ namespace RENAME_ME
                 // Sample texture
                 var tx = (int)(u * texWidthSub1);
                 var ty = (int)(v * texHeightSub1);
-                offs2 = ty * texStride + tx;
+                var offs2 = ty * texStride + tx;
                 var offs = y * canvasStride + x;
                 canvasSurface[offs] = texSurface[offs2];
             }
@@ -244,9 +264,10 @@ namespace RENAME_ME
 
     struct Sprite
     {
-        public int[] Surface;
         public int Width;
         public int Height;
+        public int[] Surface;
+        
 
         public Sprite(int[] surface, int width, int height)
         {

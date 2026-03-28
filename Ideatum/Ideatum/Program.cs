@@ -3,8 +3,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Forms;
-using System.Windows.Forms.Integration;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -31,6 +30,7 @@ public static partial class Program
 
     public static Window Window;
     public static Action Render = () => { };
+    public static KeyEventHandler PreviewKeyDown = (sender, args) => { };
     public static int Width;
     public static int Height;
     public static int[] Surface;
@@ -89,7 +89,7 @@ public static partial class Program
 
         Alloc();
 
-        var host = new WindowsFormsHost();
+        var host = new System.Windows.Forms.Integration.WindowsFormsHost();
         host.Child = hSrc;
         var root = new Grid();
         root.MinHeight = 1;
@@ -138,6 +138,10 @@ public static partial class Program
             };
         };
         win.Closing += (sender, args) => { rendering = false; };
+        win.KeyDown += (sender, args) =>
+        {
+            PreviewKeyDown(sender, args);
+        };
         //CompositionTarget.Rendering += (o, args) => { render(); };
         var app = new System.Windows.Application();
         WindowPlaceInit(app, win);
@@ -185,11 +189,11 @@ public class HwndSource : System.Windows.Forms.UserControl
 {
     public HwndSource()
     {
-        AutoScaleMode = AutoScaleMode.None;
-        SetStyle(ControlStyles.DoubleBuffer, false);
-        SetStyle(ControlStyles.UserPaint, true);
-        SetStyle(ControlStyles.AllPaintingInWmPaint, true);
-        SetStyle(ControlStyles.Opaque, true);
+        AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
+        SetStyle(System.Windows.Forms.ControlStyles.DoubleBuffer, false);
+        SetStyle(System.Windows.Forms.ControlStyles.UserPaint, true);
+        SetStyle(System.Windows.Forms.ControlStyles.AllPaintingInWmPaint, true);
+        SetStyle(System.Windows.Forms.ControlStyles.Opaque, true);
         MinimumSize = new System.Drawing.Size(1, 1);
     }
 }

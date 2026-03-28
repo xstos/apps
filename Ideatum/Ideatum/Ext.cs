@@ -1,4 +1,7 @@
-﻿using CommunityToolkit.HighPerformance;
+﻿using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 
 namespace Ideatum;
 
@@ -70,5 +73,9 @@ public static class Ext
         var mem = new Memory2D<T>(array, height, width);
         var dest = mem.Slice(0, 0, height, width);
         return dest.Span;
+    }
+    public static Span<T> AsSpan<T>(this Array array)
+    {
+        return MemoryMarshal.CreateSpan(ref Unsafe.As<byte, T>(ref MemoryMarshal.GetArrayDataReference(array)), array.Length);
     }
 }
