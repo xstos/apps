@@ -31,15 +31,17 @@ namespace RENAME_ME
         }
     }
 
-
+    
     public static class Hot
     {
         static char TheWay = '道';
         static char YY = '☯';
         static char CURSOR = '█';
-
+        
         public static void Run()
         {
+            Console.WriteLine("Hot Run "+Program.HotNum);
+            
             Node cursor = new Node(CursorNode);
 
             string txt = "a";
@@ -99,8 +101,6 @@ namespace RENAME_ME
                 {
                     surface[i] = 0;
                 }
-
-                renderAction = Render;
             }
 
             void Render(int[] surface, int width, int height)
@@ -170,6 +170,9 @@ namespace RENAME_ME
 
                 DoRender();
             };
+            Program.Resize();
+            Clear(Program.Surface,Program.Width,Program.Height);
+            Program.Blit();
             //Program.Render = DoRender;
         }
 

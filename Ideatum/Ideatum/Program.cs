@@ -28,10 +28,12 @@ public static partial class Program
         RunApp();
     }
 
+    public static int HotNum = 0;
     public static Window Window;
     public static Action Render = () => { };
     public static KeyEventHandler PreviewKeyDown = (sender, args) => { };
     public static Action Resize=()=>{};
+    public static Action Blit = () => { };
     public static int Width;
     public static int Height;
     public static int[] Surface;
@@ -57,6 +59,10 @@ public static partial class Program
             Surface = new int[Width*Height];
             gcHandle = GCHandle.Alloc(Surface, GCHandleType.Pinned);
             bitmapInfo = GetBitmapInfo(Width, Height);
+            Blit = () =>
+            {
+                SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref Surface[0], ref bitmapInfo, 0);
+            };
         }
 
         void Free() => gcHandle.Free();
@@ -81,13 +87,7 @@ public static partial class Program
                 await Task.Delay(1);
             }
         }
-
-        void Blit()
-        {
-            SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref Surface[0], ref bitmapInfo, 0);
-            resize();
-        }
-
+        
         Alloc();
 
         var host = new System.Windows.Forms.Integration.WindowsFormsHost();
@@ -101,44 +101,29 @@ public static partial class Program
         Window = win;
         root.SizeChanged += (sender, args) =>
         {
-            resize = () =>
+            var nw = (int)args.NewSize.Width;
+            var nh = (int)args.NewSize.Height;
+            //Console.WriteLine($"resize {nw} {nh}");
+            Resize = () =>
             {
-                var nw = (int)args.NewSize.Width;
-                var nh = (int)args.NewSize.Height;
-                
                 Free();
                 Width = nw;
                 Height = nh;
                 Alloc();
-                resize = noop;
+                Resize = noop;
             };
         };
-        win.Loaded += (sender, args) =>
+        var disp = Dispatcher.CurrentDispatcher;
+        win.ContentRendered += (sender, args) =>
         {
             InitFrameRate(frameCount, win, renderCount, root);
-            Task.Run(RenderLoop);
-            Task.Run(BlitTask);
-            Action action=null;
+            //Task.Run(RenderLoop);
+            //Task.Run(BlitTask);
             Watch(run =>
             {
-                Dispatcher.CurrentDispatcher.Invoke(run);
+                disp.Invoke(run);
+                HotNum++;
             });
-            // var tmr = new DispatcherTimer(DispatcherPriority.Normal);
-            // tmr.Interval = TimeSpan.FromMilliseconds(1);
-            // tmr.Start();
-            // tmr.Tick += (o, eventArgs) =>
-            // {
-            //     if (action == null) return;
-            //     try
-            //     {
-            //         action();
-            //     }
-            //     catch (Exception e)
-            //     {
-            //         Console.WriteLine(e);
-            //     }
-            //     action = null;
-            // };
         };
         win.Closing += (sender, args) => { rendering = false; };
         win.KeyDown += (sender, args) =>
