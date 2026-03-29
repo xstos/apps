@@ -4,8 +4,6 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.HighPerformance;
 using RestoreWindowPlace;
@@ -36,7 +34,7 @@ public static partial class I
     public static Action Blit = () => { };
     public static int Width;
     public static int Height;
-    public static int[] Surface;
+    public static Sprite Surface;
     static void noop() { }
 
     static void RunApp()
@@ -56,12 +54,12 @@ public static partial class I
 
         void Alloc()
         {
-            Surface = new int[Width*Height];
-            gcHandle = GCHandle.Alloc(Surface, GCHandleType.Pinned);
+            Surface = new Sprite(new int[Width * Height], Width, Height);
+            gcHandle = GCHandle.Alloc(Surface.Data, GCHandleType.Pinned);
             bitmapInfo = GetBitmapInfo(Width, Height);
             Blit = () =>
             {
-                SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref Surface[0], ref bitmapInfo, 0);
+                SetDIBitsToDevice(hRef, 0, 0, Width, Height, 0, 0, 0, Height, ref Surface.Data[0], ref bitmapInfo, 0);
             };
         }
 

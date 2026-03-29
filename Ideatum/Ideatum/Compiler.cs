@@ -31,7 +31,8 @@ public static partial class I
                 var refs = new HashSet<PortableExecutableReference>();
                 AddLoadedReferences(refs);
 
-                var ass = CompileAssembly(src, refs.Cast<MetadataReference>().ToArray(),hotPath);
+                var metadataReferences = refs.Cast<MetadataReference>().ToArray();
+                var ass = CompileAssembly(src, metadataReferences,hotPath);
                 var type = ass.GetType(name + "." + "Hot");
                 // Get the type
                 Console.WriteLine("Compiled "+DateTime.Now);
@@ -156,7 +157,7 @@ public static partial class I
         var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
         var encoding = Encoding.UTF8;
         var OutputAssembly = "";
-        var tree = SyntaxFactory.ParseSyntaxTree(code);
+        //var tree = SyntaxFactory.ParseSyntaxTree(code);
         var CompileWithDebug = true;
         Assembly Assembly = null;
         var buffer = encoding.GetBytes(code);
