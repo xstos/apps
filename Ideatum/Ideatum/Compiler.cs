@@ -12,7 +12,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace Ideatum;
 
-public static partial class Program
+public static partial class I
 {
     static int Count = 0;
     static FileSystemWatcher fsw;

@@ -40,13 +40,13 @@ namespace RENAME_ME
         
         public static void Run()
         {
-            Console.WriteLine("Hot Run "+Program.HotNum);
+            Console.WriteLine("Hot Run "+I.HotNum);
             
             Node cursor = new Node(CursorNode);
 
             string txt = "a";
 
-            var NextColor = Program.MakeGetNextHue(1000);
+            var NextColor = I.MakeGetNextHue(1000);
             var getLetter = GetTilePixels();
 
             Func<string, Sprite> GetTilePixels()
@@ -67,7 +67,7 @@ namespace RENAME_ME
                     return sprite;
                 }
 
-                return Get;
+                return update;
             }
 
             // Define a square in 3D space
@@ -103,7 +103,7 @@ namespace RENAME_ME
                 }
             }
 
-            void Render(int[] surface, int width, int height)
+            void Render(int[] surface, int width, int height, string s)
             {
                 for (int i = 0; i < 4; i++)
                 {
@@ -121,7 +121,7 @@ namespace RENAME_ME
                 }
 
                 var canvasSprite = new Sprite(surface, width, height);
-                var texSprite = getLetter(txt);
+                var texSprite = getLetter(s);
                 // Draw the textured square using triangles
                 DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[2], points[3], bl, tl,
                     tr); //top left half
@@ -154,25 +154,26 @@ namespace RENAME_ME
 
             void DoRender()
             {
-                var surface = Program.Surface;
-                var width = Program.Width;
-                var height = Program.Height;
+                var surface = I.Surface;
+                var width = I.Width;
+                var height = I.Height;
                 var len = width * height;
                 var numPixels = surface.Length;
                 if (len != numPixels) return; //race condition caught between Width/Height update;
                 renderAction(surface, width, height);
             }
 
-            Program.PreviewKeyDown = (sender, args) =>
+            I.PreviewKeyDown = (sender, args) =>
             {
                 Console.WriteLine(args.Key + " " + sender.GetType());
-                txt = args.Key.ToString();
-
-                DoRender();
+                txt = args.Key.ToString().Substring(0,1);
+                I.Resize();
+                Render(I.Surface,I.Width,I.Height, txt);
+                I.Blit();
             };
-            Program.Resize();
-            Clear(Program.Surface,Program.Width,Program.Height);
-            Program.Blit();
+            I.Resize();
+            Clear(I.Surface,I.Width,I.Height);
+            I.Blit();
             //Program.Render = DoRender;
         }
 
@@ -320,7 +321,9 @@ namespace RENAME_ME
                 letter.Content = text;
                 parent.Measure(new Size(letterWidth, letterHeight));
                 parent.Arrange(new Rect(0, 0, letterWidth, letterHeight));
+                parent.UpdateLayout();
                 bmp.Render(parent);
+                //bmp.Save(@"C:\Users\user\Documents\foo.png");
                 var wi = (int)Math.Round(border.ActualWidth, MidpointRounding.AwayFromZero);
                 var hi = (int)Math.Round(border.ActualHeight, MidpointRounding.AwayFromZero);
                 var sprite = bmp.Crop(new Int32Rect(0, 0, wi, hi)).ToSprite();

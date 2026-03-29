@@ -9,7 +9,7 @@ public class Ref<T>
     public T Value;
     public override string ToString() => Value.ToString();
 }
-public static partial class Program
+public static partial class I
 {
     public static Ref<T> Ref<T>(this T item) => new() { Value = item };
 

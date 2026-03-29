@@ -19,7 +19,7 @@ static class TypeLoader
     static Memory2D<int> a; //DONT REMOVE (ROSLYN TYPELOADER)
     internal static void Run() {}
 }
-public static partial class Program
+public static partial class I
 {
     [STAThread]
     static void Main(string[] args)
