@@ -25,21 +25,21 @@ public static partial class I
         TypeLoader.Run();
         RunApp();
     }
+    static bool NoOpBool() => false;
+    static void NoOp() { }
 
     public static int HotNum = 0;
     public static Window Window;
     public static Action Render = () => { };
     public static KeyEventHandler PreviewKeyDown = (sender, args) => { };
-    public static Action Resize=()=>{};
+    public static Func<bool> Resize=NoOpBool;
     public static Action Blit = () => { };
     public static int Width;
     public static int Height;
     public static Sprite Surface;
-    static void noop() { }
-
     static void RunApp()
     {
-        Action resize = noop;
+        Action resize = NoOp;
         GCHandle gcHandle;
         BITMAPINFO bitmapInfo;
         Width = 100;
@@ -108,7 +108,8 @@ public static partial class I
                 Width = nw;
                 Height = nh;
                 Alloc();
-                Resize = noop;
+                Resize = NoOpBool;
+                return true;
             };
         };
         var disp = Dispatcher.CurrentDispatcher;

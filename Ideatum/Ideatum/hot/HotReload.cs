@@ -48,7 +48,8 @@ namespace RENAME_ME
 
             var NextColor = I.MakeGetNextHue(1000);
             var getLetter = GetTilePixels();
-            var blackTile = getLetter(CURSOR + "");
+            var cursorSprite = getLetter(CURSOR+"");
+            var blackTile = cursorSprite;
             Clear(blackTile);
             Func<string, Sprite> GetTilePixels()
             {
@@ -162,7 +163,7 @@ namespace RENAME_ME
             };
             I.Resize();
             Clear(I.Surface);
-            Render(I.Surface, getLetter(CURSOR+""));
+            Render(I.Surface, cursorSprite);
             I.Blit();
         }
 
@@ -220,6 +221,7 @@ namespace RENAME_ME
                 var offs2 = ty * texStride + tx;
                 var offs = y * canvasStride + x;
                 canvasSurface[offs] = texSurface[offs2];
+                Console.Write(x+","+y+" ");
             }
         }
     }
@@ -229,14 +231,14 @@ namespace RENAME_ME
     public static class Ext
     {
         internal static void Save(this BitmapSource bmp, string path)
-        {
+        { 
             var encoder = new PngBitmapEncoder();
             var bitmapFrame = BitmapFrame.Create(bmp);
             encoder.Frames.Add(bitmapFrame);
             using var fileStream = new FileStream(path, FileMode.Create);
             encoder.Save(fileStream);
         }
-
+ 
         internal static Sprite ToSprite(this BitmapSource bmp)
         {
             //bmp.Save(@"C:\Users\user\Documents\foo.png");
@@ -272,7 +274,7 @@ namespace RENAME_ME
             var letter = new Label()
             {
                 Content = "█",
-                FontSize = 200,
+                FontSize = 8,
                 Background = new SolidColorBrush(Colors.Transparent),
                 Foreground = Brushes.White,
                 FontFamily = new FontFamily("Consolas"),
@@ -310,4 +312,4 @@ namespace RENAME_ME
             return Update;
         }
     }
-}
+} 

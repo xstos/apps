@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
@@ -7,6 +8,21 @@ namespace Ideatum;
 
 public static class Ext
 {
+    public static IEnumerable<(T, T)> Pairwise<T>(this IEnumerable<T> source)
+    {
+        var previous = default(T);
+        using var it = source.GetEnumerator();
+        if (it.MoveNext())
+            previous = it.Current;
+
+        while (it.MoveNext())
+            yield return (previous, previous = it.Current);
+    }
+    public static T Var<T>(this T o, out T v)
+    {
+        v = o;
+        return v;
+    }
     public static void Deconstruct<T>(this T[] array, out T t1)
     {
         t1 = array[0];
