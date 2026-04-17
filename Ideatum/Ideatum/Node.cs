@@ -1,37 +1,17 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
-using static Ideatum.Dir;
+using static Ideatum.NodeAction;
 using static Ideatum.NodeType;
 using OneOf;
 
 namespace Ideatum;
 
-using TNode = OneOf<char, string, Node>;
+using TFragment = OneOf<char, string, Node>;
 
-public class Nodes
+public enum NodeAction
 {
-    public Node First;
-    public Node Last;
-    public static implicit operator Nodes(Node n)
-    {
-        return new Nodes() { First = n, Last = n};
-    }
-
-    //public static Nodes operator +(Nodes left, Nodes right) { }
-
-    public Nodes Join(Nodes other)
-    {
-        Last.Next = other.First;
-        other.First.Prev = Last;
-        return new Nodes() { First = First, Last = other.Last };
-
-    }
-}
-
-public enum Dir
-{
-    Left,
-    Right
+    MoveLeft,
+    MoveRight
 }
 
 public enum NodeType
@@ -55,6 +35,10 @@ public class Node
     public static Node[] N(params Node[] n) => n;
     public static Node N1(Node n) => n;
     public bool IsEmpty() => Type == Null;
+    public bool IsRoot() => Parent.IsEmpty();
+    public bool IsOpen() => Type is Open;
+    public bool IsClose() => Type is Close;
+    
     public static Node[] E(params Node[] n)
     {
         foreach (var (a,b) in n.Pairwise())
@@ -85,8 +69,7 @@ public class Node
     {
         LinkedList<int> foo = new LinkedList<int>();
         var (ro, cursor, rc) = Root();
-
-        cursor.InsertBefore("hello");
+        "hello".Frag.InsertBefore(cursor);
         //cursor = cursor.Move(Left);
     }
 
@@ -94,26 +77,24 @@ public class Node
     {
         return null;
     }
-    Node InsertBefore(O nodes)
+
+    Node Do(NodeAction d)
     {
-        nodes.Nodes.Parent(Parent);
-        var (a, b) = nodes.FirstLast;
-        N(Prev, a).Siblings();
-        N(b, this).Siblings();
-        return this;
-    }
-    Node Move(Dir d)
-    {
-        if (d == Left && Prev!=null)
+        if (d == MoveLeft && !Prev.IsRoot())
         {
-            (Prev.Data, Data) = (Data, Prev.Data);
-            return Prev;
+            var (n1,n2,n3,n4) = (Prev.Prev, this, Prev, Next); // <a█>
+            if (Prev.IsOpen()) Parent = Prev.Parent; // <ab<█foo>>
+            if (Prev.IsClose()) Parent = Prev.Partner; // <ab<>█cd>
+            E(n1, n2, n3, n4);
         }
 
-        if (d == Right && Next!=null)
+        if (d == MoveRight && !Next.IsRoot())
         {
-            (Next.Data, Data) = (Data, Next.Data);
-            return Next;
+            var (n1,n2,n3,n4) = (Prev, Next, this, Next.Next); // <█a>
+            if (Next.IsOpen()) Parent = Next; // <ab█<foo>>
+            if (Next.IsClose()) Parent = Next.Parent; // <ab<█>cd>
+            E(n1, n2, n3, n4);
+            
         }
 
         return this;
@@ -124,24 +105,42 @@ public class Node
     
 }
 
-public struct O
+public class NodeFragment
 {
-    public IEnumerable<Node> Nodes { get; set; }
-    public (Node, Node) FirstLast => (Nodes.First(), Nodes.Last());
-    public static implicit operator O(char x) => New(x);
-    public static implicit operator O(string x) => New(x);
-    public static implicit operator O(Node x) => New(x);
-    
-    public static O New(TNode x)
+    public IEnumerable<Node> Nodes { get; private set; }
+    public (Node, Node) FirstLast { get; private set; }
+    public static implicit operator NodeFragment(char x) => New(x);
+    public static implicit operator NodeFragment(string x) => New(x);
+    public static implicit operator NodeFragment(Node x) => New(x);
+    public void InsertBetween(Node before, Node after, Node parent)
     {
-        return new O { Nodes = x.Match(c => [c], s => s.ToCharArray().Select(c => (Node)c).Siblings(), n => [n]) };
+        Nodes.SetParent(parent);
+        var (a, b) = FirstLast;
+        Node.N(before, a).LinkSiblings();
+        Node.N(b, after).LinkSiblings();
+    }
+
+    public void InsertBefore(Node n, Node? parent=null)
+    {
+        parent ??= n.Parent;
+        InsertBetween(n.Prev,n,parent);
+    }
+    public static NodeFragment New(TFragment x)
+    {
+        var nodes = x.Match(c => [c], s => s.ToCharArray().Select(c => (Node)c).LinkSiblings(), n => [n]);
+        var ret = new NodeFragment
+        {
+            Nodes = nodes,
+            FirstLast = (nodes.First(), nodes.Last())
+        };
+        return ret;
     }
 }
 public static class NodeExt
 {
     extension(IEnumerable<Node> nodes)
     {
-        public IEnumerable<Node> Siblings()
+        public IEnumerable<Node> LinkSiblings()
         {
             foreach (var (a,b) in nodes.Pairwise())
             {
@@ -152,7 +151,7 @@ public static class NodeExt
             return nodes;
         }
 
-        public IEnumerable<Node> Parent(Node parent)
+        public IEnumerable<Node> SetParent(Node parent)
         {
             foreach (var node in nodes)
             {
@@ -178,10 +177,7 @@ public static class NodeExt
     }
     extension(string s)
     {
-        // public IEnumerable<Node> N()
-        // {
-        //     return s.ToCharArray().Select(c => (Node)c).Siblings();
-        // }
+        public NodeFragment Frag => s;
     }
     
 }
