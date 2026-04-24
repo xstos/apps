@@ -14,7 +14,8 @@ namespace Ideatum;
 
 static class TypeLoader
 {
-    static Memory2D<int> a; //DONT REMOVE (ROSLYN TYPELOADER)
+    public static Memory2D<int> a; //DONT REMOVE (ROSLYN TYPELOADER)
+    public static OneOf.OneOf<string, char> oneOf; 
     internal static void Run() {}
 }
 public static partial class I

@@ -6,8 +6,8 @@ using OneOf;
 
 namespace Ideatum;
 
-using TFragment = OneOf<char, string, Node>;
-
+using TNodeable = OneOf<char, string, Node, Node[]>;
+using TPos = (Node Target,NodePos Pos);
 public enum NodeAction
 {
     MoveLeft,
@@ -21,25 +21,30 @@ public enum NodeType
     Close,
     Char,
 }
+
+public enum NodePos
+{
+    Before,
+    After
+}
 public class Node
 {
     public const char CURSOR = '█';
     public static Node Empty = new Node();
+    public static Node[] N(params Node[] n) => n;
+    public static Node N1(Node n) => n;
     public NodeType Type = Null;
     public char Data;
     public Node Prev { get; set; } = Empty;
     public Node Next { get; set; } = Empty;
     public Node Parent { get; set; } = Empty;
     public Node Partner { get; set; } = Empty;
-    //public Node? Cursor { get; set; }
-    public static Node[] N(params Node[] n) => n;
-    public static Node N1(Node n) => n;
     public bool IsEmpty() => Type == Null;
     public bool IsRoot() => Parent.IsEmpty();
     public bool IsOpen() => Type is Open;
     public bool IsClose() => Type is Close;
     
-    public static Node[] E(params Node[] n)
+    public static Node[] Link(params Node[] n)
     {
         foreach (var (a,b) in n.Pairwise())
         {
@@ -52,7 +57,8 @@ public class Node
     public static Node[] Box()
     {
         var ret = N(Open, Close);
-        var (o, c) = ret;
+        var o = ret[0];
+        var c = ret[1];
         o.Partner = c;
         c.Partner = o;
         return ret;
@@ -61,7 +67,7 @@ public class Node
     {
         var (ro, rc) = Box();
         var cursor = N1(CURSOR);
-        var ret = E(ro, cursor, rc);
+        var ret = Link(ro, cursor, rc);
         cursor.Parent = ro;
         return ret;
     }
@@ -69,32 +75,27 @@ public class Node
     {
         LinkedList<int> foo = new LinkedList<int>();
         var (ro, cursor, rc) = Root();
-        "hello".Frag.InsertBefore(cursor);
+        cursor.Before.Insert("hello");
+        cursor.After.Insert(Box());
         //cursor = cursor.Move(Left);
     }
-
-    Node AddChild(Node n)
-    {
-        return null;
-    }
-
+    
     Node Do(NodeAction d)
     {
-        if (d == MoveLeft && !Prev.IsRoot())
+        if (d == MoveLeft)
         {
-            var (n1,n2,n3,n4) = (Prev.Prev, this, Prev, Next); // <a█>
+            if (Prev.IsRoot()) return this;
             if (Prev.IsOpen()) Parent = Prev.Parent; // <ab<█foo>>
             if (Prev.IsClose()) Parent = Prev.Partner; // <ab<>█cd>
-            E(n1, n2, n3, n4);
+            Link(Prev.Prev, this, Prev, Next); // <a█>
         }
 
-        if (d == MoveRight && !Next.IsRoot())
+        if (d == MoveRight)
         {
-            var (n1,n2,n3,n4) = (Prev, Next, this, Next.Next); // <█a>
+            if (Next.IsRoot()) return this;
             if (Next.IsOpen()) Parent = Next; // <ab█<foo>>
             if (Next.IsClose()) Parent = Next.Parent; // <ab<█>cd>
-            E(n1, n2, n3, n4);
-            
+            Link(Prev, Next, this, Next.Next); // <█a>
         }
 
         return this;
@@ -105,39 +106,62 @@ public class Node
     
 }
 
-public class NodeFragment
-{
-    public IEnumerable<Node> Nodes { get; private set; }
-    public (Node, Node) FirstLast { get; private set; }
-    public static implicit operator NodeFragment(char x) => New(x);
-    public static implicit operator NodeFragment(string x) => New(x);
-    public static implicit operator NodeFragment(Node x) => New(x);
-    public void InsertBetween(Node before, Node after, Node parent)
-    {
-        Nodes.SetParent(parent);
-        var (a, b) = FirstLast;
-        Node.N(before, a).LinkSiblings();
-        Node.N(b, after).LinkSiblings();
-    }
-
-    public void InsertBefore(Node n, Node? parent=null)
-    {
-        parent ??= n.Parent;
-        InsertBetween(n.Prev,n,parent);
-    }
-    public static NodeFragment New(TFragment x)
-    {
-        var nodes = x.Match(c => [c], s => s.ToCharArray().Select(c => (Node)c).LinkSiblings(), n => [n]);
-        var ret = new NodeFragment
-        {
-            Nodes = nodes,
-            FirstLast = (nodes.First(), nodes.Last())
-        };
-        return ret;
-    }
-}
 public static class NodeExt
 {
+    extension(Node n)
+    {
+        public TPos Before => (n, NodePos.Before);
+        public TPos After => (n, NodePos.After);
+        public Node[] AsArray => [n];
+    }
+
+    extension(TPos p)
+    {
+        public Node Insert(TNodeable x)
+        {
+            var parent = p.Target.Parent;
+            Node before;
+            Node after;
+            if (p.Pos == NodePos.Before)
+            {
+                before = p.Target.Prev;
+                after = p.Target;
+            }
+            else
+            {
+                before = p.Target;
+                after = p.Target.Next;
+            }
+            var nodes = x.Match(c =>
+            {
+                Node ret = c;
+                ret.Parent = parent;
+                return [ret];
+            }, s =>
+            {
+                return s.ToCharArray().Select((c,i) =>
+                {
+                    var ret = (Node)c;
+                    ret.Parent = parent;
+                    return ret;
+                }).LinkSiblings();
+            }, n =>
+            {
+                n.Parent = parent;
+                return [n];
+            }, nodes1 =>
+            {
+                return nodes1.Select(n =>
+                {
+                    n.Parent = parent;
+                    return n;
+                });
+            });
+            
+            before.AsArray.Concat(nodes).Concat(after.AsArray).LinkSiblings();
+            return p.Target;
+        }
+    }
     extension(IEnumerable<Node> nodes)
     {
         public IEnumerable<Node> LinkSiblings()
@@ -151,15 +175,7 @@ public static class NodeExt
             return nodes;
         }
 
-        public IEnumerable<Node> SetParent(Node parent)
-        {
-            foreach (var node in nodes)
-            {
-                node.Parent = parent;
-            }
-
-            return nodes;
-        }
+        
     }
     extension(char c)
     {
@@ -175,9 +191,9 @@ public static class NodeExt
     {
         
     }
+    
     extension(string s)
     {
-        public NodeFragment Frag => s;
     }
     
 }
