@@ -14,7 +14,9 @@
         <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
         <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.0.0"/>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.FASTER.Core" Version="2.6.5" />
         <PackageReference Include="OneOf" Version="3.0.271" />
+        <PackageReference Include="VectSharp" Version="2.6.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -30,4 +32,13 @@
         </Compile>
     </ItemGroup>
 
+    <ItemGroup>
+        <Content Include="assets\**\*.*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="assets\" />
+    </ItemGroup>
 </Project>

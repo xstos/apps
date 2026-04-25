@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -9,37 +10,46 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using System.Windows.Shapes;
 using CommunityToolkit.HighPerformance;
 using Ideatum;
 using Brushes = System.Windows.Media.Brushes;
 using FontFamily = System.Windows.Media.FontFamily;
 using Size = System.Windows.Size;
 using OneOf;
+using Color = System.Windows.Media.Color;
+using Path = System.IO.Path;
+using Point = System.Windows.Point;
 
 namespace RENAME_ME;
 
-using TNodeable = OneOf<char, string, Node, Node[]>;
-using TPos = (Node Target,NodePos Pos);
-using static NodeType;
-using static NodeAction;
+using TPointF = (float X, float Y);
 
 public static class Hot
 {
     static char TheWay = '道';
     static char YY = '☯';
-    static char CURSOR = '█';
-        
+    static string CURSOR = "█";
+
     public static void Run()
     {
-        Console.WriteLine("Hot Run "+I.HotNum); //
-            
+        var transp = Color.FromArgb(255, 0, 0, 0).ToBgraInt();
+
+        Console.WriteLine("Hot Run " + I.HotNum); //
+        var appWorkingDir = Directory.GetCurrentDirectory();
+
+        string GetAssetPath(string fileName) =>
+            Path.Combine(appWorkingDir, "assets", fileName);
+
+
         Node.Example();
-        string txt = CURSOR+"";
+        string txt = CURSOR + "";
         var NextColor = I.MakeGetNextHue(1000);
         var getLetter = GetTilePixels();
-        var cursorSprite = getLetter(CURSOR+"");
+        var cursorSprite = getLetter(CURSOR + "");
         var blackTile = cursorSprite;
         Clear(blackTile);
+
         Func<string, Sprite> GetTilePixels()
         {
             var update = Ext.GlyphGenerator();
@@ -90,7 +100,7 @@ public static class Hot
             var surface = s.Data;
             for (int i = 0; i < surface.Length; i++) //clear black
             {
-                surface[i] = 0;
+                surface[i] = transp;
             }
         }
 
@@ -115,7 +125,8 @@ public static class Hot
 
             // Draw the textured square using triangles
             DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[2], points[3], bl, tl, tr); //top left half
-            DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[1], points[2], bl, tr, br); //bottom left half
+            DrawTexturedTriangle(canvasSprite, texSprite, points[0], points[1], points[2], bl, tr,
+                br); //bottom left half
         }
 
         void Memory2DExample(int[] surface, int width, int height)
@@ -141,18 +152,67 @@ public static class Hot
             }
         }
 
-        
+        int rows = 0, cols = 0, midrow = 0, midcol = 0;
+
+        void DrawSprite(Sprite s, int x, int y)
+        {
+            var xp = x * s.Width;
+            var yp = y * s.Height;
+            var mem = new Memory2D<int>(I.Surface.Data, I.Height, I.Width);
+            var dest = mem.Slice(yp, xp, s.Height, s.Width);
+            var write = dest.Span;
+            var inti = 0;
+            for (int i = 0; i < s.Height; i++)
+            {
+                for (int j = 0; j < s.Width; j++)
+                {
+                    write[i, j] = s.Data[inti++];
+                }
+            }
+        }
+
+        void Resize()
+        {
+            rows = I.Width / cursorSprite.Width;
+            cols = I.Height / cursorSprite.Height;
+            midrow = rows / 2;
+            midcol = cols / 2;
+        }
+
+
         I.PreviewKeyDown = (s) =>
         {
-            txt = s.Substring(0,1);
-            I.Resize();
+            txt = s.Substring(0, 1);
+            if (I.Resize())
+            {
+                Resize();
+            }
+
             Render(I.Surface, blackTile);
-            Render(I.Surface, getLetter(txt)); //
+            Render(I.Surface, getLetter(txt));
+            if (txt == "Oem3") txt = CURSOR;
+            var verts = FontToVerts.Test(txt);
+            var spr = Ext.DrawTrianglesUsingShapes(I.Width, I.Height, verts);
+            DrawSprite(spr, 0, 0);
+            if (false)
+            {
+                var l = getLetter(txt);
+                for (int i = 0; i < rows; i++)
+                {
+                    for (int j = 0; j < cols; j++)
+                    {
+                        DrawSprite(l, i, j);
+                    }
+                }
+            }
+
             I.Blit();
         };
         I.Resize();
+        Resize();
         Clear(I.Surface);
-        Render(I.Surface, cursorSprite);
+
+        //Render(I.Surface, cursorSprite);
         I.Blit();
     }
 
@@ -191,43 +251,49 @@ public static class Hot
         var texWidthSub1 = texWidth - 1;
         var texHeightSub1 = texHeight - 1;
         for (int y = minY; y <= maxY; y++)
-        for (int x = minX; x <= maxX; x++)
         {
-            // Barycentric coordinates
-            var dyp1Y = y - p1.Y;
-            var dxp1X = x - p1.X;
-            var w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) * w0denom;
-            var w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) * w1denom;
-            var w2 = 1 - w0 - w1;
-            // Check if point is inside triangle
-            if (!(w0 >= 0) || !(w1 >= 0) || !(w2 >= 0)) continue;
-            // Interpolate texture coordinates
-            var u = uv1X * w2 + uv2X * w0 + uv3X * w1;
-            var v = uv1Y * w2 + uv2Y * w0 + uv3Y * w1;
-            // Sample texture
-            var tx = (int)(u * texWidthSub1);
-            var ty = (int)(v * texHeightSub1);
-            var offs2 = ty * texStride + tx;
-            var offs = y * canvasStride + x;
-            canvasSurface[offs] = texSurface[offs2];
-            //Console.Write(x+","+y+" ");//
+            for (int x = minX; x <= maxX; x++)
+            {
+                // Barycentric coordinates
+                var dyp1Y = y - p1.Y;
+                var dxp1X = x - p1.X;
+                var w0 = (dp2p1X * dyp1Y - dp2p1Y * dxp1X) * w0denom;
+                var w1 = (dp3p1X * dyp1Y - dp3p1Y * dxp1X) * w1denom;
+                var w2 = 1 - w0 - w1;
+                // Check if point is inside triangle
+                //Console.Write(x+","+y+" ");
+                if (!(w0 >= 0) || !(w1 >= 0) || !(w2 >= 0)) continue;
+                // Interpolate texture coordinates
+                var u = uv1X * w2 + uv2X * w0 + uv3X * w1;
+                var v = uv1Y * w2 + uv2Y * w0 + uv3Y * w1;
+                // Sample texture
+                var tx = (int)(u * texWidthSub1);
+                var ty = (int)(v * texHeightSub1);
+                var offs2 = ty * texStride + tx;
+                var offs = y * canvasStride + x;
+                canvasSurface[offs] = texSurface[offs2];
+            }
+            //Console.WriteLine();
         }
     }
 }
 
-    
-
 public static class Ext
 {
+    internal static int ToBgraInt(this Color color)
+    {
+        return BitConverter.ToInt32([color.B, color.G, color.R, color.A]);
+    }
+
     internal static void Save(this BitmapSource bmp, string path)
-    { 
+    {
         var encoder = new PngBitmapEncoder();
         var bitmapFrame = BitmapFrame.Create(bmp);
         encoder.Frames.Add(bitmapFrame);
         using var fileStream = new FileStream(path, FileMode.Create);
         encoder.Save(fileStream);
     }
- 
+
     internal static Sprite ToSprite(this BitmapSource bmp)
     {
         //bmp.Save(@"C:\Users\user\Documents\foo.png");
@@ -250,6 +316,45 @@ public static class Ext
         return new CroppedBitmap(bmp, rect);
     }
 
+    internal static Sprite DrawTrianglesUsingShapes(int canvasWidth, int canvasHeight, IEnumerable<TPointF> verts)
+    {
+        // Create a Canvas
+        Canvas canvas = new Canvas();
+        canvas.Width = canvasWidth;
+        canvas.Height = canvasHeight;
+        canvas.Background = Brushes.Transparent;
+
+        foreach (var vert in verts.Chunk(3))
+        {
+            Polygon triangle = new Polygon();
+            triangle.Points =
+            [
+                new Point(vert[0].X, vert[0].Y),
+                new Point(vert[1].X, vert[1].Y),
+                new Point(vert[2].X, vert[2].Y)
+            ];
+            triangle.Fill = Brushes.White;
+            triangle.Stroke = Brushes.Yellow;
+            triangle.StrokeThickness = 2;
+
+            canvas.Children.Add(triangle);
+        }
+        // Create a triangle using Polygon
+
+
+        // Measure and arrange the canvas
+        canvas.Measure(new Size(canvasWidth, canvasHeight));
+        canvas.Arrange(new Rect(0, 0, canvasWidth, canvasHeight));
+        canvas.UpdateLayout();
+        // Render to bitmap
+        var dpiScale = VisualTreeHelper.GetDpi(Application.Current.MainWindow);
+        var bmp = new RenderTargetBitmap(canvasWidth, canvasHeight, dpiScale.PixelsPerInchX, dpiScale.PixelsPerInchY,
+            PixelFormats.Pbgra32);
+        RenderOptions.SetBitmapScalingMode(bmp, BitmapScalingMode.NearestNeighbor);
+        bmp.Render(canvas);
+        return bmp.ToSprite();
+    }
+
     internal static Func<string, Sprite> GlyphGenerator()
     {
         int letterWidth = 512;
@@ -263,7 +368,7 @@ public static class Ext
         var letter = new Label()
         {
             Content = "█",
-            FontSize = 8,
+            FontSize = 60,
             Background = new SolidColorBrush(Colors.Transparent),
             Foreground = Brushes.White,
             FontFamily = new FontFamily("Consolas"),
@@ -301,4 +406,3 @@ public static class Ext
         return Update;
     }
 }
-

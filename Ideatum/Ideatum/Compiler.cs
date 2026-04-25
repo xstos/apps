@@ -70,6 +70,7 @@ public static partial class I
         Reload();
         fsw = new FileSystemWatcher(srcPath);
         fsw.EnableRaisingEvents = true;
+        fsw.IncludeSubdirectories = true;
         var prevHash = LookForChanges();
 
         List<(string path, int hash)> LookForChanges()
