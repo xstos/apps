@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -26,13 +27,18 @@ public static partial class I
             try
             {
                 var name = "X" + Count++;
-                var src = LoadFile(hotPath);
-                src = src.Replace("RENAME_ME", name);
+                var files = Directory.GetFiles(srcPath)
+                    .Where(f=>f.EndsWith(".cs"))
+                    .Select(path=>
+                    {
+                        var code = LoadFile(path).Replace("RENAME_ME",name);
+                        return (code, path);
+                    });
                 var refs = new HashSet<PortableExecutableReference>();
                 AddLoadedReferences(refs);
 
                 var metadataReferences = refs.Cast<MetadataReference>().ToArray();
-                var ass = CompileAssembly(src, metadataReferences,hotPath);
+                var ass = CompileAssembly(files, metadataReferences);
                 var type = ass.GetType(name + "." + "Hot");
                 // Get the type
                 Console.WriteLine("Compiled "+DateTime.Now);
@@ -64,18 +70,35 @@ public static partial class I
         Reload();
         fsw = new FileSystemWatcher(srcPath);
         fsw.EnableRaisingEvents = true;
+        var prevHash = LookForChanges();
 
+        List<(string path, int hash)> LookForChanges()
+        {
+            return Directory.GetFiles(srcPath)
+                .Select(path => (path, LoadFile(path).GetHashCode())).ToList();
+        }
+
+        bool dirty = false;
         fsw.Changed += (o, eventArgs) =>
         {
             var path = eventArgs.FullPath.ToLower();
             if (path.EndsWith("~")) return;
-            if (!path.EndsWith("hotreload.cs"))
-            {
-                return;
-            }
+            dirty = true;
 
-            Reload();
         };
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                await Task.Delay(100);
+                if (!dirty) continue;
+                dirty = false;
+                var changes = LookForChanges();
+                if (!prevHash.Intersect(changes).Any()) return;
+                prevHash = changes;
+                Reload();
+            }
+        });
     }
     static string GetSrcPath()
     {
@@ -151,7 +174,7 @@ public static partial class I
         AddAssembly(refs, "System.Text.RegularExpressions.dll");
     }
 
-    static Assembly CompileAssembly(string code, MetadataReference[] refs, string sourceCodePath)
+    static Assembly CompileAssembly(IEnumerable<(string code, string path)> files, MetadataReference[] refs)
     {
         var assemblyName = Path.GetRandomFileName();
         var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
@@ -160,15 +183,20 @@ public static partial class I
         //var tree = SyntaxFactory.ParseSyntaxTree(code);
         var CompileWithDebug = true;
         Assembly Assembly = null;
-        var buffer = encoding.GetBytes(code);
-        var sourceText = SourceText.From(buffer, buffer.Length, encoding, canBeEmbedded: true);
-        var syntaxTree = CSharpSyntaxTree.ParseText(
-            sourceText, 
-            new CSharpParseOptions(), 
-            path: sourceCodePath);
-        var syntaxRootNode = syntaxTree.GetRoot() as CSharpSyntaxNode;
-        var encoded = CSharpSyntaxTree.Create(syntaxRootNode, null, sourceCodePath, encoding);
-
+        var trees = files.Select(tuple =>
+        {
+            var (code, path) = tuple;
+            var buffer = encoding.GetBytes(code);
+            var sourceText = SourceText.From(buffer, buffer.Length, encoding, canBeEmbedded: true);
+            var syntaxTree = CSharpSyntaxTree.ParseText(
+                sourceText, 
+                new CSharpParseOptions(), 
+                path);
+            var syntaxRootNode = syntaxTree.GetRoot() as CSharpSyntaxNode;
+            var tree = CSharpSyntaxTree.Create(syntaxRootNode, null, path, encoding);
+            return (tree, path, sourceText);
+        });
+        
         var optimizationLevel = CompileWithDebug ? OptimizationLevel.Debug : OptimizationLevel.Release;
 
         var compilation = CSharpCompilation.Create(assemblyName)
@@ -178,7 +206,7 @@ public static partial class I
                 platform: Platform.AnyCpu)
             )
             .AddReferences(refs)
-            .AddSyntaxTrees(encoded);
+            .AddSyntaxTrees(trees.Select(t=>t.tree));
 
         //if (SaveGeneratedCode)
         //    GeneratedClassCode = tree.ToString();
@@ -200,19 +228,19 @@ public static partial class I
             EmitResult compilationResult = null;
             if (CompileWithDebug)
             {
-                
-                var emitOptions = new EmitOptions(
+                var options = new EmitOptions(
                     debugInformationFormat: DebugInformationFormat.PortablePdb,
                     pdbFilePath:symbolsName);
-                var embeddedTexts = new List<EmbeddedText>
+                var embeddedTexts = trees.Select(tuple =>
                 {
-                    EmbeddedText.FromSource(sourceCodePath, sourceText),
-                };
+                    var (tree,path,sourceText) = tuple;
+                    return EmbeddedText.FromSource(path, sourceText);
+                });
                 compilationResult = compilation.Emit(
                     peStream: peStream, 
                     pdbStream: pdbStream, 
                     embeddedTexts: embeddedTexts,
-                    options: emitOptions
+                    options: options
                     );
             }
             else
