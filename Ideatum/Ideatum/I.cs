@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows;
@@ -32,7 +34,7 @@ public static partial class I
     public static int HotNum = 0;
     public static Window Window;
     public static Action Render = () => { };
-    public static KeyEventHandler PreviewKeyDown = (sender, args) => { };
+    public static Action<string> PreviewKeyDown = s => { };
     public static Func<bool> Resize=NoOpBool;
     public static Action Blit = () => { };
     public static int Width;
@@ -126,10 +128,15 @@ public static partial class I
             });
         };
         win.Closing += (sender, args) => { rendering = false; };
+        var mods = new[] { ModifierKeys.Control,ModifierKeys.Alt, ModifierKeys.Shift };
+
         win.KeyDown += (sender, args) =>
         {
-            PreviewKeyDown(sender, args);
+            var str = mods.Select(E.PressedStr)._NonNullOrEmpty().Concat([args.Key.ToString()])._Join("+");
+            Console.WriteLine(str);
+            PreviewKeyDown(str);
         };
+        
         //CompositionTarget.Rendering += (o, args) => { render(); };
         var app = new System.Windows.Application();
         WindowPlaceInit(app, win);
@@ -184,4 +191,13 @@ public class HwndSource : System.Windows.Forms.UserControl
         SetStyle(System.Windows.Forms.ControlStyles.Opaque, true);
         MinimumSize = new System.Drawing.Size(1, 1);
     }
+}
+
+public static class E
+{
+    public static string PressedStr(this ModifierKeys mod) => (Keyboard.Modifiers & mod) == mod ? Enum.GetName(mod) : "";
+
+    public static IEnumerable<string> _NonNullOrEmpty(this IEnumerable<string> s) =>
+        s.Where(s => !string.IsNullOrEmpty(s));
+    public static string _Join(this IEnumerable<string> s, string sep) => string.Join(sep, s);
 }
