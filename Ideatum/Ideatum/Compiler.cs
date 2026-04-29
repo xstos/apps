@@ -15,51 +15,123 @@ namespace Ideatum;
 
 public static partial class I
 {
+    static string LoadFile(string path)
+    {
+        try
+        {
+            using FileStream fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using StreamReader streamReader = new StreamReader(fileStream);
+            return streamReader.ReadToEnd();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error loading file: " + ex.Message);
+        }
+
+        return "";
+    }
+}
+
+public static partial class I
+{
     static int Count = 0;
     static FileSystemWatcher fsw;
-    static void Watch(Action<Action> callback)
+
+    static void Watch(Action<Action> callback, string srcPath)
     {
-        var srcPath = GetSrcPath();
-        var hotPath = Path.Combine(srcPath, "HotReload.cs");
+        void ReloadCore()
+        {
+            var name = "X" + Count++;
+            var files = Directory.GetFiles(srcPath,"*.cs",SearchOption.AllDirectories)
+                .Select(path =>
+                {
+                    var code = LoadFile(path).Replace("RENAME_ME", name);
+                    return (code, path);
+                });
+            var refs = new HashSet<PortableExecutableReference>();
+
+            void AddLoadedReferences()
+            {
+                bool AddAssembly(string assemblyDll)
+                {
+                    if (string.IsNullOrEmpty(assemblyDll)) return false;
+                    var file = Path.GetFullPath(assemblyDll);
+                    if (!File.Exists(file))
+                    {
+                        // check framework or dedicated runtime app folder
+                        var path = Path.GetDirectoryName(typeof(object).Assembly.Location);
+                        file = Path.Combine(path, assemblyDll);
+                        if (!File.Exists(file))
+                            return false;
+                    }
+
+                    if (refs.Any(r => r.FilePath == file)) return true;
+
+                    try
+                    {
+                        var reference = MetadataReference.CreateFromFile(file);
+                        refs.Add(reference);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(a => !a.IsDynamic);
+
+                foreach (var assembly in assemblies)
+                {
+                    try
+                    {
+                        if (string.IsNullOrEmpty(assembly.Location)) continue;
+                        AddAssembly(assembly.Location);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                    }
+                }
+
+                AddAssembly("Microsoft.CSharp.dll"); // dynamic
+                AddAssembly("System.Linq.Expressions.dll");
+                AddAssembly("System.Text.RegularExpressions.dll");
+            }
+
+            AddLoadedReferences();
+
+            var metadataReferences = refs.Cast<MetadataReference>().ToArray();
+            var ass = CompileAssembly(files, metadataReferences);
+            var type = ass.GetType(name + "." + "Hot");
+            // Get the type
+            Console.WriteLine("Compiled " + DateTime.Now);
+            var method = type?.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+            if (method == null) return;
+            var run = (Action)Delegate.CreateDelegate(typeof(Action), method);
+
+            void Run()
+            {
+                try
+                {
+                    run();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
+            }
+
+            callback(Run);
+        }
 
         void Reload()
         {
             try
             {
-                var name = "X" + Count++;
-                var files = Directory.GetFiles(srcPath)
-                    .Where(f=>f.EndsWith(".cs"))
-                    .Select(path=>
-                    {
-                        var code = LoadFile(path).Replace("RENAME_ME",name);
-                        return (code, path);
-                    });
-                var refs = new HashSet<PortableExecutableReference>();
-                AddLoadedReferences(refs);
-
-                var metadataReferences = refs.Cast<MetadataReference>().ToArray();
-                var ass = CompileAssembly(files, metadataReferences);
-                var type = ass.GetType(name + "." + "Hot");
-                // Get the type
-                Console.WriteLine("Compiled "+DateTime.Now);
-                var method = type?.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
-                if (method != null)
-                {
-                    var run = (Action)Delegate.CreateDelegate(typeof(Action), method);
-
-                    void Run()
-                    {
-                        try
-                        {
-                            run();
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine(e);
-                        }
-                    }
-                    callback(Run);
-                }
+                ReloadCore();
             }
             catch (Exception e)
             {
@@ -85,7 +157,6 @@ public static partial class I
             var path = eventArgs.FullPath.ToLower();
             if (path.EndsWith("~")) return;
             dirty = true;
-
         };
         _ = Task.Run(async () =>
         {
@@ -100,79 +171,6 @@ public static partial class I
                 Reload();
             }
         });
-    }
-    static string GetSrcPath()
-    {
-        var location = Directory.GetCurrentDirectory();
-        var dir = location + "../../../../hot";
-        return Path.GetFullPath(dir);
-    }
-    static string LoadFile(string path)
-    {
-        try 
-        {
-            using FileStream fileStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            using StreamReader streamReader = new StreamReader(fileStream);
-            return streamReader.ReadToEnd();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error loading file: " + ex.Message);
-        }
-
-        return "";
-    }
-    static bool AddAssembly(this HashSet<PortableExecutableReference> References, string assemblyDll)
-    {
-        if (string.IsNullOrEmpty(assemblyDll)) return false;
-
-        var file = Path.GetFullPath(assemblyDll);
-
-        if (!File.Exists(file))
-        {
-            // check framework or dedicated runtime app folder
-            var path = Path.GetDirectoryName(typeof(object).Assembly.Location);
-            file = Path.Combine(path, assemblyDll);
-            if (!File.Exists(file))
-                return false;
-        }
-
-        if (References.Any(r => r.FilePath == file)) return true;
-
-        try
-        {
-            var reference = MetadataReference.CreateFromFile(file);
-            References.Add(reference);
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine(e);
-            return false;
-        }
-
-        return true;
-    }
-
-    static void AddLoadedReferences(HashSet<PortableExecutableReference> refs)
-    {
-        var assemblies = AppDomain.CurrentDomain.GetAssemblies().Where(a=>!a.IsDynamic);
-
-        foreach (var assembly in assemblies)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(assembly.Location)) continue;
-                AddAssembly(refs, assembly.Location);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-            }
-        }
-
-        AddAssembly(refs, "Microsoft.CSharp.dll"); // dynamic
-        AddAssembly(refs, "System.Linq.Expressions.dll");
-        AddAssembly(refs, "System.Text.RegularExpressions.dll");
     }
 
     static Assembly CompileAssembly(IEnumerable<(string code, string path)> files, MetadataReference[] refs)
@@ -190,24 +188,24 @@ public static partial class I
             var buffer = encoding.GetBytes(code);
             var sourceText = SourceText.From(buffer, buffer.Length, encoding, canBeEmbedded: true);
             var syntaxTree = CSharpSyntaxTree.ParseText(
-                sourceText, 
-                new CSharpParseOptions(), 
+                sourceText,
+                new CSharpParseOptions(),
                 path);
             var syntaxRootNode = syntaxTree.GetRoot() as CSharpSyntaxNode;
             var tree = CSharpSyntaxTree.Create(syntaxRootNode, null, path, encoding);
             return (tree, path, sourceText);
         });
-        
+
         var optimizationLevel = CompileWithDebug ? OptimizationLevel.Debug : OptimizationLevel.Release;
 
         var compilation = CSharpCompilation.Create(assemblyName)
             .WithOptions(new CSharpCompilationOptions(
                 OutputKind.DynamicallyLinkedLibrary,
-                optimizationLevel: optimizationLevel, 
+                optimizationLevel: optimizationLevel,
                 platform: Platform.AnyCpu)
             )
             .AddReferences(refs)
-            .AddSyntaxTrees(trees.Select(t=>t.tree));
+            .AddSyntaxTrees(trees.Select(t => t.tree));
 
         //if (SaveGeneratedCode)
         //    GeneratedClassCode = tree.ToString();
@@ -223,6 +221,7 @@ public static partial class I
             peStream = new FileStream(OutputAssembly, FileMode.Create, FileAccess.Write);
             isFileAssembly = true;
         }
+
         using (var pdbStream = new MemoryStream())
         using (peStream)
         {
@@ -231,18 +230,18 @@ public static partial class I
             {
                 var options = new EmitOptions(
                     debugInformationFormat: DebugInformationFormat.PortablePdb,
-                    pdbFilePath:symbolsName);
+                    pdbFilePath: symbolsName);
                 var embeddedTexts = trees.Select(tuple =>
                 {
-                    var (tree,path,sourceText) = tuple;
+                    var (tree, path, sourceText) = tuple;
                     return EmbeddedText.FromSource(path, sourceText);
                 });
                 compilationResult = compilation.Emit(
-                    peStream: peStream, 
-                    pdbStream: pdbStream, 
+                    peStream: peStream,
+                    pdbStream: pdbStream,
                     embeddedTexts: embeddedTexts,
                     options: options
-                    );
+                );
             }
             else
                 compilationResult = compilation.Emit(peStream);

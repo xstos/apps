@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -146,6 +147,12 @@ public static partial class I
             };
         };
         var disp = Dispatcher.CurrentDispatcher;
+        static string GetSrcPath()
+        {
+            var location = Directory.GetCurrentDirectory();
+            var dir = location + "../../../../hot";
+            return Path.GetFullPath(dir);
+        }
         win.ContentRendered += (sender, args) =>
         {
             InitFrameRate(frameCount, win, renderCount, host);
@@ -155,7 +162,7 @@ public static partial class I
             {
                 disp.Invoke(run);
                 HotNum++;
-            });
+            }, GetSrcPath());
         };
         win.Closing += (sender, args) => { rendering = false; };
         var mods = new[] { ModifierKeys.Control,ModifierKeys.Alt, ModifierKeys.Shift };
