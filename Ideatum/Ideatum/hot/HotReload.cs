@@ -6,8 +6,10 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Forms;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -17,7 +19,9 @@ using Brushes = System.Windows.Media.Brushes;
 using FontFamily = System.Windows.Media.FontFamily;
 using Size = System.Windows.Size;
 using OneOf;
+using Application = System.Windows.Application;
 using Color = System.Windows.Media.Color;
+using Label = System.Windows.Controls.Label;
 using Path = System.IO.Path;
 using Point = System.Windows.Point;
 
@@ -30,8 +34,40 @@ public static class Hot
     static char TheWay = '道';
     static char YY = '☯';
     static string CURSOR = "█";
-
+    
     public static void Run()
+    {
+        
+        var thread = new Thread(() =>
+        {
+            Console.WriteLine("Enter "+I.HotNum);
+            System.Windows.Forms.Form frm = new Form();
+            
+            frm.Shown += (sender, args) =>
+            {
+                var w2 = Screen.PrimaryScreen.Bounds.Width / 2;
+                var h2 = Screen.PrimaryScreen.Bounds.Height / 2;
+                frm.Top = 0;
+                frm.Left = w2;
+                frm.Text = "hi2";
+            };
+            void ShutDown()
+            {
+                frm.Invoke(() =>
+                {
+                    frm.Close();
+                });
+            }
+
+            I.ShutDown = ShutDown;
+            System.Windows.Forms.Application.Run(frm);
+            Console.WriteLine("Exit "+I.HotNum);
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        
+    }
+    public static void Run2()
     {
         var transp = Color.FromArgb(255, 0, 0, 0).ToBgraInt();
 

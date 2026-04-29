@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.HighPerformance;
 using RestoreWindowPlace;
@@ -20,23 +23,57 @@ namespace Ideatum;
 
 static class TypeLoader
 {
-    public static Memory2D<int> a; //DONT REMOVE (ROSLYN TYPELOADER)
-    public static OneOf.OneOf<string, char> oneOf;
-    public static VectSharp.FontFamily f;
-
+    public static List<object> Foo = new List<object>();
     internal static void Run()
     {
-        f = VectSharp.FontFamily.ResolveFontFamily(VectSharp.FontFamily.StandardFontFamilies.Courier);
+        Foo.AddRange([
+        new CommunityToolkit.HighPerformance.Memory2D<int>(),
+        OneOf.OneOf<string, char>.FromT0(""), VectSharp.FontFamily.DefaultFontLibrary,
+        new System.Windows.Media.Color(),
+        new System.Windows.Size(),
+        new System.Windows.Media.Imaging.PngBitmapEncoder(),
+        //new Thread(()=>{}),
+        ]);
     }
 }
 
 public static partial class I
 {
+    public static Action ShutDown = () => { };
+    static string GetSrcPath()
+    {
+        var location = Directory.GetCurrentDirectory();
+        var dir = location + "../../../../hot";
+        return Path.GetFullPath(dir);
+    }
+    
     [STAThread]
     static void Main(string[] args)
     {
         TypeLoader.Run();
-        RunApp();
+        var frm = new System.Windows.Forms.Form();
+        
+        frm.FormClosing += (sender, eventArgs) =>
+        {
+            ShutDown();
+        };
+        frm.Shown += (sender, eventArgs) =>
+        {
+            var w2 = Screen.PrimaryScreen.Bounds.Width / 2;
+            var h2 = Screen.PrimaryScreen.Bounds.Height / 2;
+            frm.Height = 0;
+            frm.Top = h2;
+            frm.Left = w2;
+            frm.Text = "Hot Reloader";
+            Watch(run =>
+            {
+                ShutDown();
+                run();
+                HotNum++;
+            }, GetSrcPath());
+        };
+        Application.Run(frm);
+        //RunApp();
     }
     static bool NoOpBool() => false;
     static void NoOp() { }
@@ -147,12 +184,7 @@ public static partial class I
             };
         };
         var disp = Dispatcher.CurrentDispatcher;
-        static string GetSrcPath()
-        {
-            var location = Directory.GetCurrentDirectory();
-            var dir = location + "../../../../hot";
-            return Path.GetFullPath(dir);
-        }
+        
         win.ContentRendered += (sender, args) =>
         {
             InitFrameRate(frameCount, win, renderCount, host);
