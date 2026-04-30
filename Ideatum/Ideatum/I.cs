@@ -29,17 +29,22 @@ static class TypeLoader
         Foo.AddRange([
         new CommunityToolkit.HighPerformance.Memory2D<int>(),
         OneOf.OneOf<string, char>.FromT0(""), VectSharp.FontFamily.DefaultFontLibrary,
+        new System.Drawing.Color(),
         new System.Windows.Media.Color(),
         new System.Windows.Size(),
         new System.Windows.Media.Imaging.PngBitmapEncoder(),
-        //new Thread(()=>{}),
+        new WindowPlace("placement.config"),
+        new Sprite(null,0,0),
         ]);
     }
 }
 
 public static partial class I
 {
+    public static int HotNum = 0;
+    
     public static Action ShutDown = () => { };
+    public static Action Reload = () => { };
     static string GetSrcPath()
     {
         var location = Directory.GetCurrentDirectory();
@@ -51,34 +56,45 @@ public static partial class I
     static void Main(string[] args)
     {
         TypeLoader.Run();
-        var frm = new System.Windows.Forms.Form();
-        
-        frm.FormClosing += (sender, eventArgs) =>
-        {
-            ShutDown();
-        };
-        frm.Shown += (sender, eventArgs) =>
+        var app = new System.Windows.Application();
+        var win = new Window();
+        var tmr = new DispatcherTimer(DispatcherPriority.Render);
+        tmr.Interval = TimeSpan.FromMilliseconds(100);
+        tmr.Tick+=TmrOnTick;
+        win.Loaded += (sender, eventArgs) =>
         {
             var w2 = Screen.PrimaryScreen.Bounds.Width / 2;
             var h2 = Screen.PrimaryScreen.Bounds.Height / 2;
-            frm.Height = 0;
-            frm.Top = h2;
-            frm.Left = w2;
-            frm.Text = "Hot Reloader";
+            win.Height = 0;
+            win.Top = h2;
+            win.Left = w2;
+            win.Width = w2;
+            win.Title = "Hot Reloader";
             Watch(run =>
             {
-                ShutDown();
-                run();
-                HotNum++;
+                Reload = () =>
+                {
+                    ShutDown();
+                    run();
+                    HotNum++;
+                    Reload = () => { };
+                };
+                
             }, GetSrcPath());
+            tmr.Start();
         };
-        Application.Run(frm);
-        //RunApp();
+        void TmrOnTick(object? sender, EventArgs e)
+        {
+            Reload();
+        }
+
+        System.Windows.Application.Current.Run(win);
+        return;
+        
     }
     static bool NoOpBool() => false;
     static void NoOp() { }
 
-    public static int HotNum = 0;
     public static Window Window;
     public static Action Render = () => { };
     public static Action<string> PreviewKeyDown = s => { };
@@ -89,14 +105,6 @@ public static partial class I
     public static Sprite Surface;
     static void RunApp()
     {
-        void WinformsTest()
-        {
-            var frm = new System.Windows.Forms.Form();
-            frm.Controls.Add(new System.Windows.Forms.Label().Var(out var tb2));
-            
-            Application.Run(frm);
-            return;
-        }
         
         var win = new Window();
         
@@ -258,6 +266,7 @@ public class HwndSource2 : System.Windows.Forms.UserControl
         SetStyle(System.Windows.Forms.ControlStyles.AllPaintingInWmPaint, true);
         //SetStyle(System.Windows.Forms.ControlStyles.Opaque, true);
         MinimumSize = new System.Drawing.Size(1, 1);
+        
     }
 }
 

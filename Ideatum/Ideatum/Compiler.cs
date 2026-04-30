@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
 using Microsoft.CodeAnalysis.Text;
+using RENAME_ME;
 
 namespace Ideatum;
 
@@ -41,11 +42,12 @@ public static partial class I
     {
         void ReloadCore()
         {
-            var name = "X" + Count++;
+            var name =  "X" + Count++;
             var files = Directory.GetFiles(srcPath,"*.cs",SearchOption.AllDirectories)
                 .Select(path =>
                 {
-                    var code = LoadFile(path).Replace("RENAME_ME", name);
+                    var ns = $"{nameof(RENAME_ME)}";
+                    var code = LoadFile(path).Replace(ns, name);
                     return (code, path);
                 });
             var refs = new HashSet<PortableExecutableReference>();
@@ -105,10 +107,11 @@ public static partial class I
 
             var metadataReferences = refs.Cast<MetadataReference>().ToArray();
             var ass = CompileAssembly(files, metadataReferences);
-            var type = ass.GetType(name + "." + "Hot");
+            
+            var type = ass.GetType($"{name}.{nameof(Hot)}");
             // Get the type
             Console.WriteLine("Compiled " + DateTime.Now);
-            var method = type?.GetMethod("Run", BindingFlags.Public | BindingFlags.Static);
+            var method = type?.GetMethod(nameof(Hot.Run), BindingFlags.Public | BindingFlags.Static);
             if (method == null) return;
             var run = (Action)Delegate.CreateDelegate(typeof(Action), method);
 

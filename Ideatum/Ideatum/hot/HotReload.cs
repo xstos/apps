@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -37,34 +36,32 @@ public static class Hot
     
     public static void Run()
     {
-        
-        var thread = new Thread(() =>
+        Console.WriteLine("Enter " + I.HotNum);
+        var win = new Window();
+        win.Background = Brushes.Black;
+        win.Loaded += (sender, args) =>
         {
-            Console.WriteLine("Enter "+I.HotNum);
-            System.Windows.Forms.Form frm = new Form();
+            var screen = Screen.PrimaryScreen.Bounds;
+            var w2 = screen.Width / 2;
+            var h2 = screen.Height / 2;
+            win.Left = w2;
+            win.Top = 0;
+            win.Width = w2;
+            win.Height = screen.Height;
+            win.Title = "hi";
+        };
+        win.Closed += (sender, args) =>
+        {
+            Console.WriteLine("Exit " + I.HotNum);
             
-            frm.Shown += (sender, args) =>
-            {
-                var w2 = Screen.PrimaryScreen.Bounds.Width / 2;
-                var h2 = Screen.PrimaryScreen.Bounds.Height / 2;
-                frm.Top = 0;
-                frm.Left = w2;
-                frm.Text = "hi2";
-            };
-            void ShutDown()
-            {
-                frm.Invoke(() =>
-                {
-                    frm.Close();
-                });
-            }
-
-            I.ShutDown = ShutDown;
-            System.Windows.Forms.Application.Run(frm);
-            Console.WriteLine("Exit "+I.HotNum);
-        });
-        thread.SetApartmentState(ApartmentState.STA);
-        thread.Start();
+        };
+        win.Show();
+        void ShutDown()
+        {
+            win.Close();
+            I.ShutDown = () => { }; //
+        }
+        I.ShutDown = ShutDown;
         
     }
     public static void Run2()
@@ -88,7 +85,7 @@ public static class Hot
 
         Func<string, Sprite> GetTilePixels()
         {
-            var update = Ext.GlyphGenerator();
+            var update = Ext2.GlyphGenerator();
 
             var cache = new Dictionary<string, Sprite>();
 
@@ -228,7 +225,7 @@ public static class Hot
             Render(I.Surface, getLetter(txt));
             if (txt == "Oem3") txt = CURSOR;
             var verts = FontToVerts.Test(txt);
-            var spr = Ext.DrawTrianglesUsingShapes(I.Width, I.Height, verts);
+            var spr = Ext2.DrawTrianglesUsingShapes(I.Width, I.Height, verts);
             DrawSprite(spr, 0, 0);
             if (false)
             {
@@ -314,7 +311,7 @@ public static class Hot
     }
 }
 
-public static class Ext
+public static class Ext2
 {
     internal static int ToBgraInt(this Color color)
     {
