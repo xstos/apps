@@ -8,10 +8,12 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <LangVersion>latest</LangVersion>
         <Nullable>enable</Nullable>
+        <DefineConstants>SYSTEM_WINDOWS_VECTOR;</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
         <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
+        <PackageReference Include="LibTessDotNet" Version="1.1.15" />
         <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.0.0"/>
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0"/>
         <PackageReference Include="Microsoft.FASTER.Core" Version="2.6.5" />
@@ -39,6 +41,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="assets\" />
+      <Folder Include="3rdParty\LayoutFarm\" />
+      <Folder Include="3rdParty\LayoutFarm\Mini\PaintLab.Css_SH\0_Basic\" />
     </ItemGroup>
 </Project>

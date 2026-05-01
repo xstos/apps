@@ -13,6 +13,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 using CommunityToolkit.HighPerformance;
+using RENAME_ME;
 using RestoreWindowPlace;
 using Application = System.Windows.Forms.Application;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -36,11 +37,15 @@ static class TypeLoader
         new WindowPlace("placement.config"),
         new System.Windows.Forms.Integration.WindowsFormsHost(),
         ]);
+        I.LoadFont();
     }
 }
 
 public static partial class I
 {
+    static string appWorkingDir = Directory.GetCurrentDirectory();
+
+    public static string GetAssetPath(string fileName) => Path.Combine(appWorkingDir, "assets", fileName);
     public static int HotNum = 0;
     
     public static Action ShutDown = () => { };
@@ -51,7 +56,13 @@ public static partial class I
         var dir = location + "../../../../hot";
         return Path.GetFullPath(dir);
     }
-    
+
+    internal static void LoadFont()
+    {
+        var pts = FontToVerts.Test("A").ToList();
+        var font = FontTriangulator.LoadFont(GetAssetPath("consolas.ttf"));
+        var tris = font.Triangulate('A').ToList();
+    }
     [STAThread]
     static void Main(string[] args)
     {

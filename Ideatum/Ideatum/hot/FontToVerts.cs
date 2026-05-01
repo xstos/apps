@@ -15,27 +15,36 @@ using TPointF = (float X,float Y);
 
 namespace RENAME_ME;
 
-
+internal static class VSExt
+{
+    public static TPointF ToPt(this Segment s)
+    {
+        return ((float)s.Point.X, (float)s.Point.Y);
+    }
+}
 internal static class FontToVerts
 {
     
     internal static IEnumerable<TPointF> Test(string txt)
     {
-        FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.Courier);
-        Font font = new Font(family, 800);
+        FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.Helvetica);
+        Font font = new Font(family, 400);
         // Original GraphicsPath containing some text.
-        GraphicsPath path = new GraphicsPath().AddText(100, 100, txt, font);
-        List<GraphicsPath> triangles = path.Triangulate(100, true).ToList();
+        GraphicsPath path = new GraphicsPath().AddText(0, 0, txt, font);
+        List<GraphicsPath> triangles = path.Triangulate(2, false).ToList();
         foreach (var t in triangles)
         {
             
-            
-            
+            var g = t.Segments;
+            yield return g[0].ToPt();
+            yield return g[1].ToPt();
+            yield return g[2].ToPt();
+            continue;
             for (int i = 0; i < t.Segments.Count-1; i++)
             {
                 var  s = t.Segments[i];
                 yield return ((float)s.Point.X, (float)s.Point.Y);
-                //Console.Write("("+s.Point.X+","+s.Point.Y+") ");
+                Console.Write("("+s.Point.X+","+s.Point.Y+") ");
                 
             }
             //Console.WriteLine("");

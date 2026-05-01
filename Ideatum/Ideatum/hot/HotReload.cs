@@ -44,11 +44,17 @@ public static class Hot
         var blit = new BlitSurface();
 
         var pnl = new Grid();
-        
+        var debugCanvas = new Canvas();
         pnl.RowDefinitions.Add(new RowDefinition() {Height = new GridLength(1,GridUnitType.Star)});
         pnl.RowDefinitions.Add(new RowDefinition() {Height = new GridLength(1,GridUnitType.Star)});
         Grid.SetRow(blit,0);
+        Grid.SetRow(debugCanvas,1);
         pnl.Children.Add(blit);
+        pnl.Children.Add(debugCanvas);
+        debugCanvas.Background=Brushes.DarkBlue;
+        var pts = FontToVerts.Test("A").ToList();
+        var font = FontTriangulator.LoadFont(I.GetAssetPath("consolas.ttf"));
+        
         
         //pnl.Background = Brushes.White;
         win.Background = Brushes.Black;
@@ -66,10 +72,31 @@ public static class Hot
             win.Title = "hi";
             
         };
+        win.KeyDown += (sender, args) =>
+        {
+            debugCanvas.Children.Clear();
+            var tris = font.Triangulate(args.Key.ToString()[0]).ToList();
+            var ah = debugCanvas.ActualHeight-100;
+            foreach (var (a,b,c) in tris.Chunk(3))
+            {
+                var triangle = new Polygon()
+                {
+                    Points = [
+                        new Point(a.x, ah-a.y), 
+                        new Point(b.x, ah-b.y), 
+                        new Point(c.x, ah-c.y),
+                    ]
+                };
+                triangle.Fill = Brushes.Red;
+                triangle.Stroke = Brushes.White;
+                triangle.StrokeThickness = 0;
+                debugCanvas.Children.Add(triangle);
+            }
+        };
         pnl.Loaded += (sender, args) =>
         {
             blit.Resize();//
-            blit.Surface.Clear(Red.ToBgraInt());
+            blit.Surface.Clear(Colors.Indigo.ToBgraInt());
             blit.Blit();
         };
         

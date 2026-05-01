@@ -33,7 +33,7 @@ public class BlitSurface : WindowsFormsHost
             bitmapInfo = GetBitmapInfo(w, h);
             Blit = () =>
             {
-                Console.WriteLine($"alloc {w} {h}");
+                Console.WriteLine($"blit {w} {h}");
                 SetDIBitsToDevice(hRef, 0, 0, w, h, 0, 0, 0, h, ref Surface.Data[0], ref bitmapInfo, 0);
             };
         }
