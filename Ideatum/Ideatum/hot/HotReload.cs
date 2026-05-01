@@ -3,9 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -17,16 +14,12 @@ using Ideatum;
 using Brushes = System.Windows.Media.Brushes;
 using FontFamily = System.Windows.Media.FontFamily;
 using Size = System.Windows.Size;
-using OneOf;
 using Application = System.Windows.Application;
-using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
 using Label = System.Windows.Controls.Label;
-using Panel = System.Windows.Controls.Panel;
 using Path = System.IO.Path;
 using Point = System.Windows.Point;
-using TextBox = System.Windows.Controls.TextBox;
-using static System.Windows.Media.Colors;
+
 namespace RENAME_ME;
 
 using TPointF = (float X, float Y);
@@ -75,7 +68,8 @@ public static class Hot
         win.KeyDown += (sender, args) =>
         {
             debugCanvas.Children.Clear();
-            var tris = font.Triangulate(args.Key.ToString()[0]).ToList();
+            var chr = args.Key.ToString()[0];
+            var tris = font.Triangulate(chr).ToList();
             var ah = debugCanvas.ActualHeight-100;
             foreach (var (a,b,c) in tris.Chunk(3))
             {

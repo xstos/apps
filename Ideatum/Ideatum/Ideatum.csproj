@@ -41,7 +41,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="3rdParty\LayoutFarm\" />
-      <Folder Include="3rdParty\LayoutFarm\Mini\PaintLab.Css_SH\0_Basic\" />
+      <ProjectReference Include="..\LayoutFarmCompacted\LayoutFarmCompacted.csproj" />
     </ItemGroup>
 </Project>
