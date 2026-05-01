@@ -26,61 +26,11 @@ using Panel = System.Windows.Controls.Panel;
 using Path = System.IO.Path;
 using Point = System.Windows.Point;
 using TextBox = System.Windows.Controls.TextBox;
-
+using static System.Windows.Media.Colors;
 namespace RENAME_ME;
 
 using TPointF = (float X, float Y);
 
-public class SplitPanel : Canvas
-{
-    public readonly DockPanel TopElement;
-    public readonly DockPanel BottomElement;
-
-    public SplitPanel()
-    {
-        FrameworkElement Parent() => VisualTreeHelper.GetParent(this) as FrameworkElement;
-        TopElement = new DockPanel();
-        TopElement.LastChildFill = true;
-        TopElement.Background = Brushes.Black;
-        BottomElement = new DockPanel();
-        BottomElement.LastChildFill = true;
-        BottomElement.Background = Brushes.Black;
-        Children.Add(TopElement);
-        Children.Add(BottomElement);
-        SizeChanged += (sender, args) =>
-        {
-            var sz = args.NewSize;
-            Resize(sz);
-        };
-
-        void Resize(Size sz)
-        {
-            var h = sz.Height;
-            var h2 = h / 2;
-            var (a, b) = (TopElement, BottomElement);
-            var w = sz.Width;
-            (a.Width,a.Height) = (w, h2-0.2);
-            (b.Width,b.Height) = (w, h2);
-            SetTop(a,0);
-            SetLeft(a,0);
-            SetRight(a,w);
-            SetBottom(a,h2);
-            SetTop(b,h2);
-            SetLeft(b,0);
-            SetRight(b,w);
-            SetBottom(b,h);
-            
-        }
-        
-        Loaded += (sender, args) =>
-        {
-            var p = Parent();
-            var rs = new Size(p.ActualWidth, p.ActualHeight); 
-            Resize(rs);
-            Console.WriteLine(p.ActualWidth+" "+p.ActualHeight);
-        };
-    }
-}
 public static class Hot
 {
     static char TheWay = '道';
@@ -89,10 +39,18 @@ public static class Hot
     
     public static void Run()
     {
-        Console.WriteLine("Enter " + I.HotNum);
+        Console.WriteLine("Enter " + Ideatum.I.HotNum);
         var win = new Window();
-        var pnl = new SplitPanel();
-        pnl.Background = Brushes.White;
+        var blit = new BlitSurface();
+
+        var pnl = new Grid();
+        
+        pnl.RowDefinitions.Add(new RowDefinition() {Height = new GridLength(1,GridUnitType.Star)});
+        pnl.RowDefinitions.Add(new RowDefinition() {Height = new GridLength(1,GridUnitType.Star)});
+        Grid.SetRow(blit,0);
+        pnl.Children.Add(blit);
+        
+        //pnl.Background = Brushes.White;
         win.Background = Brushes.Black;
         win.Content = pnl;
         //win.Background = Brushes.Black;
@@ -106,7 +64,15 @@ public static class Hot
             win.Width = w2;
             win.Height = screen.Height;
             win.Title = "hi";
+            
         };
+        pnl.Loaded += (sender, args) =>
+        {
+            blit.Resize();//
+            blit.Surface.Clear(Red.ToBgraInt());
+            blit.Blit();
+        };
+        
         win.Closed += (sender, args) =>
         {
             Console.WriteLine("Exit " + I.HotNum);
@@ -121,6 +87,7 @@ public static class Hot
         I.ShutDown = ShutDown;
         
     }
+    public static Sprite Surface;
     public static void Run2()
     {
         var transp = Color.FromArgb(255, 0, 0, 0).ToBgraInt();
@@ -248,7 +215,7 @@ public static class Hot
         {
             var xp = x * s.Width;
             var yp = y * s.Height;
-            var mem = new Memory2D<int>(I.Surface.Data, I.Height, I.Width);
+            var mem = new Memory2D<int>(Surface.Data, I.Height, I.Width);
             var dest = mem.Slice(yp, xp, s.Height, s.Width);
             var write = dest.Span;
             var inti = 0;
@@ -278,8 +245,8 @@ public static class Hot
                 Resize();
             }
 
-            Render(I.Surface, blackTile);
-            Render(I.Surface, getLetter(txt));
+            Render(Surface, blackTile);
+            Render(Surface, getLetter(txt));
             if (txt == "Oem3") txt = CURSOR;
             var verts = FontToVerts.Test(txt);
             var spr = Ext2.DrawTrianglesUsingShapes(I.Width, I.Height, verts);
@@ -300,7 +267,7 @@ public static class Hot
         };
         I.Resize();
         Resize();
-        Clear(I.Surface);
+        Clear(Surface);
 
         //Render(I.Surface, cursorSprite);
         I.Blit();

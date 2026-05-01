@@ -9,19 +9,7 @@ public class Ref<T>
     public T Value;
     public override string ToString() => Value.ToString();
 }
-public struct Sprite
-{
-    public int Width;
-    public int Height;
-    public int[] Data;
 
-    public Sprite(int[] data, int width, int height)
-    {
-        Data = data;
-        Width = width;
-        Height = height;
-    }
-}
 public static partial class I
 {
     public static Ref<T> Ref<T>(this T item) => new() { Value = item };
