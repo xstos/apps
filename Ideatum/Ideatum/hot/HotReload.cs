@@ -45,7 +45,7 @@ public static class Hot
         pnl.Children.Add(blit);
         pnl.Children.Add(debugCanvas);
         debugCanvas.Background=Brushes.DarkBlue;
-        var pts = FontToVerts.Test("A").ToList();
+        //var pts = FontToVerts.Test("A").ToList();
         var font = FontTriangulator.LoadFont(I.GetAssetPath("consolas.ttf"));
         
         
@@ -67,21 +67,21 @@ public static class Hot
         };
         win.KeyDown += (sender, args) =>
         {
+            Console.WriteLine(Enum.GetName(args.Key));
             debugCanvas.Children.Clear();
             var chr = args.Key.ToString()[0];
             var tris = font.Triangulate(chr).ToList();
-            var ah = debugCanvas.ActualHeight-100;
             foreach (var (a,b,c) in tris.Chunk(3))
             {
                 var triangle = new Polygon()
                 {
                     Points = [
-                        new Point(a.x, ah-a.y), 
-                        new Point(b.x, ah-b.y), 
-                        new Point(c.x, ah-c.y),
+                        new Point(a.x, a.y), 
+                        new Point(b.x, b.y), 
+                        new Point(c.x, c.y),
                     ]
                 };
-                triangle.Fill = Brushes.Red;
+                triangle.Fill = Brushes.White;
                 triangle.Stroke = Brushes.White;
                 triangle.StrokeThickness = 0;
                 debugCanvas.Children.Add(triangle);

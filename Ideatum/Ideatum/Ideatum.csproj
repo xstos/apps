@@ -12,10 +12,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
+        <PackageReference Include="CommunityToolkit.HighPerformance" Version="8.4.2" />
         <PackageReference Include="LibTessDotNet" Version="1.1.15" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.0.0"/>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0"/>
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.3.0" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
         <PackageReference Include="Microsoft.FASTER.Core" Version="2.6.5" />
         <PackageReference Include="OneOf" Version="3.0.271" />
         <PackageReference Include="VectSharp" Version="2.6.1" />
@@ -43,4 +43,21 @@
     <ItemGroup>
       <ProjectReference Include="..\LayoutFarmCompacted\LayoutFarmCompacted.csproj" />
     </ItemGroup>
+
+    <Target Name="CaptureAllReferences" AfterTargets="ResolveAssemblyReferences">
+        <ItemGroup>
+            <_ResolvedReferenceLines Include="%(_ResolvedProjectReferencePaths.FullPath)" />
+            <_ResolvedReferenceLines Include="%(ReferencePath.FullPath)" />
+            <_ResolvedReferenceLines Include="%(ReferenceDependencyPaths.FullPath)" />
+        </ItemGroup>
+
+        <WriteLinesToFile
+                File="$(OutputPath)all-references.txt"
+                Lines="@(_ResolvedReferenceLines)"
+                Overwrite="true"
+                Encoding="Unicode" />
+
+        <!-- Optional: Print confirmation to build output -->
+        <Message Text="Saved all assembly references to $(OutputPath)all-references.txt" Importance="high" />
+    </Target>
 </Project>

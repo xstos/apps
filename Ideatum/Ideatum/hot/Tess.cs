@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Typography.OpenFont;
@@ -24,7 +25,7 @@ public static class FontTriangulator
         // 3. Build contours from the glyph outline
         var builder = new GlyphOutlineBuilder(typeface);
         var collector = new ContourCollector(scale);
-        builder.BuildFromGlyphIndex(glyphIndex, 200); // 20 = point size (arbitrary for geometry)
+        builder.BuildFromGlyphIndex(glyphIndex, 400); // 20 = point size (arbitrary for geometry)
         builder.ReadShapes(collector);
 
         // 4. Tessellate with LibTessDotNet (handles winding/holes!)
@@ -42,13 +43,34 @@ public static class FontTriangulator
         tess.Tessellate(WindingRule.EvenOdd, ElementType.Polygons, 3);
 
         // 5. Extract triangles
+        var minY = float.MaxValue;
+        var maxY = float.MinValue;
+        var minX = float.MaxValue;
+        var maxX = float.MinValue;
         for (int i = 0; i < tess.ElementCount; i++)
         {
             for (int j = 0; j < 3; j++)
             {
                 int idx = tess.Elements[i * 3 + j];
                 var v = tess.Vertices[idx].Position;
-                yield return (new Vector3(v.X, v.Y, v.Z));
+                if (v.Y < minY) minY = v.Y;
+                if (v.Y > maxY) maxY = v.Y;
+                if (v.X < minY) minX = v.X;
+                if (v.X > maxY) maxX = v.X;
+            }
+        }
+
+        var flipY = maxY - minY;
+        float xshift = minX < 0 ? -minX : 0;
+        float yshift = minY < 0 ? -minY : 0;
+        for (int i = 0; i < tess.ElementCount; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                int idx = tess.Elements[i * 3 + j];
+                var v = tess.Vertices[idx].Position;
+                //Console.Write(Math.Round(v.Y,1)+" ");
+                yield return (new Vector3(v.X+xshift, flipY-v.Y+minY, v.Z));
             }
         }
     }

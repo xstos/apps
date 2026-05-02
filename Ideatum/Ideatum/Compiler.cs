@@ -72,6 +72,7 @@ public static partial class I
                     try
                     {
                         var reference = MetadataReference.CreateFromFile(file);
+                        //Console.WriteLine("AddAssembly "+reference.FilePath);
                         refs.Add(reference);
                     }
                     catch (Exception e)
@@ -98,9 +99,33 @@ public static partial class I
                     }
                 }
 
+               
                 AddAssembly("Microsoft.CSharp.dll"); // dynamic
                 AddAssembly("System.Linq.Expressions.dll");
                 AddAssembly("System.Text.RegularExpressions.dll");
+                
+                
+                //todo: load references automatically
+                // var loaded = AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetName()).ToHashSet();
+                // var entryAssembly = Assembly.GetEntryAssembly();
+                //
+                // var references = entryAssembly.GetReferencedAssemblies().ToHashSet();
+                // references.ExceptWith(loaded);
+                // var strrefs = references.Select(an => an.FullName).ToHashSet();
+                // foreach (var assemblyName in references)
+                // {
+                //     Console.WriteLine(assemblyName.FullName);
+                // }
+                // string? directory = Path.GetDirectoryName(entryAssembly?.Location);
+                // foreach (var line in File.ReadAllLines(Path.Combine(directory, "all-references.txt")))
+                // {
+                //     var name = AssemblyName.GetAssemblyName(line);
+                //     if (strrefs.Contains(name.FullName))
+                //     {
+                //         AddAssembly(line);
+                //     }
+                //
+                // }
             }
 
             AddLoadedReferences();
