@@ -17,7 +17,66 @@ public static class FontTriangulator
         return reader.Read(fs);
     }
 
-    public static IEnumerable<Vector3> Triangulate(this Typeface typeface, char character, float scale=1.0f)
+    public static IEnumerable<Vector2> Triangulate(this Typeface typeface, char character, float scale=1.0f)
+    {
+        var segs = FontToVerts.Font2Lines(character + "");
+        // 2. Get the glyph
+        ushort glyphIndex = typeface.GetGlyphIndex(character);
+
+        // 3. Build contours from the glyph outline
+        var builder = new GlyphOutlineBuilder(typeface);
+        var collector = new ContourCollector(scale);
+        builder.BuildFromGlyphIndex(glyphIndex, 800); // 20 = point size (arbitrary for geometry)
+        builder.ReadShapes(collector);
+
+        // 4. Tessellate with LibTessDotNet (handles winding/holes!)
+        var tess = new Tess();
+        foreach (var pts in segs)
+        {
+            var verts = pts.Select(p => new ContourVertex
+            {
+                Position = new Vec3 { X = (float)p.X, Y = (float)p.Y, Z = 0 }
+            }).ToArray();
+            tess.AddContour(verts, ContourOrientation.Original);
+        }
+
+        // WINDING_ODD or WINDING_NONZERO — both handle holes in fonts
+        tess.Tessellate(WindingRule.EvenOdd, ElementType.Polygons, 3);
+
+        // 5. Extract triangles
+        var minY = float.MaxValue;
+        var maxY = float.MinValue;
+        var minX = float.MaxValue;
+        var maxX = float.MinValue;
+        for (int i = 0; i < tess.ElementCount; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                int idx = tess.Elements[i * 3 + j];
+                var v = tess.Vertices[idx].Position;
+                if (v.Y < minY) minY = v.Y;
+                if (v.Y > maxY) maxY = v.Y;
+                if (v.X < minY) minX = v.X;
+                if (v.X > maxY) maxX = v.X;
+            }
+        }
+
+        var flipY = maxY - minY;
+        float xshift = minX < 0 ? -minX : 0;
+        float yshift = minY < 0 ? -minY : 0;
+        for (int i = 0; i < tess.ElementCount; i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                int idx = tess.Elements[i * 3 + j];
+                var v = tess.Vertices[idx].Position;
+                //Console.Write(Math.Round(v.Y,1)+" ");
+                yield return (new Vector2(v.X+xshift, v.Y+minY /*, v.Z*/));
+                //yield return (new Vector2(v.X+xshift, flipY-v.Y+minY /*, v.Z*/));
+            }
+        }
+    }
+    public static IEnumerable<Vector3> Triangulate2(this Typeface typeface, char character, float scale=1.0f)
     {
         // 2. Get the glyph
         ushort glyphIndex = typeface.GetGlyphIndex(character);

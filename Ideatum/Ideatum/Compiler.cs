@@ -38,6 +38,15 @@ public static partial class I
     static int Count = 0;
     static FileSystemWatcher fsw;
 
+    static I()
+    {
+        var refs = Assembly.GetEntryAssembly().GetReferencedAssemblies();
+        Parallel.ForEach(refs, name =>
+        {
+            var ass = Assembly.Load(name);
+            ass.GetTypes();
+        });
+    }
     static void Watch(Action<Action> callback, string srcPath)
     {
         void ReloadCore()
@@ -98,34 +107,10 @@ public static partial class I
                         Console.WriteLine(e);
                     }
                 }
-
-               
+                
                 AddAssembly("Microsoft.CSharp.dll"); // dynamic
                 AddAssembly("System.Linq.Expressions.dll");
                 AddAssembly("System.Text.RegularExpressions.dll");
-                
-                
-                //todo: load references automatically
-                // var loaded = AppDomain.CurrentDomain.GetAssemblies().Select(a=>a.GetName()).ToHashSet();
-                // var entryAssembly = Assembly.GetEntryAssembly();
-                //
-                // var references = entryAssembly.GetReferencedAssemblies().ToHashSet();
-                // references.ExceptWith(loaded);
-                // var strrefs = references.Select(an => an.FullName).ToHashSet();
-                // foreach (var assemblyName in references)
-                // {
-                //     Console.WriteLine(assemblyName.FullName);
-                // }
-                // string? directory = Path.GetDirectoryName(entryAssembly?.Location);
-                // foreach (var line in File.ReadAllLines(Path.Combine(directory, "all-references.txt")))
-                // {
-                //     var name = AssemblyName.GetAssemblyName(line);
-                //     if (strrefs.Contains(name.FullName))
-                //     {
-                //         AddAssembly(line);
-                //     }
-                //
-                // }
             }
 
             AddLoadedReferences();

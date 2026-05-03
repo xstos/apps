@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Ideatum;
 using VectSharp;
 // using System.Drawing;
 // using System.Drawing.Drawing2D;
@@ -11,8 +12,8 @@ using VectSharp;
 // using TriangleNet.Meshing.Algorithm;
 // using Point = System.Drawing.Point;
 // using Rectangle = TriangleNet.Geometry.Rectangle;
-using TPointF = (float X,float Y);
-
+using TPointF = (double X,double Y);
+using TLineF = ((double X,double Y) a, (double X,double Y) b);
 namespace RENAME_ME;
 
 internal static class VSExt
@@ -24,13 +25,36 @@ internal static class VSExt
 }
 internal static class FontToVerts
 {
-    
+    internal static IEnumerable<TPointF[]> Font2Lines(string c)
+    {
+        FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.CourierBold);
+        Font font = new Font(family, 40);
+        // Original GraphicsPath containing some text.
+        GraphicsPath path = new GraphicsPath().AddText(0, 0, c, font);
+        var p = path.Discretise(50);
+        var ret = new List<Segment>();
+        foreach (var s in p.Segments)
+        {
+            if (s.Type == SegmentType.Close)
+            {
+                ret.Add(ret[0]);
+                yield return ret.Select(s2 => (s2.Point.X, s2.Point.Y)).ToArray();
+                ret.Clear();
+            }
+            else
+            {
+                ret.Add(s);
+            }
+            
+        }
+    }
     internal static IEnumerable<TPointF> Test(string txt)
     {
-        FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.Helvetica);
+        FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.CourierBold);
         Font font = new Font(family, 400);
         // Original GraphicsPath containing some text.
         GraphicsPath path = new GraphicsPath().AddText(0, 0, txt, font);
+        
         List<GraphicsPath> triangles = path.Triangulate(2, false).ToList();
         foreach (var t in triangles)
         {

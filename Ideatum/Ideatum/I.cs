@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,29 +18,11 @@ using RENAME_ME;
 using RestoreWindowPlace;
 using Application = System.Windows.Forms.Application;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using Typeface = Typography.OpenFont.Typeface;
 
 [assembly: ThemeInfo(ResourceDictionaryLocation.None, ResourceDictionaryLocation.SourceAssembly)]
 
 namespace Ideatum;
-
-static class TypeLoader
-{
-    public static List<object> Foo = new List<object>();
-    internal static void Run()
-    {
-        Foo.AddRange([
-        new CommunityToolkit.HighPerformance.Memory2D<int>(),
-        OneOf.OneOf<string, char>.FromT0(""), VectSharp.FontFamily.DefaultFontLibrary,
-        new System.Drawing.Color(),
-        new System.Windows.Media.Color(),
-        new System.Windows.Size(),
-        new System.Windows.Media.Imaging.PngBitmapEncoder(),
-        new WindowPlace("placement.config"),
-        new System.Windows.Forms.Integration.WindowsFormsHost(),
-        ]);
-        I.LoadFont();
-    }
-}
 
 public static partial class I
 {
@@ -57,16 +40,16 @@ public static partial class I
         return Path.GetFullPath(dir);
     }
 
-    internal static void LoadFont()
+    internal static Typeface LoadFont()
     {
         var pts = FontToVerts.Test("A").ToList();
         var font = FontTriangulator.LoadFont(GetAssetPath("consolas.ttf"));
-        var tris = font.Triangulate('A').ToList();
+        return font;
+        
     }
     [STAThread]
     static void Main(string[] args)
     {
-        TypeLoader.Run();
         var app = new System.Windows.Application();
         var win = new Window();
         var tmr = new DispatcherTimer(DispatcherPriority.Render);

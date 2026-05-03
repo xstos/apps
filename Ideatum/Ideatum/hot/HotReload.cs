@@ -22,7 +22,7 @@ using Point = System.Windows.Point;
 
 namespace RENAME_ME;
 
-using TPointF = (float X, float Y);
+using TPointF = (double X, double Y);
 
 public static class Hot
 {
@@ -46,7 +46,7 @@ public static class Hot
         pnl.Children.Add(debugCanvas);
         debugCanvas.Background=Brushes.DarkBlue;
         //var pts = FontToVerts.Test("A").ToList();
-        var font = FontTriangulator.LoadFont(I.GetAssetPath("consolas.ttf"));
+        var  font = FontTriangulator.LoadFont(I.GetAssetPath("consolas.ttf"));
         
         
         //pnl.Background = Brushes.White;
@@ -65,14 +65,17 @@ public static class Hot
             win.Title = "hi";
             
         };
+        
         win.KeyDown += (sender, args) =>
         {
             Console.WriteLine(Enum.GetName(args.Key));
             debugCanvas.Children.Clear();
             var chr = args.Key.ToString()[0];
             var tris = font.Triangulate(chr).ToList();
+            FontsWPF.Usage();
             foreach (var (a,b,c) in tris.Chunk(3))
             {
+                //var area = TriangleArea((a.x, a.y),(b.x, b.y),(c.x, c.y));
                 var triangle = new Polygon()
                 {
                     Points = [
@@ -83,7 +86,7 @@ public static class Hot
                 };
                 triangle.Fill = Brushes.White;
                 triangle.Stroke = Brushes.White;
-                triangle.StrokeThickness = 0;
+                triangle.StrokeThickness = 0.5;
                 debugCanvas.Children.Add(triangle);
             }
         };
@@ -91,6 +94,17 @@ public static class Hot
         {
             blit.Resize();//
             blit.Surface.Clear(Colors.Indigo.ToBgraInt());
+            var x1 = 500;
+            var tris = font.Triangulate('A');
+            foreach (var vector2 in tris.Chunk(3))
+            {
+                blit.Surface.Rasterize(
+                    vector2[0].X,vector2[0].Y,
+                    vector2[1].X,vector2[1].Y,
+                    vector2[2].X,vector2[2].Y
+                    );
+            }
+            blit.Surface.Rasterize(x1,x1,0,x1,x1,0);
             blit.Blit();
         };
         
@@ -109,6 +123,16 @@ public static class Hot
         
     }
     public static Sprite Surface;
+    static double TriangleArea(TPointF p1, TPointF p2, TPointF p3)
+    {
+        // Shoelace formula for triangle:
+        // Area = |(x1*y2 + x2*y3 + x3*y1 - y1*x2 - y2*x3 - y3*x1)| / 2
+        
+        double sum1 = p1.X * p2.Y + p2.X * p3.Y + p3.X * p1.Y;
+        double sum2 = p1.Y * p2.X + p2.Y * p3.X + p3.Y * p1.X;
+        
+        return Math.Abs(sum1 - sum2) / 2;
+    }
     public static void Run2()
     {
         var transp = Color.FromArgb(255, 0, 0, 0).ToBgraInt();
