@@ -20,15 +20,7 @@ public static class FontTriangulator
     public static IEnumerable<Vector2> Triangulate(this Typeface typeface, char character, float scale=1.0f)
     {
         var segs = FontToVerts.Font2Lines(character + "");
-        // 2. Get the glyph
-        ushort glyphIndex = typeface.GetGlyphIndex(character);
-
-        // 3. Build contours from the glyph outline
-        var builder = new GlyphOutlineBuilder(typeface);
-        var collector = new ContourCollector(scale);
-        builder.BuildFromGlyphIndex(glyphIndex, 800); // 20 = point size (arbitrary for geometry)
-        builder.ReadShapes(collector);
-
+        
         // 4. Tessellate with LibTessDotNet (handles winding/holes!)
         var tess = new Tess();
         foreach (var pts in segs)

@@ -89,23 +89,29 @@ public static class Hot
                 triangle.StrokeThickness = 0.5;
                 debugCanvas.Children.Add(triangle);
             }
+            drawLetter(chr+"");
         };
-        pnl.Loaded += (sender, args) =>
+
+        void drawLetter(string c)
         {
             blit.Resize();//
             blit.Surface.Clear(Colors.Indigo.ToBgraInt());
             var x1 = 500;
-            var tris = font.Triangulate('A');
+            var tris = font.Triangulate(c[0]);
             foreach (var vector2 in tris.Chunk(3))
             {
                 blit.Surface.Rasterize(
                     vector2[0].X,vector2[0].Y,
                     vector2[1].X,vector2[1].Y,
                     vector2[2].X,vector2[2].Y
-                    );
+                );
             }
             blit.Surface.Rasterize(x1,x1,0,x1,x1,0);
             blit.Blit();
+        }
+        pnl.Loaded += (sender, args) =>
+        {
+           drawLetter("a");
         };
         
         win.Closed += (sender, args) =>

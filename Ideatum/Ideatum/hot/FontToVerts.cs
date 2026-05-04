@@ -31,7 +31,7 @@ internal static class FontToVerts
         Font font = new Font(family, 40);
         // Original GraphicsPath containing some text.
         GraphicsPath path = new GraphicsPath().AddText(0, 0, c, font);
-        var p = path.Discretise(50);
+        var p = path.Discretise(5);
         var ret = new List<Segment>();
         foreach (var s in p.Segments)
         {
