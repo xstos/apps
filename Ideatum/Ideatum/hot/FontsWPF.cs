@@ -6,14 +6,14 @@ namespace RENAME_ME;
 
 public class FontsWPF
 {
+    
     public static Geometry GetCharacterGeometry(char character, double fontSize)
     {
-        // Load the font file
-        var typeface = new Typeface(new FontFamily("Consolas"),
-            FontStyles.Normal,
-            FontWeights.Normal,
-            FontStretches.Normal);
+        string uri = new Uri(Ideatum.I.GetAssetPath("JetBrainsMono-Regular.ttf")).AbsolutePath;
 
+        // Load the font file
+        var typeface = new Typeface(uri);
+        
         // Create formatted text for the specific character
         var formattedText = new FormattedText(
             character.ToString(),

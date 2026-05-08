@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -29,26 +30,27 @@ public static class Hot
     static char TheWay = '道';
     static char YY = '☯';
     static string CURSOR = "█";
-    
+
     public static void Run()
     {
+        var NextColor = I.MakeGetNextHue(15);
         Console.WriteLine("Enter " + Ideatum.I.HotNum);
         var win = new Window();
         var blit = new BlitSurface();
 
         var pnl = new Grid();
         var debugCanvas = new Canvas();
-        pnl.RowDefinitions.Add(new RowDefinition() {Height = new GridLength(1,GridUnitType.Star)});
-        pnl.RowDefinitions.Add(new RowDefinition() {Height = new GridLength(1,GridUnitType.Star)});
-        Grid.SetRow(blit,0);
-        Grid.SetRow(debugCanvas,1);
+        pnl.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Star) });
+        pnl.RowDefinitions.Add(new RowDefinition() { Height = new GridLength(1, GridUnitType.Star) });
+        Grid.SetRow(blit, 0);
+        Grid.SetRow(debugCanvas, 1);
         pnl.Children.Add(blit);
         pnl.Children.Add(debugCanvas);
-        debugCanvas.Background=Brushes.DarkBlue;
+        debugCanvas.Background = Brushes.DarkBlue;
         //var pts = FontToVerts.Test("A").ToList();
-        var  font = FontTriangulator.LoadFont(I.GetAssetPath("consolas.ttf"));
-        
-        
+        var font = FontTriangulator.LoadFont(I.GetAssetPath("consolas.ttf"));
+
+
         //pnl.Background = Brushes.White;
         win.Background = Brushes.Black;
         win.Content = pnl;
@@ -63,9 +65,8 @@ public static class Hot
             win.Width = w2;
             win.Height = screen.Height;
             win.Title = "hi";
-            
         };
-        
+
         win.KeyDown += (sender, args) =>
         {
             Console.WriteLine(Enum.GetName(args.Key));
@@ -73,14 +74,15 @@ public static class Hot
             var chr = args.Key.ToString()[0];
             var tris = font.Triangulate(chr).ToList();
             FontsWPF.Usage();
-            foreach (var (a,b,c) in tris.Chunk(3))
+            foreach (var (a, b, c) in tris.Chunk(3))
             {
                 //var area = TriangleArea((a.x, a.y),(b.x, b.y),(c.x, c.y));
                 var triangle = new Polygon()
                 {
-                    Points = [
-                        new Point(a.x, a.y), 
-                        new Point(b.x, b.y), 
+                    Points =
+                    [
+                        new Point(a.x, a.y),
+                        new Point(b.x, b.y),
                         new Point(c.x, c.y),
                     ]
                 };
@@ -89,56 +91,113 @@ public static class Hot
                 triangle.StrokeThickness = 0.5;
                 debugCanvas.Children.Add(triangle);
             }
-            drawLetter(chr+"");
+            
+            drawLetter(chr + "");
         };
 
+        void letterGrid()
+        {
+            var tris = font.Triangulate('G');
+        }
         void drawLetter(string c)
         {
-            blit.Resize();//
+            blit.Resize(); //
             blit.Surface.Clear(Colors.Indigo.ToBgraInt());
-            var x1 = 500;
             var tris = font.Triangulate(c[0]);
+
             foreach (var vector2 in tris.Chunk(3))
             {
+                var x1 = vector2[0].X;
+                var y1 = vector2[0].Y;
+                var x2 = vector2[1].X;
+                var y2 = vector2[1].Y;
+                var x3 = vector2[2].X;
+                var y3 = vector2[2].Y;
+                var nextColor = NextColor();
                 blit.Surface.Rasterize(
-                    vector2[0].X,vector2[0].Y,
-                    vector2[1].X,vector2[1].Y,
-                    vector2[2].X,vector2[2].Y
+                    x1, 
+                    y1,
+                    x2, 
+                    y2,
+                    x3, 
+                    y3,
+                    nextColor
                 );
             }
-            blit.Surface.Rasterize(x1,x1,0,x1,x1,0);
+            blit.Surface.DrawSprite(FontsWInforms.Test(c[0]+""),0,0);
+            //blit.Surface.Rasterize(x1,x1,0,x1,x1,0, NextColor());
             blit.Blit();
         }
+
         pnl.Loaded += (sender, args) =>
         {
-           drawLetter("a");
-        };
-        
-        win.Closed += (sender, args) =>
-        {
-            Console.WriteLine("Exit " + I.HotNum);
+            blit.Resize(); //
+
+            var random = new Random();
+            double rnd(int max) => random.NextDouble() * max;
+            var wid = blit.Surface.Width;
+            var hei = blit.Surface.Height;
+            IEnumerable<double> randPoint()
+            {
+                while (true)
+                {
+                    yield return rnd(wid);
+                    yield return rnd(hei);
+                }
+            }
+
+            var pts = randPoint().Take(10000 * 2 * 3).ToArray(); //
+            var colors = Enumerable.Range(0, 10000 * 2 * 3).Select(i => NextColor()).ToArray();
+            //drawLetter("a");
+            blit.Surface.Clear(Colors.Indigo.ToBgraInt());
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var len = pts.Length;
+            var blitSurface = blit.Surface;
             
+            if (false)
+            for (int i = 0; i < len; i += 6)
+            {
+                blitSurface.Rasterize(
+                    pts[i + 0], 
+                    pts[i + 1],
+                    pts[i + 2], 
+                    pts[i + 3],
+                    pts[i + 4], 
+                    pts[i + 5],
+                    colors[i]
+                );
+            }
+
+            watch.Stop();
+            Console.WriteLine(watch.ElapsedMilliseconds);
+            blit.Blit();
         };
+
+        win.Closed += (sender, args) => { Console.WriteLine("Exit " + I.HotNum); };
         win.Show();
+
         void ShutDown()
         {
             win.Close();
             I.ShutDown = () => { }; //
         }
+
         I.ShutDown = ShutDown;
-        
     }
+
     public static Sprite Surface;
+
     static double TriangleArea(TPointF p1, TPointF p2, TPointF p3)
     {
         // Shoelace formula for triangle:
         // Area = |(x1*y2 + x2*y3 + x3*y1 - y1*x2 - y2*x3 - y3*x1)| / 2
-        
+
         double sum1 = p1.X * p2.Y + p2.X * p3.Y + p3.X * p1.Y;
         double sum2 = p1.Y * p2.X + p2.Y * p3.X + p3.Y * p1.X;
-        
+
         return Math.Abs(sum1 - sum2) / 2;
     }
+
     public static void Run2()
     {
         var transp = Color.FromArgb(255, 0, 0, 0).ToBgraInt();
@@ -262,22 +321,7 @@ public static class Hot
 
         int rows = 0, cols = 0, midrow = 0, midcol = 0;
 
-        void DrawSprite(Sprite s, int x, int y)
-        {
-            var xp = x * s.Width;
-            var yp = y * s.Height;
-            var mem = new Memory2D<int>(Surface.Data, I.Height, I.Width);
-            var dest = mem.Slice(yp, xp, s.Height, s.Width);
-            var write = dest.Span;
-            var inti = 0;
-            for (int i = 0; i < s.Height; i++)
-            {
-                for (int j = 0; j < s.Width; j++)
-                {
-                    write[i, j] = s.Data[inti++];
-                }
-            }
-        }
+        
 
         void Resize()
         {
@@ -301,7 +345,7 @@ public static class Hot
             if (txt == "Oem3") txt = CURSOR;
             var verts = FontToVerts.Test(txt);
             var spr = Ext2.DrawTrianglesUsingShapes(I.Width, I.Height, verts);
-            DrawSprite(spr, 0, 0);
+            Surface.DrawSprite(spr, 0, 0);
             if (false)
             {
                 var l = getLetter(txt);
@@ -309,7 +353,7 @@ public static class Hot
                 {
                     for (int j = 0; j < cols; j++)
                     {
-                        DrawSprite(l, i, j);
+                        Surface.DrawSprite(l, i, j);
                     }
                 }
             }
@@ -397,6 +441,7 @@ public static class Ext2
     {
         return c.Cast<UIElement>();
     }
+
     internal static void Save(this BitmapSource bmp, string path)
     {
         var encoder = new PngBitmapEncoder();

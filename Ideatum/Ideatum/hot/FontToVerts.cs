@@ -27,11 +27,13 @@ internal static class FontToVerts
 {
     internal static IEnumerable<TPointF[]> Font2Lines(string c)
     {
-        FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.CourierBold);
-        Font font = new Font(family, 40);
+        FontFamily family = FontFamily.ResolveFontFamily(I.GetAssetPath("JetBrainsMono-Regular.ttf"));
+        Font font = new Font(family, 400);
         // Original GraphicsPath containing some text.
-        GraphicsPath path = new GraphicsPath().AddText(0, 0, c, font);
-        var p = path.Discretise(5);
+        GraphicsPath p = new GraphicsPath().AddText(0, 0, c, font);
+        //var geom = FontsWPF.GetCharacterGeometry(c[0], 100);
+        //p = p.Discretise(400 );
+        //p = p.Flatten(100000);
         var ret = new List<Segment>();
         foreach (var s in p.Segments)
         {
@@ -44,14 +46,19 @@ internal static class FontToVerts
             else
             {
                 ret.Add(s);
+                Console.WriteLine(c+" "+s.Point.X+" "+s.Point.Y);
             }
+        }
+
+        void foo()
+        {
             
         }
     }
     internal static IEnumerable<TPointF> Test(string txt)
     {
         FontFamily family = FontFamily.ResolveFontFamily(FontFamily.StandardFontFamilies.CourierBold);
-        Font font = new Font(family, 400);
+        Font font = new Font(family, 400); 
         // Original GraphicsPath containing some text.
         GraphicsPath path = new GraphicsPath().AddText(0, 0, txt, font);
         
