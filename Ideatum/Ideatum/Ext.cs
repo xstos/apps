@@ -94,4 +94,25 @@ public static class Ext
     {
         return MemoryMarshal.CreateSpan(ref Unsafe.As<byte, T>(ref MemoryMarshal.GetArrayDataReference(array)), array.Length);
     }
+    // https://stackoverflow.com/questions/5943850/fastest-way-to-fill-an-array-with-a-single-value
+    public static void Fill<T>(this T[] destinationArray, params T[] values)
+    {
+        if (destinationArray == null)
+            throw new ArgumentNullException(nameof(destinationArray));
+
+        Array.Copy(values, destinationArray, Math.Min(values.Length, destinationArray.Length));
+
+        if (values.Length >= destinationArray.Length)
+            return;
+
+        int arrayToFillHalfLength = destinationArray.Length / 2;
+        int copyLength;
+
+        for (copyLength = values.Length; copyLength < arrayToFillHalfLength; copyLength <<= 1)
+        {
+            Array.Copy(destinationArray, 0, destinationArray, copyLength, copyLength);
+        }
+
+        Array.Copy(destinationArray, 0, destinationArray, copyLength, destinationArray.Length - copyLength);
+    }
 }

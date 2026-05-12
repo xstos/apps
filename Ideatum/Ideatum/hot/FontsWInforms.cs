@@ -1,8 +1,18 @@
 ﻿using System;
 using System.Drawing;
-using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Runtime.InteropServices;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using Brushes = System.Drawing.Brushes;
+using Color = System.Drawing.Color;
+using Font = System.Drawing.Font;
+using Graphics = System.Drawing.Graphics;
+using GraphicsPath = System.Drawing.Drawing2D.GraphicsPath;
+using Matrix = System.Drawing.Drawing2D.Matrix;
+using PixelFormat = System.Drawing.Imaging.PixelFormat;
+using Point = System.Drawing.Point;
+using Rectangle = System.Drawing.Rectangle;
 
 namespace RENAME_ME;
 
@@ -11,13 +21,12 @@ public static class FontsWInforms
     public static Sprite Test(string s)
     {
         // Source - https://stackoverflow.com/a/43268265
-// Posted by TaW, modified by community. See post 'Timeline' for change history
-// Retrieved 2026-05-07, License - CC BY-SA 3.0
         var f2 = new Font("Courier New",1f);
         var wid = 600;
         var hei = 500;
         Bitmap bmp = new Bitmap(wid, hei, PixelFormat.Format32bppArgb);
         GraphicsPath gp = new GraphicsPath();
+        //var wb = new WriteableBitmap(100, 100, 96.0d, 96.0d, PixelFormats.Bgra32, null);
         using (Graphics g = Graphics.FromImage(bmp))
         using (Font f = new Font("Jetbrains Mono", 40f))
         {
