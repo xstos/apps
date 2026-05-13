@@ -22,8 +22,8 @@ public class Program
         {
             //tinygl.Program.Run();
             var img = new Image();
-            //img.Source = scanline.ScanlinePolygonFiller.Example();
-            img.Source = tinygl.PolygonRasterizer.Example();
+            img.Source = scanline.ScanlinePolygonFiller.Example();
+            //img.Source = tinygl.PolygonRasterizer.Example();
             grid.Children.Add(img);
         };
         System.Windows.Application.Current.Run(window);

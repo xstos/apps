@@ -16,7 +16,8 @@ public static class ScanlinePolygonFiller
     /// <param name="height">Height of the buffer in pixels.</param>
     /// <param name="vertices">Array of polygon vertices (x, y pairs).</param>
     /// <param name="color">Color to fill with (0xAARRGGBB).</param>
-    public static void FillPolygon(int[] buffer, int width, int height, int[] vertices, int color)
+    /// https://tuttlem.github.io/2013/11/19/scanline-based-filled-polygons.html
+    public static void  FillPolygon(int[] buffer, int width, int height, int[] vertices, int color)
     {
         if (vertices.Length < 6) return; // Need at least a triangle (3 points = 6 ints)
 

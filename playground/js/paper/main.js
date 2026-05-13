@@ -79,10 +79,14 @@ function onResize() {
     var numRows = div(bounds.height,tileHeight)
     log({numCols,numRows})
     var offset = measureTextOffset()
+    for (const k in tiles) {
+        tiles[k].tile.fillColor.alpha=0
+    }
     for (let i = 0; i < numCols; i++) {
         for (let j = 0; j < numRows; j++) {
             var key = i+" "+j
             if (Reflect.has(tiles,key)) {
+                tiles[key].tile.fillColor.alpha=0.1
                 continue
             }
             const tile = new PointText({

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title></title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: monospace, sans-serif;
+        }
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            background: black;
+            color: white;
+            overflow: hidden;
+        }
+        /* CSS - prevents layout thrashing */
+        .character-grid {
+            display: grid;
+            /* Responsive: auto-fill with min width */
+            grid-template-columns: repeat(auto-fill, 20px);
+            gap: 0px;
+            padding: 0px;
+            /* Prevent layout shifts */
+            contain: layout style paint;
+            /* Optimize rendering */
+            will-change: transform;
+        }
+
+        .character {
+            /* Fixed aspect ratio to prevent reflow */
+            aspect-ratio: 1 / 1;
+            /*min-width: 12px;*/
+            /*max-width: 12px;*/
+
+            /* Center character */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            /* Prevent text from affecting layout */
+            font-size: 20px; /* clamp(10px, 3vw, 12px); */
+            font-family: monospace;
+
+            /* Critical: prevent layout changes */
+            contain: strict;
+
+            /* Optional styling */
+            background: #000000;
+            border-radius: 20px;
+            transition: transform 0.2s;
+        }
+
+        /* Optional: hover effect without reflow */
+        .character:hover {
+            transform: scale(1.33);
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+<script src="util.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+
+</html>
