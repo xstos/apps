@@ -34,7 +34,7 @@ public static class FontTriangulator
 
         // WINDING_ODD or WINDING_NONZERO — both handle holes in fonts
         tess.Tessellate(WindingRule.EvenOdd, ElementType.Polygons, 3);
-
+        
         // 5. Extract triangles
         var minY = float.MaxValue;
         var maxY = float.MinValue;

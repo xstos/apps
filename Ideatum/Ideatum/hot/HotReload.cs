@@ -66,33 +66,14 @@ public static class Hot
             win.Height = screen.Height;
             win.Title = "hi";
         };
-
+        int r(double n) => (int)Math.Round(n, MidpointRounding.AwayFromZero);
         win.KeyDown += (sender, args) =>
         {
             Console.WriteLine(Enum.GetName(args.Key));
             debugCanvas.Children.Clear();
             var chr = args.Key.ToString()[0];
-            var tris = font.Triangulate(chr).ToList();
-            FontsWPF.Usage();
-            foreach (var (a, b, c) in tris.Chunk(3))
-            {
-                //var area = TriangleArea((a.x, a.y),(b.x, b.y),(c.x, c.y));
-                var triangle = new Polygon()
-                {
-                    Points =
-                    [
-                        new Point(a.x, a.y),
-                        new Point(b.x, b.y),
-                        new Point(c.x, c.y),
-                    ]
-                };
-                triangle.Fill = Brushes.White;
-                triangle.Stroke = Brushes.White;
-                triangle.StrokeThickness = 0.5;
-                debugCanvas.Children.Add(triangle);
-            }
-            
-            drawLetter(chr + "");
+            //DrawOnCanvas(chr);
+            //drawLetter(chr + "");
         };
 
         void letterGrid()
@@ -155,18 +136,18 @@ public static class Hot
             var blitSurface = blit.Surface;
             
             if (false)
-            for (int i = 0; i < len; i += 6)
-            {
-                blitSurface.Rasterize(
-                    pts[i + 0], 
-                    pts[i + 1],
-                    pts[i + 2], 
-                    pts[i + 3],
-                    pts[i + 4], 
-                    pts[i + 5],
-                    colors[i]
-                );
-            }
+                for (int i = 0; i < len; i += 6)
+                {
+                    blitSurface.Rasterize(
+                        pts[i + 0], 
+                        pts[i + 1],
+                        pts[i + 2], 
+                        pts[i + 3],
+                        pts[i + 4], 
+                        pts[i + 5],
+                        colors[i]
+                    );
+                }
 
             watch.Stop();
             Console.WriteLine(watch.ElapsedMilliseconds);
@@ -183,6 +164,29 @@ public static class Hot
         }
 
         I.ShutDown = ShutDown;
+
+        void DrawOnCanvas(char chr)
+        {
+            var tris = font.Triangulate(chr).ToList();
+            FontsWPF.Usage();
+            foreach (var (a, b, c) in tris.Chunk(3))
+            {
+                //var area = TriangleArea((a.x, a.y),(b.x, b.y),(c.x, c.y));
+                var triangle = new Polygon()
+                {
+                    Points =
+                    [
+                        new Point(a.x, a.y),
+                        new Point(b.x, b.y),
+                        new Point(c.x, c.y),
+                    ]
+                };
+                triangle.Fill = Brushes.White;
+                triangle.Stroke = Brushes.White;
+                triangle.StrokeThickness = 0.5;
+                debugCanvas.Children.Add(triangle);
+            }
+        }
     }
 
     public static Sprite Surface;
