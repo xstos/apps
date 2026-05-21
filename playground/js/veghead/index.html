@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Veghead Calculator</title>
+    <style>
+    </style>
+</head>
+<body>
+<div id="thing"></div>
+<br/>
+total:<span id="totale">0</span>
+<button onclick="location.reload();">reset</button>
+<script>
+    var data = `
+Arugula:4
+Cabbage (green):6
+Cucumbers (lebanese):6
+Green onions:3.5
+Herbs (chives, cilantro, dill, basil, dried summer savory):3
+Kohlrabi:5
+Microgreens (alfalfa, arugula, broccoli, buckwheat, pea, radish, sunflower):6
+Radish:3.5
+Rapini:4
+Salad mix:6
+Spinach:4
+Sunchokes:5
+    `;
+    var total =0;
+
+    function row(name,price, index) {
+        return `<span style="line-height: 2">${name} ${price}$</span>
+<button onclick="btnclick(1,${price},${index})">+</button>
+<button onclick="btnclick(-1,${price},${index})">-&nbsp</button>
+QTY: <span id="item_${index}">0</span>`
+    }
+    function btnclick(up, price,index) {
+        var amountel = document.getElementById("item_"+index)
+        var num = parseInt(amountel.innerText)
+        if (up<0 && num>0) {
+            num--
+            total-=price
+        }
+        if (up>0) {
+            num++
+            total+=price
+        }
+        amountel.innerText=num
+        totale.innerHTML=total
+    }
+
+
+    data = data.trim()
+        .split("\n")
+        .map((line,i)=>{
+            var [name,price]=line.split(":")
+            var markup = row(name,price,i)
+            return markup
+        });
+    thing.innerHTML=data.join("<br/>");
+</script>
+</body>
+
+</html>
