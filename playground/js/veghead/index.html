@@ -6,35 +6,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>Veghead Calculator</title>
     <style>
+        body {
+            font-family: 'Verdana', sans-serif;
+            letter-spacing: 0px;
+        }
+        button {
+            margin-bottom: 2px;
+            min-height: 6ch;
+            min-width:  6ch;
+        }
     </style>
 </head>
 <body>
 <div id="thing"></div>
 <br/>
 total:<span id="totale">0</span>
-<button onclick="location.reload();">reset</button>
+<button onclick="reset();">RESET</button>
 <script>
     var data = `
-Arugula:4
-Cabbage (green):6
-Cucumbers (lebanese):6
-Green onions:3.5
-Herbs (chives, cilantro, dill, basil, dried summer savory):3
-Kohlrabi:5
-Microgreens (alfalfa, arugula, broccoli, buckwheat, pea, radish, sunflower):6
-Radish:3.5
-Rapini:4
-Salad mix:6
-Spinach:4
-Sunchokes:5
+Arugula🥬:4.25
+Cucumbers (lebanese)🥒:5.5
+Green onions(early season):3
+Green onions(small bunch):2.5
+Green onions(big bunch):3.5
+Dill🌿:3
+Chives🌿:3
+Cilantro🌿:3
+Dill🌿:3
+Basil🌿:3
+Dried summer savory🌿:3
+Radish🫜:3.5
+Rapini🥬:3.25
+Salad mix(L)🥬:6.25
+Salad mix(S)🥬:4.25
+Spinach(L)🥬:6.25
+Spinach(S)🥬:4.25
+Sunchokes🫚:6
+Kohlrabi🍏:5
+Microgreens🥬:6
+Microgreens take home tray🥬:5
     `;
     var total =0;
 
     function row(name,price, index) {
-        return `<span style="line-height: 2">${name} ${price}$</span>
+        return `
+<span id="item_${index}">0</span>
+<span style="">${name} ${price}$</span>
 <button onclick="btnclick(1,${price},${index})">+</button>
 <button onclick="btnclick(-1,${price},${index})">-&nbsp</button>
-QTY: <span id="item_${index}">0</span>`
+`
     }
     function btnclick(up, price,index) {
         var amountel = document.getElementById("item_"+index)
@@ -48,9 +68,8 @@ QTY: <span id="item_${index}">0</span>`
             total+=price
         }
         amountel.innerText=num
-        totale.innerHTML=total
+        totale.innerText=total
     }
-
 
     data = data.trim()
         .split("\n")
@@ -59,6 +78,13 @@ QTY: <span id="item_${index}">0</span>`
             var markup = row(name,price,i)
             return markup
         });
+    function reset() {
+        total=0
+        document.getElementById("totale").innerText=0;
+        for (let i = 0; i < data.length; i++) {
+            document.getElementById(`item_${i}`).innerText=0;
+        }
+    }
     thing.innerHTML=data.join("<br/>");
 </script>
 </body>
