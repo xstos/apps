@@ -53,7 +53,7 @@ public static class Hot
             win.Top = 0;
             win.Width = w2;
             win.Height = h;
-            win.Title = "hi";
+            win.Title = "hi2";
         };
         int r(double n) => (int)Math.Round(n, MidpointRounding.AwayFromZero);
         win.KeyDown += (sender, args) =>

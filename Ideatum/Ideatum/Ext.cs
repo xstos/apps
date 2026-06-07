@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
@@ -114,5 +115,13 @@ public static class Ext
         }
 
         Array.Copy(destinationArray, 0, destinationArray, copyLength, destinationArray.Length - copyLength);
+    }
+    internal static int Hash(this IEnumerable<string> strings)
+    {
+        return strings.Aggregate(new HashCode(), (code, s) =>
+        {
+            code.Add(s);
+            return code;
+        }).ToHashCode();
     }
 }

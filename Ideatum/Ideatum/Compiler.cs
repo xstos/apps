@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -40,15 +41,11 @@ public static partial class Program
 
     static Program()
     {
-        var refs = Assembly.GetEntryAssembly().GetReferencedAssemblies();
-        Parallel.ForEach(refs, name =>
-        {
-            var ass = Assembly.Load(name);
-            ass.GetTypes();
-        });
+        Parallel.ForEach(Assembly.GetEntryAssembly().GetReferencedAssemblies(), name => Assembly.Load(name).GetTypes());
     }
     static void Watch(Action<Action> callback, string srcPath)
     {
+        AssemblyLoadContext ctx = AssemblyLoadContext.Default;
         void ReloadCore()
         {
             var name =  "X" + Count++;
@@ -56,7 +53,8 @@ public static partial class Program
                 .Select(path =>
                 {
                     var ns = $"{nameof(RENAME_ME)}";
-                    var code = LoadFile(path).Replace(ns, name);
+                    var code = LoadFile(path);
+                    code=code.Replace(ns, name);
                     return (code, path);
                 });
             var refs = new HashSet<PortableExecutableReference>();
@@ -116,7 +114,8 @@ public static partial class Program
             AddLoadedReferences();
 
             var metadataReferences = refs.Cast<MetadataReference>().ToArray();
-            var ass = CompileAssembly(files, metadataReferences);
+            
+            var ass = CompileAssembly(files, metadataReferences, ctx);
             
             var type = ass.GetType($"{name}.{nameof(Hot)}");
             // Get the type
@@ -156,37 +155,32 @@ public static partial class Program
         fsw = new FileSystemWatcher(srcPath);
         fsw.EnableRaisingEvents = true;
         fsw.IncludeSubdirectories = true;
+        int LookForChanges() => Directory.GetFiles(srcPath).Select(File.ReadAllText).Hash();
+        
         var prevHash = LookForChanges();
-
-        List<(string path, int hash)> LookForChanges()
-        {
-            return Directory.GetFiles(srcPath)
-                .Select(path => (path, LoadFile(path).GetHashCode())).ToList();
-        }
-
+        
         bool dirty = false;
+        var debounceTimer = new DispatcherTimer(DispatcherPriority.Normal);
+        debounceTimer.Interval = TimeSpan.FromMilliseconds(100);
+        debounceTimer.Tick += (sender, args) =>
+        {
+            debounceTimer.Stop();
+            var changes = LookForChanges();
+            if (prevHash==changes) return;
+            Reload();
+        };
         fsw.Changed += (o, eventArgs) =>
         {
             var path = eventArgs.FullPath.ToLower();
             if (path.EndsWith("~")) return;
-            dirty = true;
+            debounceTimer.Stop();
+            debounceTimer.Start();
         };
-        _ = Task.Run(async () =>
-        {
-            while (true)
-            {
-                await Task.Delay(100);
-                if (!dirty) continue;
-                dirty = false;
-                var changes = LookForChanges();
-                if (!prevHash.Intersect(changes).Any()) return;
-                prevHash = changes;
-                Reload();
-            }
-        });
     }
 
-    static Assembly CompileAssembly(IEnumerable<(string code, string path)> files, MetadataReference[] refs)
+    
+
+    static Assembly CompileAssembly(IEnumerable<(string code, string path)> files, MetadataReference[] refs, AssemblyLoadContext assemblyLoadContext)
     {
         var assemblyName = Path.GetRandomFileName();
         var symbolsName = Path.ChangeExtension(assemblyName, "pdb");
@@ -274,7 +268,7 @@ public static partial class Program
 
             peStream.Position = 0;
             pdbStream.Position = 0;
-            var assembly = AssemblyLoadContext.Default.LoadFromStream(peStream, pdbStream);
+            var assembly = assemblyLoadContext.LoadFromStream(peStream, pdbStream);
             return assembly;
         }
     }
