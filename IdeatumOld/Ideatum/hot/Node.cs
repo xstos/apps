@@ -6,6 +6,8 @@ using OneOf;
 
 namespace RENAME_ME;
 
+using TNodeable = OneOf<char, string, Node, Node[]>;
+using TPos = (Node Target,NodePos Pos);
 using static NodeType;
 using static NodeAction;
 
@@ -125,14 +127,14 @@ public static class NodeExt
 {
     extension(Node n)
     {
-        public (Node Target, NodePos Pos) Before => (n, NodePos.Before);
-        public (Node Target, NodePos Pos) After => (n, NodePos.After);
+        public TPos Before => (n, NodePos.Before);
+        public TPos After => (n, NodePos.After);
         public Node[] AsArray => [n];
     }
 
-    extension((Node Target, NodePos Pos) p)
+    extension(TPos p)
     {
-        public Node Insert(OneOf<char, string, Node, Node[]> x)
+        public Node Insert(TNodeable x)
         {
             var parent = p.Target.Parent;
             Node before;

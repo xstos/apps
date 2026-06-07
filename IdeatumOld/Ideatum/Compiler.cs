@@ -14,7 +14,7 @@ using RENAME_ME;
 
 namespace Ideatum;
 
-public static partial class Program
+public static partial class I
 {
     static string LoadFile(string path)
     {
@@ -33,12 +33,12 @@ public static partial class Program
     }
 }
 
-public static partial class Program
+public static partial class I
 {
     static int Count = 0;
     static FileSystemWatcher fsw;
 
-    static Program()
+    static I()
     {
         var refs = Assembly.GetEntryAssembly().GetReferencedAssemblies();
         Parallel.ForEach(refs, name =>
