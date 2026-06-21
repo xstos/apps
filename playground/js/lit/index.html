@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>lit</title>
+    <style>
+        body {
+            font-family: 'Consolas', sans-serif;
+            letter-spacing: 0px;
+        }
+
+    </style>
+</head>
+
+<body>
+<div id="app"></div>
+<script src="lit-html.js"></script>
+<script>
+    var {html, render} = lit
+    // 1. Define the Application State
+    let counter = 0;
+    const container = document.getElementById('app');
+
+
+    // 2. Define Pure Functional Components
+    function Header(title) {
+        return html`
+        <h1>${title}</h1>
+    `;
+    }
+
+    function CounterApp(count, onIncrement) {
+        return html`
+        <div>
+            ${Header('Classless Lit App')}
+            <p>The count is currently: <strong>${count}</strong></p>
+            <button @click=${onIncrement}>Increment Count</button>
+        </div>
+    `;
+    }
+
+    // 3. State Mutation Handler
+    function increment() {
+        counter++;
+        update(); // Manually trigger re-render
+    }
+
+    // 4. Render Engine Setup
+    function update() {
+        render(CounterApp(counter, increment), container);
+    }
+
+    // Initial Bootstrapping
+    update();
+</script>
+</body>
+
+</html>
