@@ -64,7 +64,7 @@ public static class Hot
     {
         const char TheWay = '道';
         const char YY = '☯';
-        var FontSize = 13.0;
+        var FontSize = 40.0;
         var fontName = "Jetbrains Mono";
         var typeface = new Typeface(new FontFamily(fontName), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
         var nextColor = MakeGetNextColor();
@@ -115,8 +115,8 @@ public static class Hot
             {
                 var g = glyphs[c];
                 var (w, h) = g.Size();
-                if (w > glyphWidth) glyphWidth = w;
-                if (h > glyphHeight) glyphHeight = h;
+                if (w > glyphWidth) glyphWidth = Math.Max(w,1);
+                if (h > glyphHeight) glyphHeight = Math.Max( h,1);
             }
         }
         MakeGlyphs();
@@ -200,7 +200,8 @@ public static class Hot
             var pixelBufferHeight = (int)pixelBuffer.ActualHeight;
             var numCols = pixelBufferWidth / glyphWidth;
             var numRows = pixelBufferHeight / glyphHeight;
-            
+            var nodeX = new List<int>(8);
+            //var max = int.MinValue;
             for (int i = 0; i < numRows; i++)
             {
                 var lineIndex = i+lineOffset;
@@ -217,8 +218,9 @@ public static class Hot
                     var glyph = glyphs[ix];
                     foreach (var shape in glyph.Shapes)
                     {
-                        foreach (var tuple in PolygonFiller.FillPolygon(shape, xoffs, yoffs))
+                        foreach (var tuple in PolygonFiller.FillPolygon(shape, xoffs, yoffs, nodeX))
                         {
+                            //max = Math.Max(nodeX.Count, max);
                             singleGlyphLineInfo.Push(tuple.y,tuple.x1,tuple.x2);
                         }
                     }
@@ -241,7 +243,7 @@ public static class Hot
                     singleGlyphUsedRowIndexes.Clear();
                 }
             }
-
+            //Console.WriteLine("Max = "+max);
             var lastIx = pixels.Length - 1;
             Parallel.For(0, wholeRows.Length,popts, i =>
             {
@@ -313,7 +315,7 @@ public static class Hot
         win.Top = 0;
         win.Width = w2;
         win.Height = h;
-        win.Title = "hi3";
+        win.Title = "hi";
     }
     static IEnumerable<int> GetHues(int numColors)
     {

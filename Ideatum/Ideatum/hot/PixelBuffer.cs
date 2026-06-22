@@ -12,6 +12,12 @@ public class PixelBuffer : Grid
     public Action Paint = () => { };
     public int[] Pixels = [];
     public Action Render = () => { };
+    internal delegate void WritePixelsDelegate(
+        Int32Rect sourceRect,
+        IntPtr buffer,
+        int bufferSize,
+        int stride
+    );
     public PixelBuffer()
     {
         WriteableBitmap bmp;
@@ -33,6 +39,7 @@ public class PixelBuffer : Grid
             if (gcHandle.IsAllocated) gcHandle.Free();
         };
 
+
         void Init(double newSizeWidth, double newSizeHeight)
         {
             if (gcHandle.IsAllocated) gcHandle.Free();
@@ -41,15 +48,17 @@ public class PixelBuffer : Grid
             var dpiScale = VisualTreeHelper.GetDpi(Application.Current.MainWindow);
             bmp = new WriteableBitmap(width, height, dpiScale.DpiScaleX, dpiScale.DpiScaleY, PixelFormats.Bgra32, null);
             Array.Resize(ref Pixels,width*height);
-            GCHandle.Alloc(Pixels, GCHandleType.Pinned);
+            gcHandle = GCHandle.Alloc(Pixels, GCHandleType.Pinned);
             rect = new Int32Rect(0, 0, width, height);
             int stride = bmp.BackBufferStride; // (width * 32 + 7) / 8;
             img.Source = bmp;
-            Action<Int32Rect, Array, int, int> writePixels = bmp.WritePixels;
-            var buffer = Pixels;
+            WritePixelsDelegate writePixels = bmp.WritePixels;
+            
+            var buffer = gcHandle.AddrOfPinnedObject();
+            var bufsize = Pixels.Length*sizeof(int);
             Paint = () =>
             {
-                writePixels(rect, buffer, stride, 0);
+                writePixels(rect, buffer,bufsize, stride);
             };
         }
     }

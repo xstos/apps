@@ -159,20 +159,25 @@ public static partial class Program
         
         var prevHash = LookForChanges();
         
-        bool dirty = false;
         var debounceTimer = new DispatcherTimer(DispatcherPriority.Normal);
         debounceTimer.Interval = TimeSpan.FromMilliseconds(100);
         debounceTimer.Tick += (sender, args) =>
         {
+            Console.WriteLine("debounce tick");
+            
             debounceTimer.Stop();
             var changes = LookForChanges();
             if (prevHash==changes) return;
+            prevHash = changes;
+            Console.WriteLine("reload");
+            
             Reload();
         };
         fsw.Changed += (o, eventArgs) =>
         {
             var path = eventArgs.FullPath.ToLower();
             if (path.EndsWith("~")) return;
+            Console.WriteLine("fsw changed");
             debounceTimer.Stop();
             debounceTimer.Start();
         };
