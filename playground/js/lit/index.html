@@ -29,66 +29,12 @@
 
 <body>
 <div id="app"></div>
+<script src="util.js"></script>
+<script src="keystrokes.js"></script>
 <script src="lit-html.js"></script>
-<script type="module">
-    var log = console.log.bind(console)
-    var el = document.getElementById.bind(document)
-
-    const text = await (await fetch('lit-html.js')).text();
-    //var lines = text.split('\n')
-    const textarr = text.split('')
-    var {html, render} = lit
-    // 1. Define the Application State
-    let counter = 0;
-    const container = el('app');
-
-    var tiles=textarr.map(tile)
-    //var lineArrays = lines.map(line=>line.split('').map(tile))
-
-    // 2. Define Pure Functional Components
-    function Header(title) {
-        return html`
-        <h1>${title}</h1>
-    `;
-    }
-    function rndByte() {
-        return Math.floor(Math.random() * 255)
-    }
-    function getRandomColor(transp0to1) {
-        return `rgba(${rndByte()},${rndByte()},${rndByte()}, ${transp0to1})`;
-    }
-    function tile(char) {
-        if (char==='\n')
-            return html`<br>`
-        return html`<span class="hovergrow" style="color: ${getRandomColor(1)}; background-color: ${getRandomColor(0.2)}">${char}</span>`
-    }
-
-    function CounterApp(count, onIncrement) {
-        return html`
-        <div>
-            ${Header('Classless Lit App')}
-            <p>The count is currently: <strong>${count}</strong></p>
-            <button @click=${onIncrement}>Increment Count</button>
-            <br><br>
-            ${tiles}
-        </div>
-    `;
-    }
-
-    // 3. State Mutation Handler
-    function increment() {
-        counter++;
-        update(); // Manually trigger re-render
-    }
-
-    // 4. Render Engine Setup
-    function update() {
-        render(CounterApp(counter, increment), container);
-    }
-
-    // Initial Bootstrapping
-    update();
-</script>
+<script src="nodes.js"></script>
+<script src="bindings.js"></script>
+<script type="module" src="main.js"></script>
 </body>
 
 </html>
