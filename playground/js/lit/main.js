@@ -4,14 +4,12 @@ var text = await (await fetch('lit-html.js')).text()
 //var lines = text.split('\n')
 const textarr = text.split('')
 var {html, render} = lit
-// 1. Define the Application State
 let counter = 0;
 const container = el('app');
 
 var tiles=textarr.map(tile)
 //var lineArrays = lines.map(line=>line.split('').map(tile))
 var state = ['cursor ']
-// 2. Define Pure Functional Components
 function Header(title) {
     return html`<h1>${title}</h1>`;
 }
@@ -37,12 +35,22 @@ function RenderNode(n) {
     id++
     return html`<span id="${id}">${n}</span>`
 }
+function Render(n) {
+    const t = getType(n)
+    if (isChar(n)) {
+        const c = String.fromCharCode(getData(n))
+        return html`<span>${c}</span>`
+    }
+    if (isCursor(n)) {
+        return html`<span>█</span>`
+    }
+}
 function RenderBox(first) {
     const last = getPair(first) //
-    return html`
-        <span>${typeStrings[first[keyType]]}${first[keyIndex]}</span>
-        <span>${first[keyIndex]}${typeStrings[last[keyType]]}</span>
-    `
+    const derp = Array.from(getChildren(first))
+    log(...derp)
+    const boxIndex = first[keyIndex];
+    return html`<span>${typeStrings[first[keyType]]}${boxIndex}</span>${derp.map(Render)}<span>${boxIndex}${typeStrings[last[keyType]]}</span>`
 }
 function RenderState(s) {
 

@@ -1,18 +1,21 @@
-const keyIndex = 'i';
-const keyParent = 'p';
-const keyType = 't';
-const keyData = 'd';
-const keyPrev = 'a';
-const keyNext = 'b';
-const keyPair = 'r';
+const keyIndex = 'ix';
+const keyParent = 'par';
+const keyType = 'type';
+const keyData = 'data';
+const keyPrev = 'prev';
+const keyNext = 'next';
+const keyPair = 'pair';
 const state = {
     nodes: [emptyNode()]
+}
+function nodeById(id) {
+    return state.nodes[id]
 }
 function nodesById(...nodeIds) {
     const nodes = state.nodes;
     return nodeIds.map(i=>nodes[i])
 }
-function nodes(...items) {
+function Nodes(...items) {
     return items.map(node)
 }
 
@@ -27,14 +30,44 @@ function emptyNode() {
         [keyPair]: 0,
     }
 }
+function getId(n) {
+    return n[keyIndex]
+}
+function getType(n) {
+    return n[keyType]
+}
 function getPrev(n) {
-    return nodesById(n.a)
+    return nodeById(n[keyPrev])
 }
 function getNext(n) {
-    return nodesById(n.b)
+    return nodeById(n[keyNext])
 }
+
 function getPair(n) {
-    return nodesById(n[keyPair])[0]
+    return nodeById(n[keyPair])
+}
+function getData(n) {
+    return n[keyData]
+}
+function nodeEqual(a,b) {
+    return getId(a)===getId(b)
+}
+function* getChildren(n) {
+    const last = getPair(n)
+    var it = getNext(n)
+    while(!nodeEqual(it,last)) {
+        yield it
+        it=getNext(it)
+    }
+}
+function isType(n,t) {
+    return getType(n)===t
+}
+function isChar(n) {
+    return isType(n,tchar)
+}
+function isCursor(n) {
+    return isType(n,tcur)
 }
 const [tNull, tchar,tcur,topen,tclose] = [0,1,2,3,4]
 const types = {
@@ -57,44 +90,44 @@ function node(kind) {
         const tag = kind[1]
         t=types[tag]
     }
-    const nodeData = {...emptyNode(), i,t,d}
+    const nodeData = {...emptyNode(), [keyIndex]:i,[keyType]:t,[keyData]:d}
     state.nodes.push(nodeData)
     log(nodeData)
     return nodeData
 }
-function edges(...items) {
+function Edges(...items) {
     for (let i = 1; i < items.length; i++) {
         const a = items[i-1]
         const b = items[i]
-        edge(a,b)
+        Edge(a,b)
     }
 }
-function edge(a,b) {
-    a[keyPrev] = b[keyIndex]
-    b[keyNext] = a[keyIndex]
+function Edge(a,b) {
+    a[keyNext] = b[keyIndex]
+    b[keyPrev] = a[keyIndex]
 }
-function pair(a,b) {
+function Pair(a,b) {
     a[keyPair] = b[keyIndex]
     b[keyPair] = a[keyIndex]
 }
-function parent(target,parent) {
+function Parent(target,parent) {
     target[keyParent]=parent[keyIndex]
 }
 function before(target) {
     return [nodesById(target[keyPrev]),target]
 }
-function insert(between,p,...items) {
+function Insert(between,p,...items) {
     var [a,b] = between
-    edges(a,...items,b)
-    items.map(n=>parent(n,p))
+    Edges(a,...items,b)
+    items.map(n=>Parent(n,p))
 }
 function remove(i) {
 
 }
-const [rootOpen,cursor,rootClosed] = initial = nodes("@<","@█","@>")
-pair(rootOpen,rootClosed)
-edges(initial)
-parent(cursor,rootOpen)
+const [rootOpen,cursor,rootClosed] = initial = Nodes("@<","@█","@>")
+Pair(rootOpen,rootClosed)
+Edges(...initial)
+Parent(cursor,rootOpen)
 
 function processEvents() {
     for (let i = 0; i < evt.length; i++) {
@@ -106,7 +139,7 @@ function processEvents() {
 function processEvent(e) {
     log(e)
     const { t, key } = e
-    insert(before(cursor),cursor,node(key))
+    Insert(before(cursor),cursor,node(key))
 }
 function raf() {
     if (evt.length>0) processEvents()
