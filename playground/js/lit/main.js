@@ -81,6 +81,6 @@ function increment() {
 function update() {
     render(CounterApp(counter, increment), container);
 }
-
+globalThis.update = update
 // Initial Bootstrapping
 update();

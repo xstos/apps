@@ -49,6 +49,9 @@ function getPair(n) {
 function getData(n) {
     return n[keyData]
 }
+function getParent(n) {
+    return nodesById(n[keyParent])
+}
 function nodeEqual(a,b) {
     return getId(a)===getId(b)
 }
@@ -116,12 +119,11 @@ function Parent(target,parent) {
 function before(target) {
     return [nodesById(target[keyPrev]),target]
 }
-function Insert(between,p,...items) {
-    var [a,b] = between
-    Edges(a,...items,b)
+function replace(n,...items) {
+    const [prev,next] = [getPrev(n),getNext(n)]
+    const p = getParent(n)
+    Edges(prev,...items,next)
     items.map(n=>Parent(n,p))
-}
-function remove(i) {
 
 }
 const [rootOpen,cursor,rootClosed] = initial = Nodes("@<","@█","@>")
@@ -139,7 +141,8 @@ function processEvents() {
 function processEvent(e) {
     log(e)
     const { t, key } = e
-    Insert(before(cursor),cursor,node(key))
+    replace(cursor,node(key),cursor)
+    globalThis.update()
 }
 function raf() {
     if (evt.length>0) processEvents()
