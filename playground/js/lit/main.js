@@ -40,7 +40,7 @@ function Render(n) {
     if (isChar(n)) {
         const c = String.fromCharCode(getData(n))
         if (c==="\n") {
-            return html`<br>`
+            return html`↵<br>`
         }
         return html`<span>${c}</span>`
     }

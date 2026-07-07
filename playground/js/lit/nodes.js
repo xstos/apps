@@ -139,7 +139,12 @@ const [rootOpen,cursor,rootClosed] = initial = Nodes("@"+typeStr(topen),"@█","
 Pair(rootOpen,rootClosed)
 Edges(...initial)
 Parent(cursor,rootOpen)
-
+function isRootOpen(n) {
+    return getId(n)===getId(rootOpen)
+}
+function isRootClosed(n) {
+    return getId(n)===getId(rootClosed)
+}
 function processEvents() {
     for (let i = 0; i < evt.length; i++) {
         processEvent(evt[i])
@@ -165,6 +170,16 @@ function processEvent(e) {
         const [bOpen,bClose] = Nodes("@"+typeStr(topen),"@"+typeStr(tclose))
         Pair(bOpen,bClose)
         replace(cursor,cursor,bOpen,bClose)
+    } else if (key==="arrowright") {
+        const [p,n] = [getPrev(cursor),getNext(cursor)]
+        if (isRootClosed(n)) return
+        const nn = getNext(n)
+        Edges(p,n,cursor,nn)
+    } else if (key==="arrowleft") {
+        const [p,n] = [getPrev(cursor),getNext(cursor)]
+        if (isRootOpen(p)) return
+        const pp = getPrev(p)
+        Edges(pp,cursor,p,n)
     } else {
         replace(cursor,node(key),cursor)
     }
