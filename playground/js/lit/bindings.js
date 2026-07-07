@@ -7,9 +7,12 @@ document.addEventListener('keydown', event => {
     const mod = [event.ctrlKey && "ctrl", event.altKey && "alt", event.shiftKey && "shift"]
         .filter(v=>v)
 
-    const key = [...mod, k].join("+")
+    var key = [...mod, k].join("+")
     if (equalsAny(key, 'ctrl+a', 'tab')) {
         event.preventDefault()
+    }
+    if (key==="shift+enter") {
+        key="\n"
     }
     evt.push({ t: 'io', key})
 

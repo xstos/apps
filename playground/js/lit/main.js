@@ -39,7 +39,13 @@ function Render(n) {
     const t = getType(n)
     if (isChar(n)) {
         const c = String.fromCharCode(getData(n))
+        if (c==="\n") {
+            return html`<br>`
+        }
         return html`<span>${c}</span>`
+    }
+    if (isOpen(n)) {
+        return RenderBox(n)
     }
     if (isCursor(n)) {
         return html`<span>█</span>`
@@ -50,7 +56,10 @@ function RenderBox(first) {
     const derp = Array.from(getChildren(first))
     log(...derp)
     const boxIndex = first[keyIndex];
-    return html`<span>${typeStrings[first[keyType]]}${boxIndex}</span>${derp.map(Render)}<span>${boxIndex}${typeStrings[last[keyType]]}</span>`
+    const openStr = typeStrings[first[keyType]];
+    const closeStr = typeStrings[last[keyType]];
+    log(openStr,closeStr)
+    return html`<span>${openStr}${boxIndex}</span>${derp.map(Render)}<span>${boxIndex}${closeStr}</span>`
 }
 function RenderState(s) {
 
@@ -63,10 +72,9 @@ function CounterApp(count, onIncrement) {
             <p>The count is currently: <strong>${count}</strong></p>
             <button @click=${onIncrement}>Increment Count</button>
             <br><br>
-            ${RenderBox(rootOpen)}
+            ${Render(rootOpen)}
 
             <br><br>
-            ${tiles}
         </div>
     `;
 }

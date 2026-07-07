@@ -36,6 +36,9 @@ function getId(n) {
 function getType(n) {
     return n[keyType]
 }
+function typeStr(type) {
+    return typeStrings[type]
+}
 function getPrev(n) {
     return nodeById(n[keyPrev])
 }
@@ -72,13 +75,19 @@ function isChar(n) {
 function isCursor(n) {
     return isType(n,tcur)
 }
+function isOpen(n) {
+    return isType(n,topen)
+}
+function isClose(n) {
+    return isType(n,tclose)
+}
 const [tNull, tchar,tcur,topen,tclose] = [0,1,2,3,4]
 const types = {
     ['']: tNull,
     ['c']: tchar,
     ['█']: tcur,
-    ['<']: topen,
-    ['>']: tclose,
+    ['[']: topen,
+    [']']: tclose,
 }
 const typeStrings = Object.keys(types)
 //const tn = Object.fromEntries(Object.values(nt).map((v,i) => [v, i]))
@@ -126,7 +135,7 @@ function replace(n,...items) {
     items.map(n=>Parent(n,p))
 
 }
-const [rootOpen,cursor,rootClosed] = initial = Nodes("@<","@█","@>")
+const [rootOpen,cursor,rootClosed] = initial = Nodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
 Pair(rootOpen,rootClosed)
 Edges(...initial)
 Parent(cursor,rootOpen)
@@ -141,7 +150,24 @@ function processEvents() {
 function processEvent(e) {
     log(e)
     const { t, key } = e
-    replace(cursor,node(key),cursor)
+    if (key==="backspace") {
+        const prev = getPrev(cursor)
+        if (isOpen(prev)) {
+            // ignore
+        } else if (isClose(prev)) {
+            const openNode = getPair(prev)
+
+        } else {
+            const prevPrev = getPrev(prev)
+            Edges(prevPrev,cursor)
+        }
+    } else if (key==="ctrl+enter") {
+        const [bOpen,bClose] = Nodes("@"+typeStr(topen),"@"+typeStr(tclose))
+        Pair(bOpen,bClose)
+        replace(cursor,cursor,bOpen,bClose)
+    } else {
+        replace(cursor,node(key),cursor)
+    }
     globalThis.update()
 }
 function raf() {
