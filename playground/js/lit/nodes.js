@@ -60,7 +60,7 @@ function nodeEqual(a,b) {
 }
 function* getChildren(n) {
     const last = getPair(n)
-    var it = getNext(n)
+    let it = getNext(n);
     while(!nodeEqual(it,last)) {
         yield it
         it=getNext(it)
@@ -89,20 +89,24 @@ const types = {
     ['[']: topen,
     [']']: tclose,
 }
+
 const typeStrings = Object.keys(types)
 //const tn = Object.fromEntries(Object.values(nt).map((v,i) => [v, i]))
 function node(kind) {
     const i = state.nodes.length;
     var t = 0
     var d = 0
+    var s = ""
     if (kind.length===1) {
         t=1
         d=kind.charCodeAt(0)
+        s=kind
     } else {
         const tag = kind[1]
         t=types[tag]
+        s=tag
     }
-    const nodeData = {...emptyNode(), [keyIndex]:i,[keyType]:t,[keyData]:d}
+    const nodeData = {s,...emptyNode(), [keyIndex]:i,[keyType]:t,[keyData]:d}
     state.nodes.push(nodeData)
     log(nodeData)
     return nodeData
@@ -115,15 +119,15 @@ function Edges(...items) {
     }
 }
 function Edge(a,b) {
-    a[keyNext] = b[keyIndex]
-    b[keyPrev] = a[keyIndex]
+    a[keyNext] = getId(b)
+    b[keyPrev] = getId(a)
 }
 function Pair(a,b) {
-    a[keyPair] = b[keyIndex]
-    b[keyPair] = a[keyIndex]
+    a[keyPair] = getId(b)
+    b[keyPair] = getId(a)
 }
 function Parent(target,parent) {
-    target[keyParent]=parent[keyIndex]
+    target[keyParent]=getId(parent)
 }
 function before(target) {
     return [nodesById(target[keyPrev]),target]
@@ -133,18 +137,12 @@ function replace(n,...items) {
     const p = getParent(n)
     Edges(prev,...items,next)
     items.map(n=>Parent(n,p))
-
 }
 const [rootOpen,cursor,rootClosed] = initial = Nodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
 Pair(rootOpen,rootClosed)
 Edges(...initial)
 Parent(cursor,rootOpen)
-function isRootOpen(n) {
-    return getId(n)===getId(rootOpen)
-}
-function isRootClosed(n) {
-    return getId(n)===getId(rootClosed)
-}
+
 function processEvents() {
     for (let i = 0; i < evt.length; i++) {
         processEvent(evt[i])
@@ -172,14 +170,16 @@ function processEvent(e) {
         replace(cursor,cursor,bOpen,bClose)
     } else if (key==="arrowright") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
-        if (isRootClosed(n)) return
-        const nn = getNext(n)
-        Edges(p,n,cursor,nn)
+        if (!nodeEqual(n,rootClosed)) {
+            const nn = getNext(n)
+            Edges(p,n,cursor,nn)
+        }
     } else if (key==="arrowleft") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
-        if (isRootOpen(p)) return
-        const pp = getPrev(p)
-        Edges(pp,cursor,p,n)
+        if (!nodeEqual(p, rootOpen)) {
+            const pp = getPrev(p)
+            Edges(pp, cursor, p, n)
+        }
     } else {
         replace(cursor,node(key),cursor)
     }
