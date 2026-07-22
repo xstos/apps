@@ -1,24 +1,18 @@
 
-var text = await (await fetch('lit-html.js')).text()
+var sampleText = await (await fetch('lit-html.js')).text()
 
-//var lines = text.split('\n')
-const textarr = text.split('')
-var {html, render} = lit
+//var lines = sampleText.split('\n')
+const textarr = sampleText.split('')
+
 let counter = 0;
 const container = el('app');
 
 var tiles=textarr.map(tile)
 //var lineArrays = lines.map(line=>line.split('').map(tile))
-var state = ['cursor ']
 function Header(title) {
     return html`<h1>${title}</h1>`;
 }
-function rndByte() {
-    return Math.floor(Math.random() * 255)
-}
-function getRandomColor(transp0to1) {
-    return `rgba(${rndByte()},${rndByte()},${rndByte()}, ${transp0to1})`;
-}
+
 function tile(char) {
     if (char==='\n')
         return html`<br>`
@@ -52,7 +46,14 @@ function Render(n) {
     }
 }
 function strf(o) {
-    return JSON.stringify(o).replaceAll("\"","")
+    const dup = {...o};
+    delete dup[keyType]
+    delete dup[keyData]
+    if (dup[keyPair]===0) {
+        delete dup[keyPair]
+    }
+    const s = JSON.stringify(dup).replaceAll("\"","").replaceAll(","," ")
+    return html`${s}<br>`
 }
 function RenderBox(first) {
     const last = getPair(first) //
@@ -83,16 +84,14 @@ function CounterApp(count, onIncrement) {
     `;
 }
 
-// 3. State Mutation Handler
 function increment() {
     counter++;
     update(); // Manually trigger re-render
 }
 
-// 4. Render Engine Setup
 function update() {
     render(CounterApp(counter, increment), container);
 }
 globalThis.update = update
-// Initial Bootstrapping
+
 update();

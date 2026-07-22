@@ -1,10 +1,10 @@
-const keyIndex = 'ix';
-const keyParent = 'par';
+const keyIndex = 'i';
+const keyParent = 'p';
 const keyType = 'type';
 const keyData = 'data';
-const keyPrev = 'prev';
-const keyNext = 'next';
-const keyPair = 'pair';
+const keyPrev = '<';
+const keyNext = '>';
+const keyPair = 'o';
 const state = {
     nodes: [emptyNode()]
 }
@@ -147,6 +147,7 @@ function processEvents() {
     for (let i = 0; i < evt.length; i++) {
         processEvent(evt[i])
     }
+    globalThis.update()
     evt.length=0
 }
 
@@ -183,7 +184,7 @@ function processEvent(e) {
     } else {
         replace(cursor,node(key),cursor)
     }
-    globalThis.update()
+
 }
 function raf() {
     if (evt.length>0) processEvents()

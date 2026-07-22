@@ -1,4 +1,4 @@
-(function() {
+function lit() {
 /**
  * @license
  * Copyright 2017 Google LLC
@@ -281,10 +281,10 @@ const D = (t, i, s) => {
     }
     return h._$AI(t), h
 };
-window.lit = {
+return {
     html: b,
     render: D,
 }
-})()
+}
 //export {j as _$LH, b as html, T as mathml, E as noChange, A as nothing, D as render, w as svg};
 //# sourceMappingURL=lit-html.js.map
