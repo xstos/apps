@@ -53,7 +53,7 @@ function getData(n) {
     return n[keyData]
 }
 function getParent(n) {
-    return nodesById(n[keyParent])
+    return nodeById(n[keyParent])
 }
 function nodeEqual(a,b) {
     return getId(a)===getId(b)
@@ -136,13 +136,13 @@ function replace(n,...items) {
     const [prev,next] = [getPrev(n),getNext(n)]
     const p = getParent(n)
     Edges(prev,...items,next)
-    items.map(n=>Parent(n,p))
+    items.forEach(n=>Parent(n,p))
 }
 const [rootOpen,cursor,rootClosed] = initial = Nodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
 Pair(rootOpen,rootClosed)
 Edges(...initial)
 Parent(cursor,rootOpen)
-
+log(cursor[keyParent])
 function processEvents() {
     for (let i = 0; i < evt.length; i++) {
         processEvent(evt[i])
@@ -174,12 +174,27 @@ function processEvent(e) {
         if (!nodeEqual(n,rootClosed)) {
             const nn = getNext(n)
             Edges(p,n,cursor,nn)
+            if (isOpen(n)) {
+                Parent(cursor,n)
+            }
+            if (isClose(n)) {
+                const closeParent = getParent(n)
+                Parent(cursor,closeParent)
+            }
         }
     } else if (key==="arrowleft") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
         if (!nodeEqual(p, rootOpen)) {
             const pp = getPrev(p)
             Edges(pp, cursor, p, n)
+            if (isOpen(p)) {
+                const par = getParent(p)
+                Parent(cursor,par)
+            }
+            if (isClose(p)) {
+                const par = getPair(p)
+                Parent(cursor,par)
+            }
         }
     } else {
         replace(cursor,node(key),cursor)

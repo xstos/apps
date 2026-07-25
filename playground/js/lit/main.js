@@ -57,18 +57,28 @@ function strf(o) {
 }
 function RenderBox(first) {
     const last = getPair(first) //
-    const derp = Array.from(getChildren(first))
-    log(...derp)
+    let it = getNext(first);
+    const items = []
+    while(!nodeEqual(it,last)) {
+        if (isChar(it)) {
+            items.push(html`${strf(it)}`)
+        } else if (isOpen(it)) {
+            items.push(RenderBox(it))
+            const close = getPair(it)
+            it=close;
+        } else if (isClose(it)) {
+            debugger
+        } else if (isCursor(it)) {
+            items.push(html`${strf(it)}`)
+        }
+        it=getNext(it)
+    }
     const boxIndex = first[keyIndex];
     const openStr = typeStrings[first[keyType]];
     const closeStr = typeStrings[last[keyType]];
     log(openStr,closeStr)
-    return html`${strf(first)}${derp.map(c=>strf(c))}${strf(last)}`
+    return html`${strf(first)}${items}${strf(last)}`
     //return html`<span>${openStr}${boxIndex}</span>${derp.map(Render)}<span>${boxIndex}${closeStr}</span>`
-}
-function RenderState(s) {
-
-    return RenderNode(s)
 }
 function CounterApp(count, onIncrement) {
     return html`
