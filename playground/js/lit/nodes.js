@@ -11,12 +11,8 @@ const state = {
 function nodeById(id) {
     return state.nodes[id]
 }
-function nodesById(...nodeIds) {
-    const nodes = state.nodes;
-    return nodeIds.map(i=>nodes[i])
-}
-function Nodes(...items) {
-    return items.map(node)
+function makeNodes(...items) {
+    return items.map(makeNode)
 }
 
 function emptyNode() {
@@ -30,7 +26,7 @@ function emptyNode() {
         [keyPair]: 0,
     }
 }
-function getId(n) {
+function getIndex(n) {
     return n[keyIndex]
 }
 function getType(n) {
@@ -56,15 +52,7 @@ function getParent(n) {
     return nodeById(n[keyParent])
 }
 function nodeEqual(a,b) {
-    return getId(a)===getId(b)
-}
-function* getChildren(n) {
-    const last = getPair(n)
-    let it = getNext(n);
-    while(!nodeEqual(it,last)) {
-        yield it
-        it=getNext(it)
-    }
+    return getIndex(a)===getIndex(b)
 }
 function isType(n,t) {
     return getType(n)===t
@@ -92,7 +80,7 @@ const types = {
 
 const typeStrings = Object.keys(types)
 //const tn = Object.fromEntries(Object.values(nt).map((v,i) => [v, i]))
-function node(kind) {
+function makeNode(kind) {
     const i = state.nodes.length;
     var t = 0
     var d = 0
@@ -111,38 +99,34 @@ function node(kind) {
     log(nodeData)
     return nodeData
 }
-function Edges(...items) {
+function setEdges(...items) {
     for (let i = 1; i < items.length; i++) {
         const a = items[i-1]
         const b = items[i]
-        Edge(a,b)
+        setEdge(a,b)
     }
 }
-function Edge(a,b) {
-    a[keyNext] = getId(b)
-    b[keyPrev] = getId(a)
+function setEdge(a,b) {
+    a[keyNext] = getIndex(b)
+    b[keyPrev] = getIndex(a)
 }
-function Pair(a,b) {
-    a[keyPair] = getId(b)
-    b[keyPair] = getId(a)
+function setPair(a,b) {
+    a[keyPair] = getIndex(b)
+    b[keyPair] = getIndex(a)
 }
-function Parent(target,parent) {
-    target[keyParent]=getId(parent)
-}
-function before(target) {
-    return [nodesById(target[keyPrev]),target]
+function setParent(target,parent) {
+    target[keyParent]=getIndex(parent)
 }
 function replace(n,...items) {
     const [prev,next] = [getPrev(n),getNext(n)]
     const p = getParent(n)
-    Edges(prev,...items,next)
-    items.forEach(n=>Parent(n,p))
+    setEdges(prev,...items,next)
+    items.forEach(n=>setParent(n,p))
 }
-const [rootOpen,cursor,rootClosed] = initial = Nodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
-Pair(rootOpen,rootClosed)
-Edges(...initial)
-Parent(cursor,rootOpen)
-log(cursor[keyParent])
+const [rootOpen,cursor,rootClosed] = initial = makeNodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
+setPair(rootOpen,rootClosed)
+setEdges(...initial)
+setParent(cursor,rootOpen)
 function processEvents() {
     for (let i = 0; i < evt.length; i++) {
         processEvent(evt[i])
@@ -163,41 +147,41 @@ function processEvent(e) {
 
         } else {
             const prevPrev = getPrev(prev)
-            Edges(prevPrev,cursor)
+            setEdges(prevPrev,cursor)
         }
     } else if (key==="ctrl+enter") {
-        const [bOpen,bClose] = Nodes("@"+typeStr(topen),"@"+typeStr(tclose))
-        Pair(bOpen,bClose)
+        const [bOpen,bClose] = makeNodes("@"+typeStr(topen),"@"+typeStr(tclose))
+        setPair(bOpen,bClose)
         replace(cursor,cursor,bOpen,bClose)
     } else if (key==="arrowright") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
         if (!nodeEqual(n,rootClosed)) {
             const nn = getNext(n)
-            Edges(p,n,cursor,nn)
+            setEdges(p,n,cursor,nn)
             if (isOpen(n)) {
-                Parent(cursor,n)
+                setParent(cursor,n)
             }
             if (isClose(n)) {
                 const closeParent = getParent(n)
-                Parent(cursor,closeParent)
+                setParent(cursor,closeParent)
             }
         }
     } else if (key==="arrowleft") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
         if (!nodeEqual(p, rootOpen)) {
             const pp = getPrev(p)
-            Edges(pp, cursor, p, n)
+            setEdges(pp, cursor, p, n)
             if (isOpen(p)) {
                 const par = getParent(p)
-                Parent(cursor,par)
+                setParent(cursor,par)
             }
             if (isClose(p)) {
                 const par = getPair(p)
-                Parent(cursor,par)
+                setParent(cursor,par)
             }
         }
     } else {
-        replace(cursor,node(key),cursor)
+        replace(cursor,makeNode(key),cursor)
     }
 
 }

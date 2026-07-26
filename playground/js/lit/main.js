@@ -52,7 +52,7 @@ function strf(o) {
     if (dup[keyPair]===0) {
         delete dup[keyPair]
     }
-    const s = JSON.stringify(dup).replaceAll("\"","").replaceAll(","," ")
+    const s = JSON.stringify(dup).replaceAll("\"","").replaceAll(","," ").replaceAll(":","")
     return html`${s}<br>`
 }
 function RenderBox(first) {
