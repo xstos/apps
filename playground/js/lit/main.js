@@ -52,8 +52,21 @@ function strf(o) {
     if (dup[keyPair]===0) {
         delete dup[keyPair]
     }
-    const s = JSON.stringify(dup).replaceAll("\"","").replaceAll(","," ").replaceAll(":","")
-    return html`${s}<br>`
+    //const s = JSON.stringify(dup).replaceAll("\"","").replaceAll(","," ").replaceAll(":","")
+    let sval = dup.s
+    delete dup.s
+    const e = Object.entries(dup)
+    function div(val) {
+        return html`<div>${val}</div>`
+    }
+
+    function selector(item) {
+        const [k,v]=item
+        return div(k+v)
+    }
+    const br = sval==="\n" ? html`<br>` : null
+    sval = sval === "\n" ? "↵" : sval
+    return html`<div class="container">${div(sval)}${e.map(selector)}</div>${br}`
 }
 function RenderBox(first) {
     const last = getPair(first) //
