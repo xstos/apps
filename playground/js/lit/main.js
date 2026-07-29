@@ -56,17 +56,17 @@ function strf(o) {
     let sval = dup.s
     delete dup.s
     const e = Object.entries(dup)
-    function div(val) {
-        return html`<div>${val}</div>`
+    function div(val, fontSize) {
+        return html`<div class="item" style="font-size: ${fontSize};">${val}</div>`
     }
 
     function selector(item) {
         const [k,v]=item
-        return div(k+v)
+        return div(k+v,"0.5em")
     }
     const br = sval==="\n" ? html`<br>` : null
     sval = sval === "\n" ? "↵" : sval
-    return html`<div class="container">${div(sval)}${e.map(selector)}</div>${br}`
+    return html`<div class="container">${div(sval, "1em")}${e.map(selector)}</div>${br}`
 }
 function RenderBox(first) {
     const last = getPair(first) //
