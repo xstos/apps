@@ -11,10 +11,8 @@ document.addEventListener('keydown', event => {
     if (equalsAny(key, 'ctrl+a', 'tab')) {
         event.preventDefault()
     }
-    if (key==="shift+enter") {
+    if (key==="enter") {
         key="\n"
     }
     evt.push({ t: 'io', key})
-
-
 });

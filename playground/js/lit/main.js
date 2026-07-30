@@ -9,9 +9,6 @@ const container = el('app');
 
 var tiles=textarr.map(tile)
 //var lineArrays = lines.map(line=>line.split('').map(tile))
-function Header(title) {
-    return html`<h1>${title}</h1>`;
-}
 
 function tile(char) {
     if (char==='\n')
@@ -62,11 +59,11 @@ function strf(o) {
 
     function selector(item) {
         const [k,v]=item
-        return div(k+v,"0.5em")
+        return div(k+v,"0.4em")
     }
     const br = sval==="\n" ? html`<br>` : null
     sval = sval === "\n" ? "↵" : sval
-    return html`<div class="container">${div(sval, "1em")}${e.map(selector)}</div>${br}`
+    return html`<div id="${dup[keyIndex]}" class="container">${div(sval, "1em")}${e.map(selector)}</div>${br}`
 }
 function RenderBox(first) {
     const last = getPair(first) //
@@ -96,17 +93,14 @@ function RenderBox(first) {
 function CounterApp(count, onIncrement) {
     return html`
         <div>
-            ${Header('Classless Lit App')}
-            <p>The count is currently: <strong>${count}</strong></p>
-            <button @click=${onIncrement}>Increment Count</button>
-            <br><br>
+            <p>The count is currently: <strong>${count}</strong><button @click=${onIncrement}>+</button></p>
             ${Render(rootOpen)}
-
-            <br><br>
         </div>
     `;
 }
-
+function getCursorElement() {
+    return el("2")
+}
 function increment() {
     counter++;
     update(); // Manually trigger re-render
@@ -114,6 +108,7 @@ function increment() {
 
 function update() {
     render(CounterApp(counter, increment), container);
+    getCursorElement().scrollIntoView()
 }
 globalThis.update = update
 
