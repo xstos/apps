@@ -1,10 +1,10 @@
 const keyIndex = 'i';
-const keyParent = 'p';
+const keyParent = '↖︎';
 const keyType = 'type';
 const keyData = 'data';
-const keyPrev = '<';
-const keyNext = '>';
-const keyPair = 'o';
+const keyPrev = '←';
+const keyNext = '→';
+const keyPair = '⇄';
 const state = {
     nodes: [emptyNode()]
 }
@@ -74,8 +74,8 @@ const types = {
     ['']: tNull,
     ['c']: tchar,
     ['█']: tcur,
-    ['[']: topen,
-    [']']: tclose,
+    ['⟪']: topen,
+    ['⟫']: tclose,
 }
 
 const typeStrings = Object.keys(types)
