@@ -149,11 +149,40 @@ function processEvent(e) {
             const prevPrev = getPrev(prev)
             setEdges(prevPrev,cursor)
         }
-    } else if (key==="ctrl+enter") {
+    }
+    else if (key==="ctrl+backspace") {
+        const prev = getPrev(cursor)
+        if (isClose(prev)) {
+            const openNode = getPair(prev)
+            const prev2 = getPrev(openNode)
+            setEdge(prev2,cursor)
+        }
+    }
+    else if (key==="delete") {
+        const next = getNext(cursor)
+        if (isOpen(next)) {
+
+        } else if (isClose(next)) {
+
+        } else {
+            const nextNext = getNext(next)
+            setEdge(cursor,nextNext)
+        }
+    }
+    else if (key==="ctrl+delete") {
+        const next = getNext(cursor)
+        if (isOpen(next)) {
+            const close = getPair(next)
+            const closeNext = getNext(close)
+            setEdge(cursor,closeNext)
+        }
+    }
+    else if (key==="ctrl+enter") {
         const [bOpen,bClose] = makeNodes("@"+typeStr(topen),"@"+typeStr(tclose))
         setPair(bOpen,bClose)
         replace(cursor,cursor,bOpen,bClose)
-    } else if (key==="arrowright") {
+    }
+    else if (key==="arrowright") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
         if (!nodeEqual(n,rootClosed)) {
             const nn = getNext(n)
@@ -166,7 +195,8 @@ function processEvent(e) {
                 setParent(cursor,closeParent)
             }
         }
-    } else if (key==="arrowleft") {
+    }
+    else if (key==="arrowleft") {
         const [p,n] = [getPrev(cursor),getNext(cursor)]
         if (!nodeEqual(p, rootOpen)) {
             const pp = getPrev(p)
@@ -180,7 +210,9 @@ function processEvent(e) {
                 setParent(cursor,par)
             }
         }
-    } else {
+    }
+
+    else {
         replace(cursor,makeNode(key),cursor)
     }
 
