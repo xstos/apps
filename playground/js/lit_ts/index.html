@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>lit</title>
+    <style>
+        html {
+            filter: invert(1);
+        }
+        body {
+            font-family: 'Consolas', sans-serif;
+            letter-spacing: 0px;
+            background-color: white;
+        }
+    </style>
+</head>
+
+<body>
+<div id="app"></div>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+
+<script type="text/babel" data-presets="typescript" data-type="module">
+    import { html, render} from 'https://unpkg.com/lit-html@3.3.3/lit-html.js'
+    const myTemplate = html`<div>Hello World</div>`;
+    render(myTemplate, document.body);
+
+</script>
+</body>
+
+</html>
