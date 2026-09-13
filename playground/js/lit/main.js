@@ -87,9 +87,14 @@ function RenderBox(first) {
     const openStr = typeStrings[first[keyType]];
     const closeStr = typeStrings[last[keyType]];
     log(openStr,closeStr)
-    return html`${strf(first)}${items}${strf(last)}`
+    var spacer = isRootOpen(first) ? html`<br>` : ""
+    return html`${strf(first)}${spacer}${items}${spacer}${strf(last)}`
     //return html`<span>${openStr}${boxIndex}</span>${derp.map(Render)}<span>${boxIndex}${closeStr}</span>`
 }
+function v(...args) {
+    log(JSON.stringify(args))
+}
+v`a${"arg1"}b${"arg2"}c`;
 function CounterApp(count, onIncrement) {
     return html`
         <div>
@@ -99,7 +104,7 @@ function CounterApp(count, onIncrement) {
     `;
 }
 function getCursorElement() {
-    return el("2")
+    return el(getCursorId().toString())
 }
 function increment() {
     counter++;

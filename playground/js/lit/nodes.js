@@ -69,6 +69,7 @@ function isOpen(n) {
 function isClose(n) {
     return isType(n,tclose)
 }
+
 const [tNull, tchar,tcur,topen,tclose] = [0,1,2,3,4]
 const types = {
     ['']: tNull,
@@ -124,13 +125,24 @@ function replace(n,...items) {
     items.forEach(n=>setParent(n,p))
 }
 const [rootOpen,cursor,rootClosed] = initial = makeNodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
+function getCursorId() {
+    return getIndex(cursor)
+}
+function getRootOpenId() {
+    return getIndex(rootOpen)
+}
+function getRootCloseId() {
+    return getIndex(rootClosed)
+}
+function isRootOpen(n) {
+    return getIndex(n)===getRootOpenId()
+}
+
 setPair(rootOpen,rootClosed)
 setEdges(...initial)
 setParent(cursor,rootOpen)
 function processEvents() {
-    for (let i = 0; i < evt.length; i++) {
-        processEvent(evt[i])
-    }
+    evt.forEach(processEvent)
     globalThis.update()
     evt.length=0
 }
