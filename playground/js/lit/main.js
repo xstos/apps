@@ -27,18 +27,18 @@ function RenderNode(n) {
     return html`<span id="${id}">${n}</span>`
 }
 function Render(n) {
-    const t = getType(n)
-    if (isChar(n)) {
-        const c = String.fromCharCode(getData(n))
+    const t = nodeGetType(n)
+    if (nodeIsChar(n)) {
+        const c = String.fromCharCode(nodeGetData(n))
         if (c==="\n") {
             return html`↵<br>`
         }
         return html`<span>${c}</span>`
     }
-    if (isOpen(n)) {
+    if (nodeIsOpen(n)) {
         return RenderBox(n)
     }
-    if (isCursor(n)) {
+    if (nodeIsCursor(n)) {
         return html`<span>█</span>`
     }
 }
@@ -66,26 +66,26 @@ function strf(o) {
     return html`<div id="${dup[keyIndex]}" class="container">${div(sval, "1em")}${e.map(selector)}</div>${br}`
 }
 function RenderBox(first) {
-    const last = getPair(first) //
-    let it = getNext(first);
+    const last = nodeGetPair(first) //
+    let it = nodeGetNext(first);
     const items = []
-    while(!nodeEqual(it,last)) {
-        if (isChar(it)) {
+    while(!nodeIsEqual(it,last)) {
+        if (nodeIsChar(it)) {
             items.push(html`${strf(it)}`)
-        } else if (isOpen(it)) {
+        } else if (nodeIsOpen(it)) {
             items.push(RenderBox(it))
-            const close = getPair(it)
+            const close = nodeGetPair(it)
             it=close;
-        } else if (isClose(it)) {
+        } else if (nodeIsClose(it)) {
             debugger
-        } else if (isCursor(it)) {
+        } else if (nodeIsCursor(it)) {
             items.push(html`${strf(it)}`)
         }
-        it=getNext(it)
+        it=nodeGetNext(it)
     }
     const boxIndex = first[keyIndex];
-    const openStr = typeStrings[first[keyType]];
-    const closeStr = typeStrings[last[keyType]];
+    const openStr = nodeTypeStrings[first[keyType]];
+    const closeStr = nodeTypeStrings[last[keyType]];
     log(openStr,closeStr)
     var spacer = isRootOpen(first) ? html`<br>` : ""
     return html`${strf(first)}${spacer}${items}${spacer}${strf(last)}`

@@ -26,60 +26,62 @@ function emptyNode() {
         [keyPair]: 0,
     }
 }
-function getIndex(n) {
-    return n[keyIndex]
-}
-function getType(n) {
-    return n[keyType]
-}
 function typeStr(type) {
-    return typeStrings[type]
+    return nodeTypeStrings[type]
 }
-function getPrev(n) {
-    return nodeById(n[keyPrev])
+function nodeGetIndex(node) {
+    return node[keyIndex]
 }
-function getNext(n) {
-    return nodeById(n[keyNext])
+function nodeGetType(node) {
+    return node[keyType]
+}
+function nodeGetPrev(node) {
+    return nodeById(node[keyPrev])
+}
+function nodeGetNext(node) {
+    return nodeById(node[keyNext])
+}
+function nodeGetPair(node) {
+    return nodeById(node[keyPair])
+}
+function nodeGetData(node) {
+    return node[keyData]
+}
+function nodeGetParent(node) {
+    return nodeById(node[keyParent])
+}
+function nodeSetParent(node,nodeParent) {
+    node[keyParent]=nodeGetIndex(nodeParent)
+}
+function nodeIsEqual(node, nodeOther) {
+    return nodeGetIndex(node)===nodeGetIndex(nodeOther)
+}
+function nodeIsOfType(node,t) {
+    return nodeGetType(node)===t
+}
+function nodeIsChar(node) {
+    return nodeIsOfType(node,nodeTypeChar)
+}
+function nodeIsCursor(node) {
+    return nodeIsOfType(node,nodeTypeCursor)
+}
+function nodeIsOpen(node) {
+    return nodeIsOfType(node,nodeTypeOpen)
+}
+function nodeIsClose(node) {
+    return nodeIsOfType(node,nodeTypeClose)
 }
 
-function getPair(n) {
-    return nodeById(n[keyPair])
-}
-function getData(n) {
-    return n[keyData]
-}
-function getParent(n) {
-    return nodeById(n[keyParent])
-}
-function nodeEqual(a,b) {
-    return getIndex(a)===getIndex(b)
-}
-function isType(n,t) {
-    return getType(n)===t
-}
-function isChar(n) {
-    return isType(n,tchar)
-}
-function isCursor(n) {
-    return isType(n,tcur)
-}
-function isOpen(n) {
-    return isType(n,topen)
-}
-function isClose(n) {
-    return isType(n,tclose)
+const [nodeTypeNull, nodeTypeChar,nodeTypeCursor,nodeTypeOpen,nodeTypeClose] = [0,1,2,3,4]
+const nodeTypes = {
+    ['']: nodeTypeNull,
+    ['c']: nodeTypeChar,
+    ['█']: nodeTypeCursor,
+    ['⟪']: nodeTypeOpen,
+    ['⟫']: nodeTypeClose,
 }
 
-const [tNull, tchar,tcur,topen,tclose] = [0,1,2,3,4]
-const types = {
-    ['']: tNull,
-    ['c']: tchar,
-    ['█']: tcur,
-    ['⟪']: topen,
-    ['⟫']: tclose,
-}
-
-const typeStrings = Object.keys(types)
+const nodeTypeStrings = Object.keys(nodeTypes)
 //const tn = Object.fromEntries(Object.values(nt).map((v,i) => [v, i]))
 function makeNode(kind) {
     const i = state.nodes.length;
@@ -92,7 +94,7 @@ function makeNode(kind) {
         s=kind
     } else {
         const tag = kind[1]
-        t=types[tag]
+        t=nodeTypes[tag]
         s=tag
     }
     const nodeData = {s,...emptyNode(), [keyIndex]:i,[keyType]:t,[keyData]:d}
@@ -100,47 +102,45 @@ function makeNode(kind) {
     log(nodeData)
     return nodeData
 }
-function setEdges(...items) {
-    for (let i = 1; i < items.length; i++) {
-        const a = items[i-1]
-        const b = items[i]
-        setEdge(a,b)
+function setEdges(...nodes) {
+    for (let i = 1; i < nodes.length; i++) {
+        const a = nodes[i-1]
+        const b = nodes[i]
+        edgeBetweenNodes(a,b)
     }
 }
-function setEdge(a,b) {
-    a[keyNext] = getIndex(b)
-    b[keyPrev] = getIndex(a)
+function edgeBetweenNodes(a,b) {
+    a[keyNext] = nodeGetIndex(b)
+    b[keyPrev] = nodeGetIndex(a)
 }
-function setPair(a,b) {
-    a[keyPair] = getIndex(b)
-    b[keyPair] = getIndex(a)
-}
-function setParent(target,parent) {
-    target[keyParent]=getIndex(parent)
-}
-function replace(n,...items) {
-    const [prev,next] = [getPrev(n),getNext(n)]
-    const p = getParent(n)
-    setEdges(prev,...items,next)
-    items.forEach(n=>setParent(n,p))
-}
-const [rootOpen,cursor,rootClosed] = initial = makeNodes("@"+typeStr(topen),"@█","@"+typeStr(tclose))
-function getCursorId() {
-    return getIndex(cursor)
-}
-function getRootOpenId() {
-    return getIndex(rootOpen)
-}
-function getRootCloseId() {
-    return getIndex(rootClosed)
-}
-function isRootOpen(n) {
-    return getIndex(n)===getRootOpenId()
+function pairUpNodes(node1,node2) {
+    node1[keyPair] = nodeGetIndex(node2)
+    node2[keyPair] = nodeGetIndex(node1)
 }
 
-setPair(rootOpen,rootClosed)
+function replace(nodeToReplace,...replacementNodes) {
+    const [prev,next] = [nodeGetPrev(nodeToReplace),nodeGetNext(nodeToReplace)]
+    const p = nodeGetParent(nodeToReplace)
+    setEdges(prev,...replacementNodes,next)
+    replacementNodes.forEach(n=>nodeSetParent(n,p))
+}
+const [rootOpen,cursor,rootClosed] = initial = makeNodes("@"+typeStr(nodeTypeOpen),"@█","@"+typeStr(nodeTypeClose))
+function getCursorId() {
+    return nodeGetIndex(cursor)
+}
+function getRootOpenId() {
+    return nodeGetIndex(rootOpen)
+}
+function getRootCloseId() {
+    return nodeGetIndex(rootClosed)
+}
+function isRootOpen(n) {
+    return nodeGetIndex(n)===getRootOpenId()
+}
+
+pairUpNodes(rootOpen,rootClosed)
 setEdges(...initial)
-setParent(cursor,rootOpen)
+nodeSetParent(cursor,rootOpen)
 function processEvents() {
     evt.forEach(processEvent)
     globalThis.update()
@@ -151,75 +151,75 @@ function processEvent(e) {
     log(e)
     const { t, key } = e
     if (key==="backspace") {
-        const prev = getPrev(cursor)
-        if (isOpen(prev)) {
+        const prev = nodeGetPrev(cursor)
+        if (nodeIsOpen(prev)) {
             // ignore
-        } else if (isClose(prev)) {
-            const openNode = getPair(prev)
+        } else if (nodeIsClose(prev)) {
+            const openNode = nodeGetPair(prev)
 
         } else {
-            const prevPrev = getPrev(prev)
+            const prevPrev = nodeGetPrev(prev)
             setEdges(prevPrev,cursor)
         }
     }
     else if (key==="ctrl+backspace") {
-        const prev = getPrev(cursor)
-        if (isClose(prev)) {
-            const openNode = getPair(prev)
-            const prev2 = getPrev(openNode)
-            setEdge(prev2,cursor)
+        const prev = nodeGetPrev(cursor)
+        if (nodeIsClose(prev)) {
+            const openNode = nodeGetPair(prev)
+            const prev2 = nodeGetPrev(openNode)
+            edgeBetweenNodes(prev2,cursor)
         }
     }
     else if (key==="delete") {
-        const next = getNext(cursor)
-        if (isOpen(next)) {
+        const next = nodeGetNext(cursor)
+        if (nodeIsOpen(next)) {
 
-        } else if (isClose(next)) {
+        } else if (nodeIsClose(next)) {
 
         } else {
-            const nextNext = getNext(next)
-            setEdge(cursor,nextNext)
+            const nextNext = nodeGetNext(next)
+            edgeBetweenNodes(cursor,nextNext)
         }
     }
     else if (key==="ctrl+delete") {
-        const next = getNext(cursor)
-        if (isOpen(next)) {
-            const close = getPair(next)
-            const closeNext = getNext(close)
-            setEdge(cursor,closeNext)
+        const next = nodeGetNext(cursor)
+        if (nodeIsOpen(next)) {
+            const close = nodeGetPair(next)
+            const closeNext = nodeGetNext(close)
+            edgeBetweenNodes(cursor,closeNext)
         }
     }
     else if (key==="ctrl+enter") {
-        const [bOpen,bClose] = makeNodes("@"+typeStr(topen),"@"+typeStr(tclose))
-        setPair(bOpen,bClose)
+        const [bOpen,bClose] = makeNodes("@"+typeStr(nodeTypeOpen),"@"+typeStr(nodeTypeClose))
+        pairUpNodes(bOpen,bClose)
         replace(cursor,cursor,bOpen,bClose)
     }
     else if (key==="arrowright") {
-        const [p,n] = [getPrev(cursor),getNext(cursor)]
-        if (!nodeEqual(n,rootClosed)) {
-            const nn = getNext(n)
+        const [p,n] = [nodeGetPrev(cursor),nodeGetNext(cursor)]
+        if (!nodeIsEqual(n,rootClosed)) {
+            const nn = nodeGetNext(n)
             setEdges(p,n,cursor,nn)
-            if (isOpen(n)) {
-                setParent(cursor,n)
+            if (nodeIsOpen(n)) {
+                nodeSetParent(cursor,n)
             }
-            if (isClose(n)) {
-                const closeParent = getParent(n)
-                setParent(cursor,closeParent)
+            if (nodeIsClose(n)) {
+                const closeParent = nodeGetParent(n)
+                nodeSetParent(cursor,closeParent)
             }
         }
     }
     else if (key==="arrowleft") {
-        const [p,n] = [getPrev(cursor),getNext(cursor)]
-        if (!nodeEqual(p, rootOpen)) {
-            const pp = getPrev(p)
+        const [p,n] = [nodeGetPrev(cursor),nodeGetNext(cursor)]
+        if (!nodeIsEqual(p, rootOpen)) {
+            const pp = nodeGetPrev(p)
             setEdges(pp, cursor, p, n)
-            if (isOpen(p)) {
-                const par = getParent(p)
-                setParent(cursor,par)
+            if (nodeIsOpen(p)) {
+                const par = nodeGetParent(p)
+                nodeSetParent(cursor,par)
             }
-            if (isClose(p)) {
-                const par = getPair(p)
-                setParent(cursor,par)
+            if (nodeIsClose(p)) {
+                const par = nodeGetPair(p)
+                nodeSetParent(cursor,par)
             }
         }
     }
