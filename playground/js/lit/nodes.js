@@ -1,87 +1,87 @@
-const keyIndex = 'i';
-const keyParent = '↖︎';
-const keyType = 'type';
-const keyData = 'data';
-const keyPrev = '←';
-const keyNext = '→';
-const keyPair = '⇄';
+const nodePropKey_Id = 'i';
+const nodePropKey_Parent = '↖︎';
+const nodePropKey_Type = 'type';
+const nodePropKey_Data = 'data';
+const nodePropKey_Prev = '←';
+const nodePropKey_Next = '→';
+const nodePropKey_Pair = '⇄';
 const state = {
-    nodes: [emptyNode()]
+    nodes: [nodeMakeEmpty()]
 }
-function nodeById(id) {
-    return state.nodes[id]
+function nodeById(nodeId) {
+    return state.nodes[nodeId]
 }
 function makeNodes(...items) {
     return items.map(makeNode)
 }
 
-function emptyNode() {
+function nodeMakeEmpty() {
     return {
-        [keyIndex]: 0,
-        [keyParent]: 0,
-        [keyType]: 0,
-        [keyData]: 0,
-        [keyPrev]: 0,
-        [keyNext]: 0,
-        [keyPair]: 0,
+        [nodePropKey_Id]: 0,
+        [nodePropKey_Parent]: 0,
+        [nodePropKey_Type]: 0,
+        [nodePropKey_Data]: 0,
+        [nodePropKey_Prev]: 0,
+        [nodePropKey_Next]: 0,
+        [nodePropKey_Pair]: 0,
     }
 }
-function typeStr(type) {
-    return nodeTypeStrings[type]
+function nodeTypeIdToString(nodeTypeId) {
+    return nodeTypeStrings[nodeTypeId]
 }
-function nodeGetIndex(node) {
-    return node[keyIndex]
+function nodeGetId(node) {
+    return node[nodePropKey_Id]
 }
 function nodeGetType(node) {
-    return node[keyType]
+    return node[nodePropKey_Type]
 }
 function nodeGetPrev(node) {
-    return nodeById(node[keyPrev])
+    return nodeById(node[nodePropKey_Prev])
 }
 function nodeGetNext(node) {
-    return nodeById(node[keyNext])
+    return nodeById(node[nodePropKey_Next])
 }
 function nodeGetPair(node) {
-    return nodeById(node[keyPair])
+    return nodeById(node[nodePropKey_Pair])
 }
 function nodeGetData(node) {
-    return node[keyData]
+    return node[nodePropKey_Data]
 }
 function nodeGetParent(node) {
-    return nodeById(node[keyParent])
+    return nodeById(node[nodePropKey_Parent])
 }
 function nodeSetParent(node,nodeParent) {
-    node[keyParent]=nodeGetIndex(nodeParent)
+    node[nodePropKey_Parent]=nodeGetId(nodeParent)
 }
 function nodeIsEqual(node, nodeOther) {
-    return nodeGetIndex(node)===nodeGetIndex(nodeOther)
+    return nodeGetId(node)===nodeGetId(nodeOther)
 }
-function nodeIsOfType(node,t) {
-    return nodeGetType(node)===t
+function nodeTypeIs(node,nodeTypeId) {
+    return nodeGetType(node)===nodeTypeId
 }
-function nodeIsChar(node) {
-    return nodeIsOfType(node,nodeTypeChar)
+function nodeTypeIsChar(node) {
+    return nodeTypeIs(node,nodeTypeId_Char)
 }
-function nodeIsCursor(node) {
-    return nodeIsOfType(node,nodeTypeCursor)
+function nodeTypeIsCursor(node) {
+    return nodeTypeIs(node,nodeTypeId_Cursor)
 }
-function nodeIsOpen(node) {
-    return nodeIsOfType(node,nodeTypeOpen)
+function nodeTypeIsOpen(node) {
+    return nodeTypeIs(node,nodeTypeId_Open)
 }
-function nodeIsClose(node) {
-    return nodeIsOfType(node,nodeTypeClose)
-}
-
-const [nodeTypeNull, nodeTypeChar,nodeTypeCursor,nodeTypeOpen,nodeTypeClose] = [0,1,2,3,4]
-const nodeTypes = {
-    ['']: nodeTypeNull,
-    ['c']: nodeTypeChar,
-    ['█']: nodeTypeCursor,
-    ['⟪']: nodeTypeOpen,
-    ['⟫']: nodeTypeClose,
+function nodeTypeIsClose(node) {
+    return nodeTypeIs(node,nodeTypeId_Close)
 }
 
-const nodeTypeStrings = Object.keys(nodeTypes)
+const [nodeTypeId_Null, nodeTypeId_Char,nodeTypeId_Cursor,nodeTypeId_Open,nodeTypeId_Close] = [0,1,2,3,4]
+const nodeTypeMap = {
+    ['']: nodeTypeId_Null,
+    ['c']: nodeTypeId_Char,
+    ['█']: nodeTypeId_Cursor,
+    ['⟪']: nodeTypeId_Open,
+    ['⟫']: nodeTypeId_Close,
+}
+
+const nodeTypeStrings = Object.keys(nodeTypeMap)
 //const tn = Object.fromEntries(Object.values(nt).map((v,i) => [v, i]))
 function makeNode(kind) {
     const i = state.nodes.length;
@@ -94,10 +94,10 @@ function makeNode(kind) {
         s=kind
     } else {
         const tag = kind[1]
-        t=nodeTypes[tag]
+        t=nodeTypeMap[tag]
         s=tag
     }
-    const nodeData = {s,...emptyNode(), [keyIndex]:i,[keyType]:t,[keyData]:d}
+    const nodeData = {s,...nodeMakeEmpty(), [nodePropKey_Id]:i,[nodePropKey_Type]:t,[nodePropKey_Data]:d}
     state.nodes.push(nodeData)
     log(nodeData)
     return nodeData
@@ -110,12 +110,12 @@ function setEdges(...nodes) {
     }
 }
 function edgeBetweenNodes(a,b) {
-    a[keyNext] = nodeGetIndex(b)
-    b[keyPrev] = nodeGetIndex(a)
+    a[nodePropKey_Next] = nodeGetId(b)
+    b[nodePropKey_Prev] = nodeGetId(a)
 }
 function pairUpNodes(node1,node2) {
-    node1[keyPair] = nodeGetIndex(node2)
-    node2[keyPair] = nodeGetIndex(node1)
+    node1[nodePropKey_Pair] = nodeGetId(node2)
+    node2[nodePropKey_Pair] = nodeGetId(node1)
 }
 
 function replace(nodeToReplace,...replacementNodes) {
@@ -124,18 +124,18 @@ function replace(nodeToReplace,...replacementNodes) {
     setEdges(prev,...replacementNodes,next)
     replacementNodes.forEach(n=>nodeSetParent(n,p))
 }
-const [rootOpen,cursor,rootClosed] = initial = makeNodes("@"+typeStr(nodeTypeOpen),"@█","@"+typeStr(nodeTypeClose))
+const [rootOpen,cursor,rootClosed] = initial = makeNodes("@"+nodeTypeIdToString(nodeTypeId_Open),"@█","@"+nodeTypeIdToString(nodeTypeId_Close))
 function getCursorId() {
-    return nodeGetIndex(cursor)
+    return nodeGetId(cursor)
 }
 function getRootOpenId() {
-    return nodeGetIndex(rootOpen)
+    return nodeGetId(rootOpen)
 }
 function getRootCloseId() {
-    return nodeGetIndex(rootClosed)
+    return nodeGetId(rootClosed)
 }
 function isRootOpen(n) {
-    return nodeGetIndex(n)===getRootOpenId()
+    return nodeGetId(n)===getRootOpenId()
 }
 
 pairUpNodes(rootOpen,rootClosed)
@@ -152,9 +152,9 @@ function processEvent(e) {
     const { t, key } = e
     if (key==="backspace") {
         const prev = nodeGetPrev(cursor)
-        if (nodeIsOpen(prev)) {
+        if (nodeTypeIsOpen(prev)) {
             // ignore
-        } else if (nodeIsClose(prev)) {
+        } else if (nodeTypeIsClose(prev)) {
             const openNode = nodeGetPair(prev)
 
         } else {
@@ -164,7 +164,7 @@ function processEvent(e) {
     }
     else if (key==="ctrl+backspace") {
         const prev = nodeGetPrev(cursor)
-        if (nodeIsClose(prev)) {
+        if (nodeTypeIsClose(prev)) {
             const openNode = nodeGetPair(prev)
             const prev2 = nodeGetPrev(openNode)
             edgeBetweenNodes(prev2,cursor)
@@ -172,9 +172,9 @@ function processEvent(e) {
     }
     else if (key==="delete") {
         const next = nodeGetNext(cursor)
-        if (nodeIsOpen(next)) {
+        if (nodeTypeIsOpen(next)) {
 
-        } else if (nodeIsClose(next)) {
+        } else if (nodeTypeIsClose(next)) {
 
         } else {
             const nextNext = nodeGetNext(next)
@@ -183,14 +183,14 @@ function processEvent(e) {
     }
     else if (key==="ctrl+delete") {
         const next = nodeGetNext(cursor)
-        if (nodeIsOpen(next)) {
+        if (nodeTypeIsOpen(next)) {
             const close = nodeGetPair(next)
             const closeNext = nodeGetNext(close)
             edgeBetweenNodes(cursor,closeNext)
         }
     }
     else if (key==="ctrl+enter") {
-        const [bOpen,bClose] = makeNodes("@"+typeStr(nodeTypeOpen),"@"+typeStr(nodeTypeClose))
+        const [bOpen,bClose] = makeNodes("@"+nodeTypeIdToString(nodeTypeId_Open),"@"+nodeTypeIdToString(nodeTypeId_Close))
         pairUpNodes(bOpen,bClose)
         replace(cursor,cursor,bOpen,bClose)
     }
@@ -199,10 +199,10 @@ function processEvent(e) {
         if (!nodeIsEqual(n,rootClosed)) {
             const nn = nodeGetNext(n)
             setEdges(p,n,cursor,nn)
-            if (nodeIsOpen(n)) {
+            if (nodeTypeIsOpen(n)) {
                 nodeSetParent(cursor,n)
             }
-            if (nodeIsClose(n)) {
+            if (nodeTypeIsClose(n)) {
                 const closeParent = nodeGetParent(n)
                 nodeSetParent(cursor,closeParent)
             }
@@ -213,11 +213,11 @@ function processEvent(e) {
         if (!nodeIsEqual(p, rootOpen)) {
             const pp = nodeGetPrev(p)
             setEdges(pp, cursor, p, n)
-            if (nodeIsOpen(p)) {
+            if (nodeTypeIsOpen(p)) {
                 const par = nodeGetParent(p)
                 nodeSetParent(cursor,par)
             }
-            if (nodeIsClose(p)) {
+            if (nodeTypeIsClose(p)) {
                 const par = nodeGetPair(p)
                 nodeSetParent(cursor,par)
             }
