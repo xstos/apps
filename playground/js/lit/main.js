@@ -97,7 +97,14 @@ function v(...args) {
 v`a${"arg1"}b${"arg2"}c`;
 function CounterApp(count, onIncrement) {
     return html`
-        <e-l derp></e-l>
+        <e-l dock="left">
+            <div>
+                row1<br>
+                row2<br>
+                row3
+            </div>
+            <div>rest</div>
+        </e-l>
         <div>
             <p>The count is currently: <strong>${count}</strong><button @click=${onIncrement}>+</button></p>
             ${Render(rootOpen)}

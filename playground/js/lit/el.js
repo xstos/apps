@@ -3,6 +3,7 @@ class EL extends HTMLElement {
 
     constructor() {
         super();
+        this.style.display = "contents"
     }
     connectedCallback() {
         evtcb(this, "connected");
@@ -17,10 +18,21 @@ class EL extends HTMLElement {
         evtcb(this,"attributeChanged", ...args);
     }
 }
+var dockMap = {
+    top: "column",
+    bottom: "column-reverse",
+    left: "row",
+    right: "row-reverse"
+}
 function evtcb(instance, name, ...args) {
-    if (instance.parentElement.id==="app") {
-        render(html`<span>${instance.hasAttribute("derp")}</span>`,instance)
+    var c = [...instance.children]
+    instance.replaceChildren()
+    if (instance.hasAttribute("dock") && c.length>1) {
+        var dir = instance.getAttribute("dock")
+        c[1].style.flexGrow=1
+        render(html`<div style="display: flex;flex-grow: 1;flex-direction: ${dockMap[dir]};">${c}</div>`,instance)
     }
+
     log(instance, name, ...args);
 }
 customElements.define("e-l",EL)
