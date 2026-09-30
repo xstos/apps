@@ -1,4 +1,5 @@
-
+// temporal cursor idea - typing atoms (spans) are clustered together chronologically
+// once you start typing, beginning and end points are marked according to timeouts of activity
 var sampleText = await (await fetch('lit-html.js')).text()
 
 //var lines = sampleText.split('\n')
